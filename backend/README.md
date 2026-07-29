@@ -3,16 +3,17 @@
 Evidence-first nutrition analysis backend based on
 [`nutrition_backend_blueprint_v1.0`](nutrition_backend_blueprint_v1.0/00_README.md).
 
-Current behavior release: `foundation-0.2.0`.
+Current behavior release: `foundation-0.3.0`.
 
 ## Implemented foundation slice
 
 ```text
-explicit grams
+quantity + unit + food
 → deterministic fixture parser
 → exact PostgreSQL catalog lookup
+→ explicit mass or release-scoped portion observation
 → direct composition profile
-→ pure decimal calculator
+→ pure decimal calculator with propagated bounds
 → transactional PostgreSQL analysis snapshot
 → hash-verified read/replay
 ```
@@ -77,14 +78,16 @@ POST /v1/nutrition/analyses
 Content-Type: application/json
 
 {
-  "text": "100 g trứng gà luộc, 150 g cơm trắng",
+  "text": "2 quả trứng gà luộc, 1 bát cơm trắng",
   "locale": "vi-VN",
   "mode": "balanced"
 }
 ```
 
-Only two fixture foods are available and the parser accepts explicit grams. Unknown foods return
-`analysis_insufficient`; they are never force-matched.
+Only two fixture foods are available. The parser accepts
+`<quantity> <unit> <food>`: grams resolve directly, while `quả` for boiled egg and `bát` for white
+rice resolve through test-only portion observations with lower and upper mass bounds. Unknown foods
+and unsupported food/unit pairs return `analysis_insufficient`; they are never force-matched.
 
 Read the current persisted revision:
 
@@ -96,8 +99,9 @@ The read path verifies the persisted snapshot SHA-256 before deserialization.
 
 ## PostgreSQL
 
-The migrations create seven logical schemas, the minimal walking-skeleton tables, search indexes,
-behavior version fields, snapshot persistence, scoped idempotency, and immutability guards.
+The seven migrations create seven logical schemas, the minimal walking-skeleton tables, search
+indexes, behavior version fields, snapshot persistence, scoped idempotency, release membership,
+and immutability guards.
 
 Apply migrations locally:
 
@@ -120,8 +124,8 @@ Run the full PostgreSQL integration, API smoke, replay, and immutability suite:
 - `domain`: IDs, units, evidence semantics, pure deterministic calculator.
 - `application`: use cases and ports.
 - `adapters`: deterministic fixture parser and in-memory test doubles.
-- `persistence-postgres`: migrations, exact catalog lookup, transactional analysis repository,
-  snapshot reader, and explicit test-only seed.
+- `persistence-postgres`: migrations, exact catalog lookup, contextual portion lookup,
+  transactional analysis repository, snapshot reader, and explicit test-only seed.
 - `api-http`: Axum HTTP process.
 - `worker`: PostgreSQL-backed worker process foundation.
 

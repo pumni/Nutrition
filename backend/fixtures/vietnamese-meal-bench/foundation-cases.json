@@ -38,6 +38,35 @@
     "expected_nutrition": {},
     "tags": ["foundation", "unknown-food", "no-force-match"],
     "adjudication_status": "engineering_fixture"
+  },
+  {
+    "sample_id": "vmb-foundation-0004",
+    "text": "2 quả trứng gà luộc, 1 bát cơm trắng",
+    "locale": "vi-VN",
+    "expected_decision": "resolve",
+    "expected_food_names": ["Trứng gà luộc", "Cơm trắng"],
+    "expected_mass_g": [
+      {"central": "100", "lower": "90", "upper": "120"},
+      {"central": "150", "lower": "120", "upper": "200"}
+    ],
+    "expected_nutrition": {
+      "energy_kcal": "350",
+      "protein_g": "16.635",
+      "carbohydrate_g": "43.42",
+      "fat_g": "11.02"
+    },
+    "expected_energy_bounds_kcal": {"lower": "295.5", "upper": "446"},
+    "tags": ["foundation", "contextual-portion", "count", "household", "bounded"],
+    "adjudication_status": "engineering_fixture"
+  },
+  {
+    "sample_id": "vmb-foundation-0005",
+    "text": "1 ly cơm trắng",
+    "locale": "vi-VN",
+    "expected_decision": "insufficient",
+    "expected_food_names": ["Cơm trắng"],
+    "expected_nutrition": {},
+    "tags": ["foundation", "unsupported-portion", "no-default-mass"],
+    "adjudication_status": "engineering_fixture"
   }
 ]
-

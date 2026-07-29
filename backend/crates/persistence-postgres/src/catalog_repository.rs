@@ -1,11 +1,11 @@
 use application::{
-    ApplicationError, CatalogEvidenceProvider, ParsedMealItem, ResolvedEvidence,
+    ApplicationError, FoodEvidenceProvider, ParsedMealItem, ResolvedFoodEvidence,
     normalize_vi_search_key,
 };
 use async_trait::async_trait;
 use domain::{
     CatalogReleaseId, CompositionProfileId, CompositionSnapshot, CompositionValue, EvidenceQuality,
-    FoodId, MassEstimate, MassResolutionMethod, NutrientCode, NutrientUnit, ValueStatus,
+    FoodId, NutrientCode, NutrientUnit, ValueStatus,
 };
 use rust_decimal::Decimal;
 use sqlx::{PgPool, Row};
@@ -95,13 +95,12 @@ pub async fn active_catalog_release_id(
 }
 
 #[async_trait]
-impl CatalogEvidenceProvider for PostgresCatalogEvidenceProvider {
-    async fn resolve_direct(
+impl FoodEvidenceProvider for PostgresCatalogEvidenceProvider {
+    async fn resolve_food(
         &self,
         locale: &str,
         item: &ParsedMealItem,
-    ) -> Result<ResolvedEvidence, ApplicationError> {
-        let quantity = explicit_gram_quantity(item)?;
+    ) -> Result<ResolvedFoodEvidence, ApplicationError> {
         let normalized_name = normalize_vi_search_key(&item.food_phrase);
         let rows = sqlx::query(EXACT_FOOD_QUERY)
             .bind(normalized_name)
@@ -147,18 +146,11 @@ impl CatalogEvidenceProvider for PostgresCatalogEvidenceProvider {
             .map(row_to_composition_value)
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(ResolvedEvidence {
+        Ok(ResolvedFoodEvidence {
             food_id: FoodId::from_uuid(first_food_id),
             food_name: first
                 .try_get("food_name")
                 .map_err(|_| ApplicationError::Persistence)?,
-            mass: MassEstimate {
-                central_g: quantity,
-                lower_g: None,
-                upper_g: None,
-                evidence_id: None,
-                method: MassResolutionMethod::ExplicitMass,
-            },
             composition: CompositionSnapshot {
                 profile_id: CompositionProfileId::from_uuid(profile_id),
                 basis_g,
@@ -166,21 +158,8 @@ impl CatalogEvidenceProvider for PostgresCatalogEvidenceProvider {
                 values,
             },
             quality,
-            assumptions: Vec::new(),
         })
     }
-}
-
-fn explicit_gram_quantity(item: &ParsedMealItem) -> Result<Decimal, ApplicationError> {
-    let quantity = item.quantity.ok_or_else(|| {
-        ApplicationError::InsufficientEvidence("explicit gram quantity is required".to_owned())
-    })?;
-    if item.unit_phrase.as_deref() != Some("g") || quantity <= Decimal::ZERO {
-        return Err(ApplicationError::InsufficientEvidence(
-            "direct PostgreSQL slice requires positive explicit grams".to_owned(),
-        ));
-    }
-    Ok(quantity)
 }
 
 fn row_to_composition_value(
@@ -211,7 +190,7 @@ fn row_to_composition_value(
     })
 }
 
-fn parse_quality(value: &str) -> Result<EvidenceQuality, ApplicationError> {
+pub(crate) fn parse_quality(value: &str) -> Result<EvidenceQuality, ApplicationError> {
     match value {
         "A" => Ok(EvidenceQuality::A),
         "B" => Ok(EvidenceQuality::B),

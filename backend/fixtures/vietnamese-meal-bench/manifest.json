@@ -1,20 +1,19 @@
 {
   "benchmark": "VietnameseMealBench",
-  "version": "foundation-0.1.0",
+  "version": "foundation-0.2.0",
   "status": "development-only",
   "language": "vi-VN",
   "license": "internal-test-fixtures",
   "case_file": "foundation-cases.json",
-  "case_count": 3,
+  "case_count": 5,
   "splits": {
-    "development": 3,
+    "development": 5,
     "public_test": 0,
     "sealed_test": 0,
     "challenge": 0
   },
   "notes": [
-    "These cases verify the deterministic foundation slice only.",
+    "These cases verify explicit mass, contextual portion, and rejection behavior only.",
     "They are not sufficient to tune or release a production parser."
   ]
 }
-

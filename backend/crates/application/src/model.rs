@@ -46,11 +46,16 @@ pub struct ParsedMealItem {
 }
 
 #[derive(Clone, Debug)]
-pub struct ResolvedEvidence {
+pub struct ResolvedFoodEvidence {
     pub food_id: FoodId,
     pub food_name: String,
-    pub mass: MassEstimate,
     pub composition: CompositionSnapshot,
+    pub quality: EvidenceQuality,
+}
+
+#[derive(Clone, Debug)]
+pub struct ResolvedPortionEvidence {
+    pub mass: MassEstimate,
     pub quality: EvidenceQuality,
     pub assumptions: Vec<String>,
 }
@@ -74,15 +79,15 @@ impl Default for BehaviorVersions {
         Self {
             application_version: env!("CARGO_PKG_VERSION").to_owned(),
             parser_schema_version: "parsed-meal-0.1.0".to_owned(),
-            prompt_version: "fixture-parser-0.1.0".to_owned(),
+            prompt_version: "fixture-parser-0.2.0".to_owned(),
             model_provider_version: "fixture/local".to_owned(),
             normalization_version: "normalize-0.1.0".to_owned(),
             resolution_policy_version: "resolve-exact-0.1.0".to_owned(),
-            portion_policy_version: "portion-explicit-0.1.0".to_owned(),
+            portion_policy_version: "portion-contextual-0.2.0".to_owned(),
             composition_policy_version: "composition-direct-0.1.0".to_owned(),
             calculation_engine_version: domain::CALCULATION_ENGINE_VERSION.to_owned(),
             catalog_release_id: CatalogReleaseId::from_u128(
-                0x0198_f100_0000_7000_8000_0000_0000_0001,
+                0x0198_f100_0000_7000_8000_0000_0000_0002,
             ),
         }
     }
@@ -104,6 +109,8 @@ pub struct AnalysisItemSnapshot {
     pub profile_id: CompositionProfileId,
     pub portion_observation_id: Option<PortionObservationId>,
     pub estimated_mass_g: Decimal,
+    pub lower_mass_g: Option<Decimal>,
+    pub upper_mass_g: Option<Decimal>,
     pub mass_resolution_method: MassResolutionMethod,
     pub evidence_quality: EvidenceQuality,
     pub assumptions: Vec<String>,

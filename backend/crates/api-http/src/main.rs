@@ -1,7 +1,7 @@
 use adapters::FixtureParser;
 use application::{
     AnalysisRequest, AnalysisSnapshot, AnalysisSnapshotReader, AnalyzeMeal, ApplicationError,
-    BehaviorVersions, DirectAnalysisService,
+    BehaviorVersions, MealAnalysisService,
 };
 use axum::{
     Json, Router,
@@ -12,7 +12,8 @@ use axum::{
 };
 use domain::{AnalysisId, NutrientCode};
 use persistence_postgres::{
-    PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, active_catalog_release_id,
+    PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresPortionEvidenceProvider,
+    active_catalog_release_id,
 };
 use serde::Serialize;
 use std::{env, net::SocketAddr, sync::Arc};
@@ -97,9 +98,10 @@ async fn main() {
     };
     let repository = PostgresAnalysisRepository::new(pool.clone());
 
-    let analyzer = DirectAnalysisService::new(
+    let analyzer = MealAnalysisService::new(
         FixtureParser,
         PostgresCatalogEvidenceProvider::new(pool.clone()),
+        PostgresPortionEvidenceProvider::new(pool.clone()),
         repository.clone(),
         versions,
         required_nutrients(),

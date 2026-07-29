@@ -43,7 +43,7 @@ try {
         }
 
         $requestBody = @{
-            text = "100 g trứng gà luộc, 150 g cơm trắng"
+            text = "2 quả trứng gà luộc, 1 bát cơm trắng"
             locale = "vi-VN"
             mode = "balanced"
         } | ConvertTo-Json
@@ -61,7 +61,11 @@ try {
             $created.status -ne "completed" -or
             $created.analysis_id -ne $replayed.analysis_id -or
             $created.revision_id -ne $replayed.revision_id -or
-            $replayed.calculation.totals.Count -ne 4
+            $replayed.calculation.totals.Count -ne 4 -or
+            $replayed.items[0].lower_mass_g -ne 90 -or
+            $replayed.items[0].upper_mass_g -ne 120 -or
+            $replayed.items[1].lower_mass_g -ne 120 -or
+            $replayed.items[1].upper_mass_g -ne 200
         ) {
             throw "HTTP create/read replay contract failed"
         }

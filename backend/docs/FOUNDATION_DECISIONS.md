@@ -1,14 +1,15 @@
 # Foundation decisions
 
 Status: implementation baseline  
-Behavior release: `foundation-0.2.0`
+Behavior release: `foundation-0.3.0`
 
 ## Scope
 
 This foundation implements the first deterministic vertical slice:
 
 ```text
-explicit grams + exact curated alias + direct composition profile
+quantity + unit + exact curated alias
+→ explicit grams or contextual portion observation + direct composition profile
 → deterministic calculation
 → transactional relational results + immutable JSON snapshot
 → SHA-256 verified read/replay
@@ -17,14 +18,20 @@ explicit grams + exact curated alias + direct composition profile
 The fixture parser is intentionally constrained to:
 
 ```text
-<grams> g <food>, <grams> g <food>
+<quantity> <unit> <food>, <quantity> <unit> <food>
 ```
 
 It is a local/test adapter, not the production Vietnamese parser.
 
 Food identity, exact-name retrieval, profile selection, nutrient evidence, catalog release
-pinning, and analysis persistence now use PostgreSQL. The fixture parser is the only fixture on the
-API request path.
+pinning, portion lookup, and analysis persistence now use PostgreSQL. The parser remains a fixture
+adapter, and the active catalog data remains explicitly test-only.
+
+Food resolution and portion resolution are separate application ports. Explicit grams do not
+require a portion observation. Other units require a food-specific observation in the active
+catalog release; unsupported pairs produce insufficient evidence rather than a guessed mass.
+Observed lower and upper masses are scaled by quantity, propagated by the pure calculator, stored
+in relational item rows, and retained in the immutable result snapshot.
 
 ## Numeric policy
 
@@ -46,9 +53,15 @@ The domain crate must not import Axum, SQLx, Tokio, provider SDKs, clocks, or ra
 
 ## Published immutability
 
-The first migration protects published recipe/composition rows with database triggers.
+Database triggers protect published recipes and composition profiles, their nutrient values, and
+released food-name/portion evidence.
 Completed analysis revisions are finalized from a temporary `building` state and cannot be changed
 afterward. The application layer must also treat them as append-only.
+
+Catalog name, profile, and portion-observation memberships are populated while a release is staged.
+After activation or supersession, both the release contents and its memberships are protected by
+database triggers. The only allowed mutation of an active release is the lifecycle transition to
+`superseded`.
 
 The persistence adapter writes analysis, revision, items, nutrient results, totals, snapshot, and
 outbox event in one transaction. A revision starts as `building`; the finalization update supplies
@@ -87,7 +100,7 @@ policy.
 ## Deferred
 
 - Hosted LLM provider.
-- Household portion resolution.
+- Production household/count/volume portion measurement study and policy.
 - Recipe calculation.
 - Clarification and correction endpoints.
 - Production source adapter and curated seed release.

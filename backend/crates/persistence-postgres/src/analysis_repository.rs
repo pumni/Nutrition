@@ -239,9 +239,11 @@ async fn insert_items_and_results(
                 resolved_profile_id,
                 resolved_portion_observation_id,
                 estimated_mass_g,
+                lower_mass_g,
+                upper_mass_g,
                 evidence_quality
             ) VALUES (
-                $1, $2, $3, $4, $5, 'resolved_exact', $6, $7, $8, $9, $10
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
             )
             ",
         )
@@ -252,6 +254,7 @@ async fn insert_items_and_results(
         .bind(json!({
             "mass_resolution_method": mass_method_code(item.mass_resolution_method)
         }))
+        .bind(resolution_status_code(item.mass_resolution_method))
         .bind(item.food_id.as_uuid())
         .bind(item.profile_id.as_uuid())
         .bind(
@@ -259,6 +262,8 @@ async fn insert_items_and_results(
                 .map(domain::PortionObservationId::as_uuid),
         )
         .bind(item.estimated_mass_g)
+        .bind(item.lower_mass_g)
+        .bind(item.upper_mass_g)
         .bind(quality_code(item.evidence_quality))
         .execute(&mut **transaction)
         .await
@@ -458,6 +463,16 @@ const fn mass_method_code(value: MassResolutionMethod) -> &'static str {
         MassResolutionMethod::BrandedServing => "branded_serving",
         MassResolutionMethod::PortionObservation => "portion_observation",
         MassResolutionMethod::CuratedDefault => "curated_default",
+    }
+}
+
+const fn resolution_status_code(value: MassResolutionMethod) -> &'static str {
+    match value {
+        MassResolutionMethod::ExplicitMass => "resolved_exact",
+        MassResolutionMethod::VolumeDensity
+        | MassResolutionMethod::BrandedServing
+        | MassResolutionMethod::PortionObservation
+        | MassResolutionMethod::CuratedDefault => "resolved_with_assumption",
     }
 }
 

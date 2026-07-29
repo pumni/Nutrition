@@ -1,12 +1,13 @@
 use application::{
-    AnalysisRepository, AnalysisSnapshot, ApplicationError, CatalogEvidenceProvider,
-    MealTextParser, ParseRequest, ParsedMealDocument, ParsedMealItem, ResolvedEvidence,
-    normalize_vi_search_key,
+    AnalysisRepository, AnalysisSnapshot, ApplicationError, FoodEvidenceProvider, MealTextParser,
+    ParseRequest, ParsedMealDocument, ParsedMealItem, PortionEvidenceProvider,
+    ResolvedFoodEvidence, ResolvedPortionEvidence, normalize_vi_search_key,
 };
 use async_trait::async_trait;
 use domain::{
     CompositionProfileId, CompositionSnapshot, CompositionValue, EvidenceQuality, FoodId,
-    MassEstimate, MassResolutionMethod, NutrientCode, NutrientUnit, ValueStatus,
+    MassEstimate, MassResolutionMethod, NutrientCode, NutrientUnit, PortionObservationId,
+    ValueStatus,
 };
 use rust_decimal::Decimal;
 use std::{collections::BTreeMap, str::FromStr};
@@ -26,9 +27,9 @@ impl MealTextParser for FixtureParser {
             .filter(|item| !item.is_empty())
         {
             let tokens = raw_item.split_whitespace().collect::<Vec<_>>();
-            if tokens.len() < 3 || !tokens[1].eq_ignore_ascii_case("g") {
+            if tokens.len() < 3 {
                 return Err(ApplicationError::InvalidInput(
-                    "fixture parser expects '<grams> g <food>', items separated by commas"
+                    "fixture parser expects '<quantity> <unit> <food>', items separated by commas"
                         .to_owned(),
                 ));
             }
@@ -41,7 +42,7 @@ impl MealTextParser for FixtureParser {
                 source_text: raw_item.to_owned(),
                 food_phrase: tokens[2..].join(" "),
                 quantity: Some(quantity),
-                unit_phrase: Some("g".to_owned()),
+                unit_phrase: Some(normalize_vi_search_key(tokens[1])),
                 modifiers: Vec::new(),
             });
         }
@@ -71,6 +72,7 @@ impl FixtureCatalog {
         foods.insert(
             normalize_vi_search_key("trứng gà luộc"),
             fixture_food(
+                FoodId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0020),
                 "Trứng gà luộc",
                 &[
                     ("energy_kcal", "155", NutrientUnit::Kilocalorie),
@@ -83,6 +85,7 @@ impl FixtureCatalog {
         foods.insert(
             normalize_vi_search_key("cơm trắng"),
             fixture_food(
+                FoodId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0021),
                 "Cơm trắng",
                 &[
                     ("energy_kcal", "130", NutrientUnit::Kilocalorie),
@@ -97,20 +100,12 @@ impl FixtureCatalog {
 }
 
 #[async_trait]
-impl CatalogEvidenceProvider for FixtureCatalog {
-    async fn resolve_direct(
+impl FoodEvidenceProvider for FixtureCatalog {
+    async fn resolve_food(
         &self,
         _locale: &str,
         item: &ParsedMealItem,
-    ) -> Result<ResolvedEvidence, ApplicationError> {
-        let quantity = item.quantity.ok_or_else(|| {
-            ApplicationError::InsufficientEvidence("explicit gram quantity is required".to_owned())
-        })?;
-        if item.unit_phrase.as_deref() != Some("g") || quantity <= Decimal::ZERO {
-            return Err(ApplicationError::InsufficientEvidence(
-                "foundation slice only supports positive explicit grams".to_owned(),
-            ));
-        }
+    ) -> Result<ResolvedFoodEvidence, ApplicationError> {
         let food = self
             .foods
             .get(&normalize_vi_search_key(&item.food_phrase))
@@ -120,19 +115,82 @@ impl CatalogEvidenceProvider for FixtureCatalog {
                     item.food_phrase
                 ))
             })?;
-        Ok(ResolvedEvidence {
+        Ok(ResolvedFoodEvidence {
             food_id: food.id,
             food_name: food.name.clone(),
-            mass: MassEstimate {
-                central_g: quantity,
-                lower_g: None,
-                upper_g: None,
-                evidence_id: None,
-                method: MassResolutionMethod::ExplicitMass,
-            },
             composition: food.profile.clone(),
             quality: EvidenceQuality::A,
-            assumptions: Vec::new(),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FixturePortionEvidenceProvider;
+
+#[async_trait]
+impl PortionEvidenceProvider for FixturePortionEvidenceProvider {
+    async fn resolve_portion(
+        &self,
+        _locale: &str,
+        item: &ParsedMealItem,
+        food_id: FoodId,
+    ) -> Result<ResolvedPortionEvidence, ApplicationError> {
+        let quantity = item.quantity.ok_or_else(|| {
+            ApplicationError::InsufficientEvidence("explicit quantity is required".to_owned())
+        })?;
+        if quantity <= Decimal::ZERO {
+            return Err(ApplicationError::InsufficientEvidence(
+                "quantity must be positive".to_owned(),
+            ));
+        }
+        let unit = item.unit_phrase.as_deref().ok_or_else(|| {
+            ApplicationError::InsufficientEvidence("portion unit is required".to_owned())
+        })?;
+        if unit == "g" {
+            return Ok(ResolvedPortionEvidence {
+                mass: MassEstimate {
+                    central_g: quantity,
+                    lower_g: None,
+                    upper_g: None,
+                    evidence_id: None,
+                    method: MassResolutionMethod::ExplicitMass,
+                },
+                quality: EvidenceQuality::A,
+                assumptions: Vec::new(),
+            });
+        }
+
+        let egg_id = FoodId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0020);
+        let rice_id = FoodId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0021);
+        let observation = match (food_id, unit) {
+            (id, "quả") if id == egg_id => (
+                Decimal::from(50),
+                Decimal::from(45),
+                Decimal::from(60),
+                PortionObservationId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0050),
+            ),
+            (id, "bát") if id == rice_id => (
+                Decimal::from(150),
+                Decimal::from(120),
+                Decimal::from(200),
+                PortionObservationId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0051),
+            ),
+            _ => {
+                return Err(ApplicationError::InsufficientEvidence(format!(
+                    "no contextual portion evidence for unit: {unit}"
+                )));
+            }
+        };
+        Ok(ResolvedPortionEvidence {
+            mass: MassEstimate {
+                central_g: quantity * observation.0,
+                lower_g: Some(quantity * observation.1),
+                upper_g: Some(quantity * observation.2),
+                evidence_id: Some(observation.3),
+                method: MassResolutionMethod::PortionObservation,
+            },
+            quality: EvidenceQuality::C,
+            assumptions: vec!["Sử dụng quan sát khẩu phần thử nghiệm".to_owned()],
         })
     }
 }
@@ -156,9 +214,9 @@ impl AnalysisRepository for InMemoryAnalysisRepository {
     }
 }
 
-fn fixture_food(name: &str, values: &[(&str, &str, NutrientUnit)]) -> FixtureFood {
+fn fixture_food(id: FoodId, name: &str, values: &[(&str, &str, NutrientUnit)]) -> FixtureFood {
     FixtureFood {
-        id: FoodId::new(),
+        id,
         name: name.to_owned(),
         profile: CompositionSnapshot {
             profile_id: CompositionProfileId::new(),
@@ -185,14 +243,15 @@ fn fixture_food(name: &str, values: &[(&str, &str, NutrientUnit)]) -> FixtureFoo
 mod tests {
     use super::*;
     use application::{
-        AnalysisMode, AnalysisRequest, AnalyzeMeal, BehaviorVersions, DirectAnalysisService,
+        AnalysisMode, AnalysisRequest, AnalyzeMeal, BehaviorVersions, MealAnalysisService,
     };
 
     #[tokio::test]
     async fn direct_slice_is_persisted_and_replayable() {
-        let service = DirectAnalysisService::new(
+        let service = MealAnalysisService::new(
             FixtureParser,
             FixtureCatalog::foundation_seed(),
+            FixturePortionEvidenceProvider,
             InMemoryAnalysisRepository::default(),
             BehaviorVersions::default(),
             vec![
@@ -228,9 +287,10 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_food_is_not_force_matched() {
-        let service = DirectAnalysisService::new(
+        let service = MealAnalysisService::new(
             FixtureParser,
             FixtureCatalog::foundation_seed(),
+            FixturePortionEvidenceProvider,
             InMemoryAnalysisRepository::default(),
             BehaviorVersions::default(),
             vec![NutrientCode::new("energy_kcal").expect("valid code")],
@@ -245,5 +305,34 @@ mod tests {
             .expect_err("unknown food must not resolve");
 
         assert!(matches!(error, ApplicationError::InsufficientEvidence(_)));
+    }
+
+    #[tokio::test]
+    async fn contextual_portions_produce_mass_bounds() {
+        let service = MealAnalysisService::new(
+            FixtureParser,
+            FixtureCatalog::foundation_seed(),
+            FixturePortionEvidenceProvider,
+            InMemoryAnalysisRepository::default(),
+            BehaviorVersions::default(),
+            vec![NutrientCode::new("energy_kcal").expect("valid code")],
+        );
+        let result = service
+            .execute(AnalysisRequest {
+                text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
+                locale: "vi-VN".to_owned(),
+                mode: AnalysisMode::Balanced,
+            })
+            .await
+            .expect("contextual portions should resolve");
+
+        assert_eq!(result.items[0].estimated_mass_g, Decimal::from(100));
+        assert_eq!(result.items[0].lower_mass_g, Some(Decimal::from(90)));
+        assert_eq!(result.items[0].upper_mass_g, Some(Decimal::from(120)));
+        assert_eq!(result.items[1].estimated_mass_g, Decimal::from(150));
+        assert_eq!(result.items[1].lower_mass_g, Some(Decimal::from(120)));
+        assert_eq!(result.items[1].upper_mass_g, Some(Decimal::from(200)));
+        assert!(result.calculation.totals[0].lower_amount.is_some());
+        assert!(result.calculation.totals[0].upper_amount.is_some());
     }
 }

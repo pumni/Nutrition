@@ -1,6 +1,9 @@
-use crate::{AnalysisSnapshot, ParseRequest, ParsedMealDocument, ParsedMealItem, ResolvedEvidence};
+use crate::{
+    AnalysisSnapshot, ParseRequest, ParsedMealDocument, ParsedMealItem, ResolvedFoodEvidence,
+    ResolvedPortionEvidence,
+};
 use async_trait::async_trait;
-use domain::AnalysisId;
+use domain::{AnalysisId, FoodId};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -25,12 +28,22 @@ pub trait MealTextParser: Send + Sync {
 }
 
 #[async_trait]
-pub trait CatalogEvidenceProvider: Send + Sync {
-    async fn resolve_direct(
+pub trait FoodEvidenceProvider: Send + Sync {
+    async fn resolve_food(
         &self,
         locale: &str,
         item: &ParsedMealItem,
-    ) -> Result<ResolvedEvidence, ApplicationError>;
+    ) -> Result<ResolvedFoodEvidence, ApplicationError>;
+}
+
+#[async_trait]
+pub trait PortionEvidenceProvider: Send + Sync {
+    async fn resolve_portion(
+        &self,
+        locale: &str,
+        item: &ParsedMealItem,
+        food_id: FoodId,
+    ) -> Result<ResolvedPortionEvidence, ApplicationError>;
 }
 
 #[async_trait]

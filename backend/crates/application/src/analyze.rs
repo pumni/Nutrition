@@ -1,11 +1,12 @@
 use crate::{
     AnalysisItemSnapshot, AnalysisRepository, AnalysisRequest, AnalysisSnapshot, AnalysisStatus,
-    ApplicationError, BehaviorVersions, CatalogEvidenceProvider, MealTextParser, ParseRequest,
+    ApplicationError, BehaviorVersions, FoodEvidenceProvider, MealTextParser, ParseRequest,
+    PortionEvidenceProvider,
 };
 use async_trait::async_trait;
 use domain::{
-    AnalysisId, AnalysisRevisionId, CalculationInput, DeterministicCalculator, NutrientCode,
-    ResolvedItemInput,
+    AnalysisId, AnalysisRevisionId, CalculationInput, DeterministicCalculator, EvidenceQuality,
+    NutrientCode, ResolvedItemInput,
 };
 
 #[async_trait]
@@ -14,26 +15,29 @@ pub trait AnalyzeMeal: Send + Sync {
     -> Result<AnalysisSnapshot, ApplicationError>;
 }
 
-pub struct DirectAnalysisService<P, E, R> {
+pub struct MealAnalysisService<P, F, O, R> {
     parser: P,
-    evidence: E,
+    food_evidence: F,
+    portion_evidence: O,
     repository: R,
     versions: BehaviorVersions,
     requested_nutrients: Vec<NutrientCode>,
 }
 
-impl<P, E, R> DirectAnalysisService<P, E, R> {
+impl<P, F, O, R> MealAnalysisService<P, F, O, R> {
     #[must_use]
     pub fn new(
         parser: P,
-        evidence: E,
+        food_evidence: F,
+        portion_evidence: O,
         repository: R,
         versions: BehaviorVersions,
         requested_nutrients: Vec<NutrientCode>,
     ) -> Self {
         Self {
             parser,
-            evidence,
+            food_evidence,
+            portion_evidence,
             repository,
             versions,
             requested_nutrients,
@@ -42,10 +46,11 @@ impl<P, E, R> DirectAnalysisService<P, E, R> {
 }
 
 #[async_trait]
-impl<P, E, R> AnalyzeMeal for DirectAnalysisService<P, E, R>
+impl<P, F, O, R> AnalyzeMeal for MealAnalysisService<P, F, O, R>
 where
     P: MealTextParser,
-    E: CatalogEvidenceProvider,
+    F: FoodEvidenceProvider,
+    O: PortionEvidenceProvider,
     R: AnalysisRepository,
 {
     async fn execute(
@@ -69,24 +74,34 @@ where
         let mut item_snapshots = Vec::with_capacity(parsed.items.len());
         let mut calculation_items = Vec::with_capacity(parsed.items.len());
         for item in parsed.items {
-            let evidence = self.evidence.resolve_direct(&request.locale, &item).await?;
-            let profile_id = evidence.composition.profile_id;
+            let food = self
+                .food_evidence
+                .resolve_food(&request.locale, &item)
+                .await?;
+            let portion = self
+                .portion_evidence
+                .resolve_portion(&request.locale, &item, food.food_id)
+                .await?;
+            let profile_id = food.composition.profile_id;
+            let evidence_quality = weaker_quality(food.quality, portion.quality);
             calculation_items.push(ResolvedItemInput {
-                food_id: evidence.food_id,
-                mass: evidence.mass.clone(),
-                composition: evidence.composition,
+                food_id: food.food_id,
+                mass: portion.mass.clone(),
+                composition: food.composition,
                 recipe_version_id: None,
             });
             item_snapshots.push(AnalysisItemSnapshot {
                 source_text: item.source_text,
-                food_id: evidence.food_id,
-                food_name: evidence.food_name,
+                food_id: food.food_id,
+                food_name: food.food_name,
                 profile_id,
-                portion_observation_id: evidence.mass.evidence_id,
-                estimated_mass_g: evidence.mass.central_g,
-                mass_resolution_method: evidence.mass.method,
-                evidence_quality: evidence.quality,
-                assumptions: evidence.assumptions,
+                portion_observation_id: portion.mass.evidence_id,
+                estimated_mass_g: portion.mass.central_g,
+                lower_mass_g: portion.mass.lower_g,
+                upper_mass_g: portion.mass.upper_g,
+                mass_resolution_method: portion.mass.method,
+                evidence_quality,
+                assumptions: portion.assumptions,
             });
         }
 
@@ -111,6 +126,24 @@ where
         };
         self.repository.save(&snapshot).await?;
         Ok(snapshot)
+    }
+}
+
+const fn weaker_quality(left: EvidenceQuality, right: EvidenceQuality) -> EvidenceQuality {
+    if quality_rank(left) >= quality_rank(right) {
+        left
+    } else {
+        right
+    }
+}
+
+const fn quality_rank(value: EvidenceQuality) -> u8 {
+    match value {
+        EvidenceQuality::A => 0,
+        EvidenceQuality::B => 1,
+        EvidenceQuality::C => 2,
+        EvidenceQuality::D => 3,
+        EvidenceQuality::U => 4,
     }
 }
 

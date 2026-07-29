@@ -1,3 +1,5 @@
 mod fixture;
 
-pub use fixture::{FixtureCatalog, FixtureParser, InMemoryAnalysisRepository};
+pub use fixture::{
+    FixtureCatalog, FixtureParser, FixturePortionEvidenceProvider, InMemoryAnalysisRepository,
+};

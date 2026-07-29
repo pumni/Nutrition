@@ -1,9 +1,11 @@
 mod analysis_repository;
 mod catalog_repository;
+mod portion_repository;
 mod seed;
 
 pub use analysis_repository::PostgresAnalysisRepository;
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
+pub use portion_repository::PostgresPortionEvidenceProvider;
 pub use seed::seed_foundation_fixture;
 
 use sqlx::{PgPool, postgres::PgPoolOptions};

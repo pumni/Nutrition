@@ -2,6 +2,75 @@
 
 BEGIN;
 
+DO $$
+DECLARE
+    release_blocked boolean := false;
+    name_membership_blocked boolean := false;
+    portion_membership_blocked boolean := false;
+    food_name_blocked boolean := false;
+    portion_observation_blocked boolean := false;
+    composition_value_blocked boolean := false;
+BEGIN
+    BEGIN
+        UPDATE catalog.catalog_release
+           SET manifest = '{"mutated": true}'
+         WHERE id = '0198f100-0000-7000-8000-000000000002';
+    EXCEPTION WHEN raise_exception THEN
+        release_blocked := true;
+    END;
+
+    BEGIN
+        DELETE FROM catalog.catalog_release_food_name
+         WHERE catalog_release_id = '0198f100-0000-7000-8000-000000000002'
+           AND food_name_id = '0198f100-0000-7000-8000-000000000022';
+    EXCEPTION WHEN raise_exception THEN
+        name_membership_blocked := true;
+    END;
+
+    BEGIN
+        DELETE FROM catalog.catalog_release_portion_observation
+         WHERE catalog_release_id = '0198f100-0000-7000-8000-000000000002'
+           AND portion_observation_id = '0198f100-0000-7000-8000-000000000050';
+    EXCEPTION WHEN raise_exception THEN
+        portion_membership_blocked := true;
+    END;
+
+    BEGIN
+        UPDATE catalog.food_name
+           SET name = 'must not change'
+         WHERE id = '0198f100-0000-7000-8000-000000000022';
+    EXCEPTION WHEN raise_exception THEN
+        food_name_blocked := true;
+    END;
+
+    BEGIN
+        UPDATE composition.portion_observation
+           SET gram_weight = 999
+         WHERE id = '0198f100-0000-7000-8000-000000000050';
+    EXCEPTION WHEN raise_exception THEN
+        portion_observation_blocked := true;
+    END;
+
+    BEGIN
+        UPDATE composition.composition_value
+           SET canonical_amount = 999
+         WHERE profile_id = '0198f100-0000-7000-8000-000000000040'
+           AND nutrient_id = '0198f100-0000-7000-8000-000000000030';
+    EXCEPTION WHEN raise_exception THEN
+        composition_value_blocked := true;
+    END;
+
+    IF NOT release_blocked
+       OR NOT name_membership_blocked
+       OR NOT portion_membership_blocked
+       OR NOT food_name_blocked
+       OR NOT portion_observation_blocked
+       OR NOT composition_value_blocked THEN
+        RAISE EXCEPTION 'published catalog release immutability was not enforced';
+    END IF;
+END;
+$$;
+
 INSERT INTO catalog.food_entity (
     id, entity_kind, lifecycle_status, semantic_key
 ) VALUES (
