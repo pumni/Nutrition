@@ -1,6 +1,7 @@
 use domain::{
-    AnalysisId, AnalysisRevisionId, CalculationResult, CompositionSnapshot, EvidenceQuality,
-    FoodId, MassEstimate, NutrientCode,
+    AnalysisId, AnalysisRevisionId, CalculationResult, CatalogReleaseId, CompositionProfileId,
+    CompositionSnapshot, EvidenceQuality, FoodId, MassEstimate, MassResolutionMethod, NutrientCode,
+    PortionObservationId,
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -65,7 +66,7 @@ pub struct BehaviorVersions {
     pub portion_policy_version: String,
     pub composition_policy_version: String,
     pub calculation_engine_version: String,
-    pub catalog_release_id: String,
+    pub catalog_release_id: CatalogReleaseId,
 }
 
 impl Default for BehaviorVersions {
@@ -80,7 +81,9 @@ impl Default for BehaviorVersions {
             portion_policy_version: "portion-explicit-0.1.0".to_owned(),
             composition_policy_version: "composition-direct-0.1.0".to_owned(),
             calculation_engine_version: domain::CALCULATION_ENGINE_VERSION.to_owned(),
-            catalog_release_id: "catalog-foundation-0.1.0".to_owned(),
+            catalog_release_id: CatalogReleaseId::from_u128(
+                0x0198_f100_0000_7000_8000_0000_0000_0001,
+            ),
         }
     }
 }
@@ -98,7 +101,10 @@ pub struct AnalysisItemSnapshot {
     pub source_text: String,
     pub food_id: FoodId,
     pub food_name: String,
+    pub profile_id: CompositionProfileId,
+    pub portion_observation_id: Option<PortionObservationId>,
     pub estimated_mass_g: Decimal,
+    pub mass_resolution_method: MassResolutionMethod,
     pub evidence_quality: EvidenceQuality,
     pub assumptions: Vec<String>,
 }

@@ -1,3 +1,11 @@
+mod analysis_repository;
+mod catalog_repository;
+mod seed;
+
+pub use analysis_repository::PostgresAnalysisRepository;
+pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
+pub use seed::seed_foundation_fixture;
+
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Duration;
 use thiserror::Error;
@@ -10,6 +18,8 @@ pub enum PersistenceError {
     Connect(#[source] sqlx::Error),
     #[error("database migration failed")]
     Migrate(#[source] sqlx::migrate::MigrateError),
+    #[error("database query failed")]
+    Query(#[source] sqlx::Error),
 }
 
 /// Opens a bounded `PostgreSQL` connection pool.

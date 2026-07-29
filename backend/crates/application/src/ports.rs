@@ -1,5 +1,6 @@
 use crate::{AnalysisSnapshot, ParseRequest, ParsedMealDocument, ParsedMealItem, ResolvedEvidence};
 use async_trait::async_trait;
+use domain::AnalysisId;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -14,6 +15,8 @@ pub enum ApplicationError {
     Calculation(String),
     #[error("analysis persistence failed")]
     Persistence,
+    #[error("analysis was not found")]
+    NotFound,
 }
 
 #[async_trait]
@@ -33,4 +36,12 @@ pub trait CatalogEvidenceProvider: Send + Sync {
 #[async_trait]
 pub trait AnalysisRepository: Send + Sync {
     async fn save(&self, snapshot: &AnalysisSnapshot) -> Result<(), ApplicationError>;
+}
+
+#[async_trait]
+pub trait AnalysisSnapshotReader: Send + Sync {
+    async fn find(
+        &self,
+        analysis_id: AnalysisId,
+    ) -> Result<Option<AnalysisSnapshot>, ApplicationError>;
 }

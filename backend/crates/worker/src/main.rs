@@ -21,6 +21,12 @@ async fn main() {
             .expect("database migration failed");
         info!("database migrations applied");
     }
+    if env::var("RUN_FOUNDATION_SEED").as_deref() == Ok("true") {
+        persistence_postgres::seed_foundation_fixture(&pool)
+            .await
+            .expect("foundation fixture seed failed");
+        info!("test-only foundation fixture seed applied");
+    }
     sqlx_healthcheck(&pool).await;
     info!("worker foundation process is ready; job claim loop is not enabled yet");
 }

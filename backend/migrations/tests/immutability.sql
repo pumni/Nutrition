@@ -62,7 +62,7 @@ INSERT INTO catalog.catalog_release (
 ) VALUES (
     '0198f000-0000-7000-8000-000000000004',
     'db-test-release',
-    'active',
+    'staged',
     '{}',
     repeat('a', 64),
     '0198f000-0000-7000-8000-000000000005'
@@ -165,7 +165,9 @@ INSERT INTO analysis.revision_nutrient_total (
 );
 
 UPDATE analysis.analysis_revision
-   SET result_status = 'completed'
+   SET result_status = 'completed',
+       result_snapshot = '{}',
+       snapshot_hash = repeat('a', 64)
  WHERE id = '0198f000-0000-7000-8000-000000000007';
 
 DO $$

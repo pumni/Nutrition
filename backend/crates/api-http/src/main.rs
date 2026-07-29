@@ -1,16 +1,19 @@
-use adapters::{FixtureCatalog, FixtureParser, InMemoryAnalysisRepository};
+use adapters::FixtureParser;
 use application::{
-    AnalysisRequest, AnalysisSnapshot, AnalyzeMeal, ApplicationError, BehaviorVersions,
-    DirectAnalysisService,
+    AnalysisRequest, AnalysisSnapshot, AnalysisSnapshotReader, AnalyzeMeal, ApplicationError,
+    BehaviorVersions, DirectAnalysisService,
 };
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use domain::NutrientCode;
+use domain::{AnalysisId, NutrientCode};
+use persistence_postgres::{
+    PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, active_catalog_release_id,
+};
 use serde::Serialize;
 use std::{env, net::SocketAddr, sync::Arc};
 use tower_http::{
@@ -23,6 +26,8 @@ use tracing_subscriber::EnvFilter;
 #[derive(Clone)]
 struct AppState {
     analyzer: Arc<dyn AnalyzeMeal>,
+    reader: Arc<dyn AnalysisSnapshotReader>,
+    pool: sqlx::PgPool,
 }
 
 #[derive(Serialize)]
@@ -57,6 +62,7 @@ impl IntoResponse for ApiError {
             ApplicationError::Calculation(_) | ApplicationError::Persistence => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
             }
+            ApplicationError::NotFound => (StatusCode::NOT_FOUND, "analysis_not_found"),
         };
         (
             status,
@@ -78,21 +84,37 @@ async fn main() {
     let address: SocketAddr = bind_addr
         .parse()
         .expect("APP_BIND_ADDR must be a valid socket address");
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL is required");
+    let pool = persistence_postgres::connect(&database_url, 8)
+        .await
+        .expect("API could not connect to PostgreSQL");
+    let catalog_release_id = active_catalog_release_id(&pool)
+        .await
+        .expect("an active catalog release is required");
+    let versions = BehaviorVersions {
+        catalog_release_id,
+        ..BehaviorVersions::default()
+    };
+    let repository = PostgresAnalysisRepository::new(pool.clone());
 
     let analyzer = DirectAnalysisService::new(
         FixtureParser,
-        FixtureCatalog::foundation_seed(),
-        InMemoryAnalysisRepository::default(),
-        BehaviorVersions::default(),
+        PostgresCatalogEvidenceProvider::new(pool.clone()),
+        repository.clone(),
+        versions,
         required_nutrients(),
     );
     let state = AppState {
         analyzer: Arc::new(analyzer),
+        reader: Arc::new(repository),
+        pool,
     };
     let request_id_header = axum::http::HeaderName::from_static("x-request-id");
     let app = Router::new()
         .route("/health/live", get(live))
+        .route("/health/ready", get(ready))
         .route("/v1/nutrition/analyses", post(analyze))
+        .route("/v1/nutrition/analyses/{analysis_id}", get(find_analysis))
         .with_state(state)
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(TraceLayer::new_for_http())
@@ -115,6 +137,30 @@ async fn live() -> Json<HealthResponse> {
     })
 }
 
+async fn ready(State(state): State<AppState>) -> Response {
+    match sqlx::query_scalar::<_, i32>("SELECT 1")
+        .fetch_one(&state.pool)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(HealthResponse {
+                status: "ready",
+                application_version: env!("CARGO_PKG_VERSION"),
+            }),
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(HealthResponse {
+                status: "not_ready",
+                application_version: env!("CARGO_PKG_VERSION"),
+            }),
+        )
+            .into_response(),
+    }
+}
+
 async fn analyze(
     State(state): State<AppState>,
     Json(request): Json<AnalysisRequest>,
@@ -123,6 +169,24 @@ async fn analyze(
         .analyzer
         .execute(request)
         .await
+        .map(Json)
+        .map_err(ApiError)
+}
+
+async fn find_analysis(
+    State(state): State<AppState>,
+    Path(analysis_id): Path<String>,
+) -> Result<Json<AnalysisSnapshot>, ApiError> {
+    let analysis_id = analysis_id.parse::<AnalysisId>().map_err(|_| {
+        ApiError(ApplicationError::InvalidInput(
+            "invalid analysis ID".to_owned(),
+        ))
+    })?;
+    state
+        .reader
+        .find(analysis_id)
+        .await
+        .and_then(|snapshot| snapshot.ok_or(ApplicationError::NotFound))
         .map(Json)
         .map_err(ApiError)
 }

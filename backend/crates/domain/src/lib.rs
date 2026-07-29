@@ -4,11 +4,11 @@ mod nutrition;
 
 pub use calculation::{
     CalculationError, CalculationInput, CalculationOperation, CalculationResult,
-    DeterministicCalculator, ItemCalculationResult, NutrientCalculationResult,
+    DeterministicCalculator, ItemCalculationResult, NutrientCalculationResult, TotalNutrientResult,
 };
 pub use ids::{
-    AnalysisId, AnalysisRevisionId, CompositionProfileId, FoodId, PortionObservationId,
-    RecipeVersionId,
+    AnalysisId, AnalysisItemId, AnalysisRevisionId, CatalogReleaseId, CompositionProfileId, FoodId,
+    NutrientId, PortionObservationId, RecipeVersionId,
 };
 pub use nutrition::{
     CompositionSnapshot, CompositionValue, EvidenceQuality, MassEstimate, MassResolutionMethod,

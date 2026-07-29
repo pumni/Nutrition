@@ -10,6 +10,5 @@
 | Revision child rows are mutated after completion | Low | High | Database triggers and SQL verification tests | Add transaction-level repository integration tests | Backend owner |
 | Calculator behavior drifts silently | Low | High | Decimal arithmetic, engine version, golden tests | Add fixture manifest replay report in CI | Calculation owner |
 | Curation becomes the delivery bottleneck | High | High | Publication is not implemented yet | Assign curator capacity before catalog expansion | Product owner |
-| Runtime becomes coupled to fixture adapters | Medium | Medium | Application ports isolate adapters | Add PostgreSQL and hosted-parser adapters behind the ports | Backend owner |
+| Runtime becomes coupled to fixture adapters | Medium | Medium | Catalog and persistence are PostgreSQL-backed; only parser is a fixture | Add hosted-parser adapter behind the existing port | Backend owner |
 | Infrastructure expands before evidence | Medium | Medium | PostgreSQL-only foundation | Require ADR trigger for new infrastructure | Tech lead |
-

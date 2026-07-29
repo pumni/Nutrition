@@ -3,21 +3,23 @@
 Evidence-first nutrition analysis backend based on
 [`nutrition_backend_blueprint_v1.0`](nutrition_backend_blueprint_v1.0/00_README.md).
 
-Current behavior release: `foundation-0.1.0`.
+Current behavior release: `foundation-0.2.0`.
 
 ## Implemented foundation slice
 
 ```text
 explicit grams
 → deterministic fixture parser
-→ exact curated fixture catalog
+→ exact PostgreSQL catalog lookup
 → direct composition profile
 → pure decimal calculator
-→ immutable in-memory analysis snapshot
+→ transactional PostgreSQL analysis snapshot
+→ hash-verified read/replay
 ```
 
 This is deliberately narrower than the walking skeleton. It proves domain boundaries,
-calculation semantics, behavior versioning, unknown-food rejection, and the initial HTTP contract.
+calculation semantics, behavior versioning, unknown-food rejection, PostgreSQL transaction
+boundaries, immutable persistence, and create/read replay.
 
 ## Prerequisites
 
@@ -38,18 +40,34 @@ Or run the provider-independent verification contract:
 .\scripts\verify.ps1
 ```
 
+## Start PostgreSQL and prepare local fixtures
+
+```powershell
+docker compose -f deploy/compose.yaml up -d postgres
+
+$env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
+$env:RUN_MIGRATIONS = "true"
+$env:RUN_FOUNDATION_SEED = "true"
+cargo run -p worker
+```
+
+The foundation seed is explicitly test-only and cannot be treated as production nutrition
+evidence.
+
 ## Run the foundation API
 
 ```powershell
 $env:APP_BIND_ADDR = "127.0.0.1:8080"
+$env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
 $env:RUST_LOG = "info"
 cargo run -p api-http
 ```
 
-Health:
+Health and readiness:
 
 ```http
 GET /health/live
+GET /health/ready
 ```
 
 Foundation analysis request:
@@ -68,16 +86,18 @@ Content-Type: application/json
 Only two fixture foods are available and the parser accepts explicit grams. Unknown foods return
 `analysis_insufficient`; they are never force-matched.
 
-## PostgreSQL
+Read the current persisted revision:
 
-Start the local database:
-
-```powershell
-docker compose -f deploy/compose.yaml up -d postgres
+```http
+GET /v1/nutrition/analyses/{analysis_id}
 ```
 
-Migration `0001_foundations.sql` creates the seven logical schemas, the minimal walking-skeleton
-tables, search indexes, behavior version fields, and immutability guards.
+The read path verifies the persisted snapshot SHA-256 before deserialization.
+
+## PostgreSQL
+
+The migrations create seven logical schemas, the minimal walking-skeleton tables, search indexes,
+behavior version fields, snapshot persistence, scoped idempotency, and immutability guards.
 
 Apply migrations locally:
 
@@ -89,12 +109,19 @@ cargo run -p worker
 
 Database migrations are forward-only. Do not edit an applied migration; add a new migration.
 
+Run the full PostgreSQL integration, API smoke, replay, and immutability suite:
+
+```powershell
+.\scripts\verify-postgres.ps1
+```
+
 ## Repository boundaries
 
 - `domain`: IDs, units, evidence semantics, pure deterministic calculator.
 - `application`: use cases and ports.
-- `adapters`: fixture parser/catalog/repository used for local development and tests.
-- `persistence-postgres`: PostgreSQL connection and migration adapter.
+- `adapters`: deterministic fixture parser and in-memory test doubles.
+- `persistence-postgres`: migrations, exact catalog lookup, transactional analysis repository,
+  snapshot reader, and explicit test-only seed.
 - `api-http`: Axum HTTP process.
 - `worker`: PostgreSQL-backed worker process foundation.
 

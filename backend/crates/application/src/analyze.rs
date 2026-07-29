@@ -70,6 +70,7 @@ where
         let mut calculation_items = Vec::with_capacity(parsed.items.len());
         for item in parsed.items {
             let evidence = self.evidence.resolve_direct(&request.locale, &item).await?;
+            let profile_id = evidence.composition.profile_id;
             calculation_items.push(ResolvedItemInput {
                 food_id: evidence.food_id,
                 mass: evidence.mass.clone(),
@@ -80,7 +81,10 @@ where
                 source_text: item.source_text,
                 food_id: evidence.food_id,
                 food_name: evidence.food_name,
+                profile_id,
+                portion_observation_id: evidence.mass.evidence_id,
                 estimated_mass_g: evidence.mass.central_g,
+                mass_resolution_method: evidence.mass.method,
                 evidence_quality: evidence.quality,
                 assumptions: evidence.assumptions,
             });

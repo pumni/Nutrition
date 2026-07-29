@@ -1,6 +1,7 @@
 use application::{
     AnalysisRepository, AnalysisSnapshot, ApplicationError, CatalogEvidenceProvider,
     MealTextParser, ParseRequest, ParsedMealDocument, ParsedMealItem, ResolvedEvidence,
+    normalize_vi_search_key,
 };
 use async_trait::async_trait;
 use domain::{
@@ -68,7 +69,7 @@ impl FixtureCatalog {
     pub fn foundation_seed() -> Self {
         let mut foods = BTreeMap::new();
         foods.insert(
-            normalize("trứng gà luộc"),
+            normalize_vi_search_key("trứng gà luộc"),
             fixture_food(
                 "Trứng gà luộc",
                 &[
@@ -80,7 +81,7 @@ impl FixtureCatalog {
             ),
         );
         foods.insert(
-            normalize("cơm trắng"),
+            normalize_vi_search_key("cơm trắng"),
             fixture_food(
                 "Cơm trắng",
                 &[
@@ -112,7 +113,7 @@ impl CatalogEvidenceProvider for FixtureCatalog {
         }
         let food = self
             .foods
-            .get(&normalize(&item.food_phrase))
+            .get(&normalize_vi_search_key(&item.food_phrase))
             .ok_or_else(|| {
                 ApplicationError::InsufficientEvidence(format!(
                     "unknown fixture food: {}",
@@ -178,14 +179,6 @@ fn fixture_food(name: &str, values: &[(&str, &str, NutrientUnit)]) -> FixtureFoo
                 .collect(),
         },
     }
-}
-
-fn normalize(value: &str) -> String {
-    value
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
 }
 
 #[cfg(test)]

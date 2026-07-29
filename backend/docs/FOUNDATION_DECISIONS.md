@@ -1,7 +1,7 @@
 # Foundation decisions
 
 Status: implementation baseline  
-Behavior release: `foundation-0.1.0`
+Behavior release: `foundation-0.2.0`
 
 ## Scope
 
@@ -10,7 +10,8 @@ This foundation implements the first deterministic vertical slice:
 ```text
 explicit grams + exact curated alias + direct composition profile
 → deterministic calculation
-→ immutable analysis snapshot
+→ transactional relational results + immutable JSON snapshot
+→ SHA-256 verified read/replay
 ```
 
 The fixture parser is intentionally constrained to:
@@ -20,6 +21,10 @@ The fixture parser is intentionally constrained to:
 ```
 
 It is a local/test adapter, not the production Vietnamese parser.
+
+Food identity, exact-name retrieval, profile selection, nutrient evidence, catalog release
+pinning, and analysis persistence now use PostgreSQL. The fixture parser is the only fixture on the
+API request path.
 
 ## Numeric policy
 
@@ -44,6 +49,16 @@ The domain crate must not import Axum, SQLx, Tokio, provider SDKs, clocks, or ra
 The first migration protects published recipe/composition rows with database triggers.
 Completed analysis revisions are finalized from a temporary `building` state and cannot be changed
 afterward. The application layer must also treat them as append-only.
+
+The persistence adapter writes analysis, revision, items, nutrient results, totals, snapshot, and
+outbox event in one transaction. A revision starts as `building`; the finalization update supplies
+the snapshot and hash before changing it to `completed`.
+
+## Idempotency scope
+
+Analyses without an idempotency key may be created repeatedly. When a key is present, uniqueness is
+scoped by user, with the all-zero UUID used only as the anonymous scope key. This is implemented as
+a partial expression index rather than `UNIQUE NULLS NOT DISTINCT`.
 
 ## Behavior version vector
 
@@ -78,4 +93,3 @@ policy.
 - Production source adapter and curated seed release.
 - Authentication provider and curation UI.
 - Redis, message broker, vector search, graph database, and Kubernetes.
-
