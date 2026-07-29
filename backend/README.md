@@ -3,7 +3,7 @@
 Evidence-first nutrition analysis backend based on
 [`nutrition_backend_blueprint_v1.0`](nutrition_backend_blueprint_v1.0/00_README.md).
 
-Current behavior release: `foundation-0.3.0`.
+Current behavior release: `foundation-0.4.0`.
 
 ## Implemented foundation slice
 
@@ -16,11 +16,12 @@ quantity + unit + food
 → pure decimal calculator with propagated bounds
 → transactional PostgreSQL analysis snapshot
 → hash-verified read/replay
+→ one-turn clarification or append-only correction revision
 ```
 
-This is deliberately narrower than the walking skeleton. It proves domain boundaries,
-calculation semantics, behavior versioning, unknown-food rejection, PostgreSQL transaction
-boundaries, immutable persistence, and create/read replay.
+This deterministic slice proves domain boundaries, calculation semantics, behavior versioning,
+unknown-food rejection, PostgreSQL transaction boundaries, immutable revision history,
+clarification/correction state transitions, and idempotent create/correction replay.
 
 ## Prerequisites
 
@@ -75,6 +76,7 @@ Foundation analysis request:
 
 ```http
 POST /v1/nutrition/analyses
+Idempotency-Key: <opaque-key>
 Content-Type: application/json
 
 {
@@ -86,22 +88,26 @@ Content-Type: application/json
 
 Only two fixture foods are available. The parser accepts
 `<quantity> <unit> <food>`: grams resolve directly, while `quả` for boiled egg and `bát` for white
-rice resolve through test-only portion observations with lower and upper mass bounds. Unknown foods
-and unsupported food/unit pairs return `analysis_insufficient`; they are never force-matched.
+rice resolve through test-only portion observations with lower and upper mass bounds. A known
+single food with an unsupported unit returns `needs_clarification`; unknown foods still return
+`analysis_insufficient` and are never force-matched.
 
 Read the current persisted revision:
 
 ```http
 GET /v1/nutrition/analyses/{analysis_id}
+GET /v1/nutrition/analyses/{analysis_id}/revisions/{revision_number}
+POST /v1/nutrition/analyses/{analysis_id}/clarifications
+POST /v1/nutrition/analyses/{analysis_id}/corrections
 ```
 
 The read path verifies the persisted snapshot SHA-256 before deserialization.
 
 ## PostgreSQL
 
-The seven migrations create seven logical schemas, the minimal walking-skeleton tables, search
+The nine migrations create seven logical schemas, the minimal walking-skeleton tables, search
 indexes, behavior version fields, snapshot persistence, scoped idempotency, release membership,
-and immutability guards.
+workflow state enforcement, and immutability guards.
 
 Apply migrations locally:
 

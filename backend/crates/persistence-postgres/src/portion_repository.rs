@@ -1,6 +1,6 @@
 use application::{
-    ApplicationError, ParsedMealItem, PortionEvidenceProvider, ResolvedPortionEvidence,
-    normalize_vi_search_key,
+    ApplicationError, ParsedMealItem, PortionEvidenceProvider, PortionSuggestion,
+    ResolvedPortionEvidence, normalize_vi_search_key,
 };
 use async_trait::async_trait;
 use domain::{EvidenceQuality, FoodId, MassEstimate, MassResolutionMethod, PortionObservationId};
@@ -121,6 +121,48 @@ impl PortionEvidenceProvider for PostgresPortionEvidenceProvider {
             quality,
             assumptions: vec![format!("Sử dụng quan sát khẩu phần cho đơn vị “{label}”")],
         })
+    }
+
+    async fn suggestions(
+        &self,
+        _locale: &str,
+        food_id: FoodId,
+    ) -> Result<Vec<PortionSuggestion>, ApplicationError> {
+        let rows = sqlx::query(
+            r"
+            SELECT DISTINCT measure.code, measure.canonical_label_vi
+            FROM composition.measure_unit measure
+            JOIN composition.portion_observation observation
+              ON observation.measure_unit_id = measure.id
+            JOIN catalog.catalog_release active_release
+              ON active_release.status = 'active'
+            JOIN catalog.catalog_release_portion_observation membership
+              ON membership.catalog_release_id = active_release.id
+             AND membership.portion_observation_id = observation.id
+            WHERE observation.food_id = $1
+              AND observation.valid_to IS NULL
+            ORDER BY measure.canonical_label_vi
+            LIMIT 3
+            ",
+        )
+        .bind(food_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|_| ApplicationError::Persistence)?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(PortionSuggestion {
+                    unit: row
+                        .try_get("canonical_label_vi")
+                        .map_err(|_| ApplicationError::Persistence)?,
+                    label: format!(
+                        "Tính theo {}",
+                        row.try_get::<String, _>("canonical_label_vi")
+                            .map_err(|_| ApplicationError::Persistence)?
+                    ),
+                })
+            })
+            .collect()
     }
 }
 

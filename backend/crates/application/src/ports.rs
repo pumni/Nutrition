@@ -1,9 +1,10 @@
 use crate::{
-    AnalysisSnapshot, ParseRequest, ParsedMealDocument, ParsedMealItem, ResolvedFoodEvidence,
+    AnalysisSnapshot, ClarificationAnalysis, ClarificationAnswerRequest, CorrectionRequest,
+    ParseRequest, ParsedMealDocument, ParsedMealItem, PortionSuggestion, ResolvedFoodEvidence,
     ResolvedPortionEvidence,
 };
 use async_trait::async_trait;
-use domain::{AnalysisId, FoodId};
+use domain::{AnalysisId, AnalysisRevisionId, FoodId};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -20,6 +21,12 @@ pub enum ApplicationError {
     Persistence,
     #[error("analysis was not found")]
     NotFound,
+    #[error("analysis revision is stale")]
+    RevisionConflict,
+    #[error("clarification question or expected revision is stale")]
+    StaleClarification,
+    #[error("idempotency key was reused with a different request")]
+    IdempotencyConflict,
 }
 
 #[async_trait]
@@ -44,11 +51,39 @@ pub trait PortionEvidenceProvider: Send + Sync {
         item: &ParsedMealItem,
         food_id: FoodId,
     ) -> Result<ResolvedPortionEvidence, ApplicationError>;
+
+    async fn suggestions(
+        &self,
+        locale: &str,
+        food_id: FoodId,
+    ) -> Result<Vec<PortionSuggestion>, ApplicationError>;
 }
 
 #[async_trait]
 pub trait AnalysisRepository: Send + Sync {
     async fn save(&self, snapshot: &AnalysisSnapshot) -> Result<(), ApplicationError>;
+
+    async fn save_clarification(
+        &self,
+        clarification: &ClarificationAnalysis,
+    ) -> Result<(), ApplicationError>;
+
+    async fn find_open_clarification(
+        &self,
+        analysis_id: AnalysisId,
+    ) -> Result<Option<ClarificationAnalysis>, ApplicationError>;
+
+    async fn append_clarification_answer(
+        &self,
+        answer: &ClarificationAnswerRequest,
+        snapshot: &AnalysisSnapshot,
+    ) -> Result<(), ApplicationError>;
+
+    async fn append_correction(
+        &self,
+        request: &CorrectionRequest,
+        snapshot: &AnalysisSnapshot,
+    ) -> Result<(), ApplicationError>;
 }
 
 #[async_trait]
@@ -57,4 +92,15 @@ pub trait AnalysisSnapshotReader: Send + Sync {
         &self,
         analysis_id: AnalysisId,
     ) -> Result<Option<AnalysisSnapshot>, ApplicationError>;
+
+    async fn find_revision(
+        &self,
+        analysis_id: AnalysisId,
+        revision_number: u32,
+    ) -> Result<Option<serde_json::Value>, ApplicationError>;
+
+    async fn current_revision_id(
+        &self,
+        analysis_id: AnalysisId,
+    ) -> Result<Option<AnalysisRevisionId>, ApplicationError>;
 }

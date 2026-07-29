@@ -63,10 +63,11 @@
     "sample_id": "vmb-foundation-0005",
     "text": "1 ly cơm trắng",
     "locale": "vi-VN",
-    "expected_decision": "insufficient",
+    "expected_decision": "needs_clarification",
     "expected_food_names": ["Cơm trắng"],
     "expected_nutrition": {},
-    "tags": ["foundation", "unsupported-portion", "no-default-mass"],
+    "expected_clarification_dimension": "portion",
+    "tags": ["foundation", "unsupported-portion", "one-turn-clarification"],
     "adjudication_status": "engineering_fixture"
   }
 ]

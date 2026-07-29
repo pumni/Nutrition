@@ -1,6 +1,6 @@
 {
   "benchmark": "VietnameseMealBench",
-  "version": "foundation-0.2.0",
+  "version": "foundation-0.3.0",
   "status": "development-only",
   "language": "vi-VN",
   "license": "internal-test-fixtures",
@@ -13,7 +13,7 @@
     "challenge": 0
   },
   "notes": [
-    "These cases verify explicit mass, contextual portion, and rejection behavior only.",
+    "These cases verify explicit mass, contextual portion, clarification, and rejection behavior.",
     "They are not sufficient to tune or release a production parser."
   ]
 }

@@ -58,6 +58,7 @@ uuid_id!(AnalysisId);
 uuid_id!(AnalysisItemId);
 uuid_id!(AnalysisRevisionId);
 uuid_id!(CatalogReleaseId);
+uuid_id!(ClarificationQuestionId);
 uuid_id!(CompositionProfileId);
 uuid_id!(FoodId);
 uuid_id!(NutrientId);

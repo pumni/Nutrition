@@ -300,4 +300,84 @@ BEGIN
 END;
 $$;
 
+INSERT INTO analysis.clarification_question (
+    id,
+    analysis_revision_id,
+    dimension,
+    prompt,
+    options,
+    policy_version,
+    status
+) VALUES (
+    '0198f000-0000-7000-8000-000000000010',
+    '0198f000-0000-7000-8000-000000000007',
+    'portion',
+    'Database immutability question',
+    '[]',
+    'db-test-policy',
+    'answered'
+);
+
+INSERT INTO analysis.clarification_answer (
+    id,
+    question_id,
+    expected_revision_id,
+    option_id
+) VALUES (
+    '0198f000-0000-7000-8000-000000000011',
+    '0198f000-0000-7000-8000-000000000010',
+    '0198f000-0000-7000-8000-000000000007',
+    'db-test-option'
+);
+
+INSERT INTO app.analysis_correction (
+    id,
+    meal_analysis_id,
+    base_revision_id,
+    actor_type,
+    correction_payload
+) VALUES (
+    '0198f000-0000-7000-8000-000000000012',
+    '0198f000-0000-7000-8000-000000000006',
+    '0198f000-0000-7000-8000-000000000007',
+    'user',
+    '{}'
+);
+
+DO $$
+DECLARE
+    transition_blocked boolean := false;
+    answer_blocked boolean := false;
+    correction_blocked boolean := false;
+BEGIN
+    BEGIN
+        UPDATE analysis.meal_analysis
+           SET status = 'corrected'
+         WHERE id = '0198f000-0000-7000-8000-000000000006';
+    EXCEPTION WHEN raise_exception THEN
+        transition_blocked := true;
+    END;
+
+    BEGIN
+        UPDATE analysis.clarification_answer
+           SET option_id = 'must-not-change'
+         WHERE id = '0198f000-0000-7000-8000-000000000011';
+    EXCEPTION WHEN raise_exception THEN
+        answer_blocked := true;
+    END;
+
+    BEGIN
+        UPDATE app.analysis_correction
+           SET correction_payload = '{"mutated": true}'
+         WHERE id = '0198f000-0000-7000-8000-000000000012';
+    EXCEPTION WHEN raise_exception THEN
+        correction_blocked := true;
+    END;
+
+    IF NOT transition_blocked OR NOT answer_blocked OR NOT correction_blocked THEN
+        RAISE EXCEPTION 'workflow transition or append-only guards were not enforced';
+    END IF;
+END;
+$$;
+
 ROLLBACK;

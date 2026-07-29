@@ -1,8 +1,11 @@
-use application::{AnalysisRepository, AnalysisSnapshot, AnalysisSnapshotReader, ApplicationError};
+use application::{
+    AnalysisRepository, AnalysisSnapshot, AnalysisSnapshotReader, ApplicationError,
+    ClarificationAnalysis, ClarificationAnswerRequest, CorrectionRequest,
+};
 use async_trait::async_trait;
 use domain::{
-    AnalysisId, AnalysisItemId, EvidenceQuality, MassResolutionMethod, NutrientCode, NutrientUnit,
-    ValueStatus,
+    AnalysisId, AnalysisItemId, AnalysisRevisionId, EvidenceQuality, MassResolutionMethod,
+    NutrientCode, NutrientUnit, ValueStatus,
 };
 use hex::encode;
 use serde_json::{Value, json};
@@ -21,12 +24,82 @@ impl PostgresAnalysisRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+
+    /// Returns the prior immutable response for a matching idempotency key.
+    ///
+    /// # Errors
+    ///
+    /// Returns `IdempotencyConflict` when the key exists with another request hash.
+    pub async fn find_idempotent_response(
+        &self,
+        scope_key: &str,
+        key: &str,
+        request_hash: &str,
+    ) -> Result<Option<Value>, ApplicationError> {
+        let row = sqlx::query(
+            r"
+            SELECT record.request_hash,
+                   revision.result_snapshot,
+                   revision.snapshot_hash
+            FROM app.idempotency_record record
+            LEFT JOIN analysis.analysis_revision revision
+              ON revision.id = (record.response_reference->>'revision_id')::uuid
+            WHERE record.scope_key = $1
+              AND record.idempotency_key = $2
+            ",
+        )
+        .bind(scope_key)
+        .bind(key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|_| ApplicationError::Persistence)?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let existing_hash: String = row
+            .try_get("request_hash")
+            .map_err(|_| ApplicationError::Persistence)?;
+        if existing_hash != request_hash {
+            return Err(ApplicationError::IdempotencyConflict);
+        }
+        verified_snapshot_value(&row).map(Some)
+    }
 }
 
 #[async_trait]
 impl AnalysisRepository for PostgresAnalysisRepository {
     async fn save(&self, snapshot: &AnalysisSnapshot) -> Result<(), ApplicationError> {
         persist_snapshot(&self.pool, snapshot).await
+    }
+
+    async fn save_clarification(
+        &self,
+        clarification: &ClarificationAnalysis,
+    ) -> Result<(), ApplicationError> {
+        persist_clarification(&self.pool, clarification).await
+    }
+
+    async fn find_open_clarification(
+        &self,
+        analysis_id: AnalysisId,
+    ) -> Result<Option<ClarificationAnalysis>, ApplicationError> {
+        find_open_clarification(&self.pool, analysis_id).await
+    }
+
+    async fn append_clarification_answer(
+        &self,
+        answer: &ClarificationAnswerRequest,
+        snapshot: &AnalysisSnapshot,
+    ) -> Result<(), ApplicationError> {
+        persist_clarification_answer(&self.pool, answer, snapshot).await
+    }
+
+    async fn append_correction(
+        &self,
+        request: &CorrectionRequest,
+        snapshot: &AnalysisSnapshot,
+    ) -> Result<(), ApplicationError> {
+        persist_correction(&self.pool, request, snapshot).await
     }
 }
 
@@ -50,23 +123,46 @@ impl AnalysisSnapshotReader for PostgresAnalysisRepository {
         .await
         .map_err(|_| ApplicationError::Persistence)?;
 
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let snapshot_value: Value = row
-            .try_get("result_snapshot")
-            .map_err(|_| ApplicationError::Persistence)?;
-        let expected_hash: String = row
-            .try_get("snapshot_hash")
-            .map_err(|_| ApplicationError::Persistence)?;
-        let encoded =
-            serde_json::to_vec(&snapshot_value).map_err(|_| ApplicationError::Persistence)?;
-        if sha256_hex(&encoded) != expected_hash {
-            return Err(ApplicationError::Persistence);
-        }
-        serde_json::from_value(snapshot_value)
-            .map(Some)
-            .map_err(|_| ApplicationError::Persistence)
+        row.map(|snapshot_row| decode_snapshot_row(&snapshot_row))
+            .transpose()
+    }
+
+    async fn find_revision(
+        &self,
+        analysis_id: AnalysisId,
+        revision_number: u32,
+    ) -> Result<Option<Value>, ApplicationError> {
+        let row = sqlx::query(
+            r"
+            SELECT revision.result_snapshot, revision.snapshot_hash
+            FROM analysis.analysis_revision revision
+            WHERE revision.meal_analysis_id = $1
+              AND revision.revision_number = $2
+            ",
+        )
+        .bind(analysis_id.as_uuid())
+        .bind(i32::try_from(revision_number).map_err(|_| {
+            ApplicationError::InvalidInput("revision number is too large".to_owned())
+        })?)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|_| ApplicationError::Persistence)?;
+        row.map(|snapshot_row| verified_snapshot_value(&snapshot_row))
+            .transpose()
+    }
+
+    async fn current_revision_id(
+        &self,
+        analysis_id: AnalysisId,
+    ) -> Result<Option<AnalysisRevisionId>, ApplicationError> {
+        sqlx::query_scalar::<_, Uuid>(
+            "SELECT current_revision_id FROM analysis.meal_analysis WHERE id = $1",
+        )
+        .bind(analysis_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map(|value| value.map(AnalysisRevisionId::from_uuid))
+        .map_err(|_| ApplicationError::Persistence)
     }
 }
 
@@ -86,13 +182,294 @@ async fn persist_snapshot(
         .map_err(|_| ApplicationError::Persistence)?;
 
     insert_analysis(&mut transaction, snapshot).await?;
-    insert_revision(&mut transaction, snapshot).await?;
+    insert_revision(&mut transaction, snapshot, "initial_analysis").await?;
     insert_items_and_results(&mut transaction, snapshot, &nutrient_ids).await?;
     insert_totals(&mut transaction, snapshot, &nutrient_ids).await?;
     finalize_revision(&mut transaction, snapshot, snapshot_value, &snapshot_hash).await?;
     finalize_analysis(&mut transaction, snapshot).await?;
     insert_outbox(&mut transaction, snapshot).await?;
+    insert_idempotency(
+        &mut transaction,
+        snapshot.idempotency.as_ref(),
+        snapshot.analysis_id,
+        snapshot.revision_id,
+    )
+    .await?;
 
+    transaction
+        .commit()
+        .await
+        .map_err(|_| ApplicationError::Persistence)
+}
+
+async fn persist_clarification(
+    pool: &PgPool,
+    clarification: &ClarificationAnalysis,
+) -> Result<(), ApplicationError> {
+    let snapshot_value =
+        serde_json::to_value(clarification).map_err(|_| ApplicationError::Persistence)?;
+    let snapshot_hash = snapshot_hash(&snapshot_value)?;
+    let mut transaction = pool
+        .begin()
+        .await
+        .map_err(|_| ApplicationError::Persistence)?;
+    sqlx::query(
+        "INSERT INTO analysis.meal_analysis (id, locale, idempotency_key, status)
+         VALUES ($1, $2, $3, 'resolving')",
+    )
+    .bind(clarification.analysis_id.as_uuid())
+    .bind(&clarification.locale)
+    .bind(
+        clarification
+            .idempotency
+            .as_ref()
+            .map(|context| context.key.as_str()),
+    )
+    .execute(&mut *transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    insert_clarification_revision(&mut transaction, clarification).await?;
+    sqlx::query(
+        r"
+        INSERT INTO analysis.clarification_question (
+            id, analysis_revision_id, dimension, prompt, options,
+            policy_version, status, context_payload
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'open', $7)
+        ",
+    )
+    .bind(clarification.question.id.as_uuid())
+    .bind(clarification.revision_id.as_uuid())
+    .bind(&clarification.question.dimension)
+    .bind(&clarification.question.prompt)
+    .bind(
+        serde_json::to_value(&clarification.question.options)
+            .map_err(|_| ApplicationError::Persistence)?,
+    )
+    .bind("clarification-portion-0.1.0")
+    .bind(serde_json::to_value(&clarification.context).map_err(|_| ApplicationError::Persistence)?)
+    .execute(&mut *transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    finalize_revision_value(
+        &mut transaction,
+        clarification.revision_id,
+        snapshot_value,
+        &snapshot_hash,
+    )
+    .await?;
+    let changed = sqlx::query(
+        r"
+        UPDATE analysis.meal_analysis
+           SET status = 'needs_clarification',
+               current_revision_id = $2
+         WHERE id = $1
+           AND status = 'resolving'
+        ",
+    )
+    .bind(clarification.analysis_id.as_uuid())
+    .bind(clarification.revision_id.as_uuid())
+    .execute(&mut *transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    if changed.rows_affected() != 1 {
+        return Err(ApplicationError::Persistence);
+    }
+    insert_workflow_outbox(
+        &mut transaction,
+        clarification.analysis_id,
+        clarification.revision_id,
+        "AnalysisNeedsClarification",
+    )
+    .await?;
+    insert_idempotency(
+        &mut transaction,
+        clarification.idempotency.as_ref(),
+        clarification.analysis_id,
+        clarification.revision_id,
+    )
+    .await?;
+    transaction
+        .commit()
+        .await
+        .map_err(|_| ApplicationError::Persistence)
+}
+
+async fn find_open_clarification(
+    pool: &PgPool,
+    analysis_id: AnalysisId,
+) -> Result<Option<ClarificationAnalysis>, ApplicationError> {
+    let row = sqlx::query(
+        r"
+        SELECT revision.result_snapshot,
+               revision.snapshot_hash,
+               question.context_payload
+        FROM analysis.meal_analysis meal
+        JOIN analysis.analysis_revision revision
+          ON revision.id = meal.current_revision_id
+        JOIN analysis.clarification_question question
+          ON question.analysis_revision_id = revision.id
+         AND question.status = 'open'
+        WHERE meal.id = $1
+          AND meal.status = 'needs_clarification'
+        ",
+    )
+    .bind(analysis_id.as_uuid())
+    .fetch_optional(pool)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    let mut value = verified_snapshot_value(&row)?;
+    let context: Value = row
+        .try_get("context_payload")
+        .map_err(|_| ApplicationError::Persistence)?;
+    value
+        .as_object_mut()
+        .ok_or(ApplicationError::Persistence)?
+        .insert("context".to_owned(), context);
+    serde_json::from_value(value)
+        .map(Some)
+        .map_err(|_| ApplicationError::Persistence)
+}
+
+async fn persist_clarification_answer(
+    pool: &PgPool,
+    answer: &ClarificationAnswerRequest,
+    snapshot: &AnalysisSnapshot,
+) -> Result<(), ApplicationError> {
+    let nutrient_ids = load_nutrient_ids(pool, &snapshot.requested_nutrients).await?;
+    let snapshot_value =
+        serde_json::to_value(snapshot).map_err(|_| ApplicationError::Persistence)?;
+    let snapshot_hash = snapshot_hash(&snapshot_value)?;
+    let mut transaction = pool
+        .begin()
+        .await
+        .map_err(|_| ApplicationError::Persistence)?;
+    lock_current_revision(
+        &mut transaction,
+        snapshot.analysis_id,
+        answer.expected_revision_id,
+        "needs_clarification",
+        ApplicationError::StaleClarification,
+    )
+    .await?;
+    let question_revision: Option<Uuid> = sqlx::query_scalar(
+        r"
+        SELECT analysis_revision_id
+        FROM analysis.clarification_question
+        WHERE id = $1
+          AND status = 'open'
+        FOR UPDATE
+        ",
+    )
+    .bind(answer.question_id.as_uuid())
+    .fetch_optional(&mut *transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    if question_revision != Some(answer.expected_revision_id.as_uuid()) {
+        return Err(ApplicationError::StaleClarification);
+    }
+    transition_status(
+        &mut transaction,
+        snapshot.analysis_id,
+        "needs_clarification",
+        "resolving",
+    )
+    .await?;
+    insert_revision(&mut transaction, snapshot, "clarification_answer_applied").await?;
+    insert_items_and_results(&mut transaction, snapshot, &nutrient_ids).await?;
+    insert_totals(&mut transaction, snapshot, &nutrient_ids).await?;
+    finalize_revision(&mut transaction, snapshot, snapshot_value, &snapshot_hash).await?;
+    sqlx::query(
+        r"
+        INSERT INTO analysis.clarification_answer (
+            id, question_id, expected_revision_id, option_id, created_revision_id
+        ) VALUES ($1, $2, $3, $4, $5)
+        ",
+    )
+    .bind(Uuid::now_v7())
+    .bind(answer.question_id.as_uuid())
+    .bind(answer.expected_revision_id.as_uuid())
+    .bind(&answer.option_id)
+    .bind(snapshot.revision_id.as_uuid())
+    .execute(&mut *transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    sqlx::query(
+        "UPDATE analysis.clarification_question
+            SET status = 'answered', answered_at = now()
+          WHERE id = $1 AND status = 'open'",
+    )
+    .bind(answer.question_id.as_uuid())
+    .execute(&mut *transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    set_completed_from(&mut transaction, snapshot, "resolving").await?;
+    insert_outbox(&mut transaction, snapshot).await?;
+    transaction
+        .commit()
+        .await
+        .map_err(|_| ApplicationError::Persistence)
+}
+
+async fn persist_correction(
+    pool: &PgPool,
+    request: &CorrectionRequest,
+    snapshot: &AnalysisSnapshot,
+) -> Result<(), ApplicationError> {
+    let nutrient_ids = load_nutrient_ids(pool, &snapshot.requested_nutrients).await?;
+    let snapshot_value =
+        serde_json::to_value(snapshot).map_err(|_| ApplicationError::Persistence)?;
+    let snapshot_hash = snapshot_hash(&snapshot_value)?;
+    let mut transaction = pool
+        .begin()
+        .await
+        .map_err(|_| ApplicationError::Persistence)?;
+    lock_current_revision(
+        &mut transaction,
+        snapshot.analysis_id,
+        request.base_revision_id,
+        "completed",
+        ApplicationError::RevisionConflict,
+    )
+    .await?;
+    transition_status(
+        &mut transaction,
+        snapshot.analysis_id,
+        "completed",
+        "corrected",
+    )
+    .await?;
+    insert_revision(&mut transaction, snapshot, "user_correction").await?;
+    insert_items_and_results(&mut transaction, snapshot, &nutrient_ids).await?;
+    insert_totals(&mut transaction, snapshot, &nutrient_ids).await?;
+    finalize_revision(&mut transaction, snapshot, snapshot_value, &snapshot_hash).await?;
+    sqlx::query(
+        r"
+        INSERT INTO app.analysis_correction (
+            id, meal_analysis_id, base_revision_id, actor_type,
+            correction_payload, created_revision_id
+        ) VALUES ($1, $2, $3, 'user', $4, $5)
+        ",
+    )
+    .bind(Uuid::now_v7())
+    .bind(snapshot.analysis_id.as_uuid())
+    .bind(request.base_revision_id.as_uuid())
+    .bind(serde_json::to_value(request).map_err(|_| ApplicationError::Persistence)?)
+    .bind(snapshot.revision_id.as_uuid())
+    .execute(&mut *transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    set_completed_from(&mut transaction, snapshot, "corrected").await?;
+    insert_outbox(&mut transaction, snapshot).await?;
+    insert_idempotency(
+        &mut transaction,
+        request.idempotency.as_ref(),
+        snapshot.analysis_id,
+        snapshot.revision_id,
+    )
+    .await?;
     transaction
         .commit()
         .await
@@ -135,12 +512,18 @@ async fn insert_analysis(
     sqlx::query(
         r"
         INSERT INTO analysis.meal_analysis (
-            id, locale, status
-        ) VALUES ($1, $2, 'resolving')
+            id, locale, idempotency_key, status
+        ) VALUES ($1, $2, $3, 'resolving')
         ",
     )
     .bind(snapshot.analysis_id.as_uuid())
     .bind(&snapshot.locale)
+    .bind(
+        snapshot
+            .idempotency
+            .as_ref()
+            .map(|context| context.key.as_str()),
+    )
     .execute(&mut **transaction)
     .await
     .map_err(|_| ApplicationError::Persistence)?;
@@ -150,6 +533,7 @@ async fn insert_analysis(
 async fn insert_revision(
     transaction: &mut Transaction<'_, Postgres>,
     snapshot: &AnalysisSnapshot,
+    revision_reason: &str,
 ) -> Result<(), ApplicationError> {
     let versions = &snapshot.versions;
     sqlx::query(
@@ -167,6 +551,8 @@ async fn insert_revision(
             resolution_policy_version,
             portion_policy_version,
             composition_policy_version,
+            clarification_policy_version,
+            correction_policy_version,
             calculation_engine_version,
             catalog_release_id,
             result_status,
@@ -174,14 +560,15 @@ async fn insert_revision(
             assumptions,
             warnings
         ) VALUES (
-            $1, $2, $3, 'initial_analysis', $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13, 'building', $14, $15, $16
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15, $16, 'building', $17, $18, $19
         )
         ",
     )
     .bind(snapshot.revision_id.as_uuid())
     .bind(snapshot.analysis_id.as_uuid())
     .bind(i32::try_from(snapshot.revision_number).map_err(|_| ApplicationError::Persistence)?)
+    .bind(revision_reason)
     .bind(&versions.application_version)
     .bind(&versions.parser_schema_version)
     .bind(&versions.prompt_version)
@@ -190,6 +577,8 @@ async fn insert_revision(
     .bind(&versions.resolution_policy_version)
     .bind(&versions.portion_policy_version)
     .bind(&versions.composition_policy_version)
+    .bind(&versions.clarification_policy_version)
+    .bind(&versions.correction_policy_version)
     .bind(&versions.calculation_engine_version)
     .bind(versions.catalog_release_id.as_uuid())
     .bind(overall_quality(snapshot))
@@ -204,6 +593,126 @@ async fn insert_revision(
     .execute(&mut **transaction)
     .await
     .map_err(|_| ApplicationError::Persistence)?;
+    Ok(())
+}
+
+async fn insert_clarification_revision(
+    transaction: &mut Transaction<'_, Postgres>,
+    clarification: &ClarificationAnalysis,
+) -> Result<(), ApplicationError> {
+    let versions = &clarification.versions;
+    sqlx::query(
+        r"
+        INSERT INTO analysis.analysis_revision (
+            id, meal_analysis_id, revision_number, revision_reason,
+            application_version, parser_schema_version, prompt_version,
+            model_provider_version, normalization_version, resolution_policy_version,
+            portion_policy_version, composition_policy_version, clarification_policy_version,
+            correction_policy_version, calculation_engine_version, catalog_release_id,
+            result_status, quality_label, assumptions, warnings
+        ) VALUES (
+            $1, $2, $3, 'portion_clarification_required',
+            $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+            'building', 'insufficient', '[]', '[]'
+        )
+        ",
+    )
+    .bind(clarification.revision_id.as_uuid())
+    .bind(clarification.analysis_id.as_uuid())
+    .bind(i32::try_from(clarification.revision_number).map_err(|_| ApplicationError::Persistence)?)
+    .bind(&versions.application_version)
+    .bind(&versions.parser_schema_version)
+    .bind(&versions.prompt_version)
+    .bind(&versions.model_provider_version)
+    .bind(&versions.normalization_version)
+    .bind(&versions.resolution_policy_version)
+    .bind(&versions.portion_policy_version)
+    .bind(&versions.composition_policy_version)
+    .bind(&versions.clarification_policy_version)
+    .bind(&versions.correction_policy_version)
+    .bind(&versions.calculation_engine_version)
+    .bind(versions.catalog_release_id.as_uuid())
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    Ok(())
+}
+
+async fn lock_current_revision(
+    transaction: &mut Transaction<'_, Postgres>,
+    analysis_id: AnalysisId,
+    expected_revision_id: AnalysisRevisionId,
+    expected_status: &str,
+    conflict: ApplicationError,
+) -> Result<(), ApplicationError> {
+    let row = sqlx::query(
+        "SELECT current_revision_id, status
+           FROM analysis.meal_analysis
+          WHERE id = $1
+          FOR UPDATE",
+    )
+    .bind(analysis_id.as_uuid())
+    .fetch_optional(&mut **transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?
+    .ok_or(ApplicationError::NotFound)?;
+    let current_revision_id: Uuid = row
+        .try_get("current_revision_id")
+        .map_err(|_| ApplicationError::Persistence)?;
+    let status: String = row
+        .try_get("status")
+        .map_err(|_| ApplicationError::Persistence)?;
+    if current_revision_id != expected_revision_id.as_uuid() || status != expected_status {
+        return Err(conflict);
+    }
+    Ok(())
+}
+
+async fn transition_status(
+    transaction: &mut Transaction<'_, Postgres>,
+    analysis_id: AnalysisId,
+    from: &str,
+    to: &str,
+) -> Result<(), ApplicationError> {
+    let changed = sqlx::query(
+        "UPDATE analysis.meal_analysis
+            SET status = $3
+          WHERE id = $1
+            AND status = $2",
+    )
+    .bind(analysis_id.as_uuid())
+    .bind(from)
+    .bind(to)
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    if changed.rows_affected() != 1 {
+        return Err(ApplicationError::Persistence);
+    }
+    Ok(())
+}
+
+async fn set_completed_from(
+    transaction: &mut Transaction<'_, Postgres>,
+    snapshot: &AnalysisSnapshot,
+    from: &str,
+) -> Result<(), ApplicationError> {
+    let changed = sqlx::query(
+        "UPDATE analysis.meal_analysis
+            SET status = 'completed',
+                current_revision_id = $2
+          WHERE id = $1
+            AND status = $3",
+    )
+    .bind(snapshot.analysis_id.as_uuid())
+    .bind(snapshot.revision_id.as_uuid())
+    .bind(from)
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    if changed.rows_affected() != 1 {
+        return Err(ApplicationError::Persistence);
+    }
     Ok(())
 }
 
@@ -374,6 +883,32 @@ async fn finalize_revision(
     Ok(())
 }
 
+async fn finalize_revision_value(
+    transaction: &mut Transaction<'_, Postgres>,
+    revision_id: AnalysisRevisionId,
+    snapshot_value: Value,
+    snapshot_hash: &str,
+) -> Result<(), ApplicationError> {
+    let changed = sqlx::query(
+        "UPDATE analysis.analysis_revision
+            SET result_status = 'completed',
+                result_snapshot = $2,
+                snapshot_hash = $3
+          WHERE id = $1
+            AND result_status = 'building'",
+    )
+    .bind(revision_id.as_uuid())
+    .bind(snapshot_value)
+    .bind(snapshot_hash)
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    if changed.rows_affected() != 1 {
+        return Err(ApplicationError::Persistence);
+    }
+    Ok(())
+}
+
 async fn finalize_analysis(
     transaction: &mut Transaction<'_, Postgres>,
     snapshot: &AnalysisSnapshot,
@@ -421,6 +956,84 @@ async fn insert_outbox(
     .await
     .map_err(|_| ApplicationError::Persistence)?;
     Ok(())
+}
+
+async fn insert_workflow_outbox(
+    transaction: &mut Transaction<'_, Postgres>,
+    analysis_id: AnalysisId,
+    revision_id: AnalysisRevisionId,
+    event_type: &str,
+) -> Result<(), ApplicationError> {
+    sqlx::query(
+        "INSERT INTO ops.outbox_event (
+            id, aggregate_type, aggregate_id, event_type, payload
+         ) VALUES ($1, 'meal_analysis', $2, $3, $4)",
+    )
+    .bind(Uuid::now_v7())
+    .bind(analysis_id.as_uuid())
+    .bind(event_type)
+    .bind(json!({
+        "analysis_id": analysis_id,
+        "revision_id": revision_id
+    }))
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    Ok(())
+}
+
+async fn insert_idempotency(
+    transaction: &mut Transaction<'_, Postgres>,
+    context: Option<&application::IdempotencyContext>,
+    analysis_id: AnalysisId,
+    revision_id: AnalysisRevisionId,
+) -> Result<(), ApplicationError> {
+    let Some(context) = context else {
+        return Ok(());
+    };
+    sqlx::query(
+        r"
+        INSERT INTO app.idempotency_record (
+            scope_key, idempotency_key, request_hash,
+            response_reference, expires_at
+        ) VALUES (
+            $1, $2, $3, $4, now() + interval '24 hours'
+        )
+        ",
+    )
+    .bind(&context.scope_key)
+    .bind(&context.key)
+    .bind(&context.request_hash)
+    .bind(json!({
+        "analysis_id": analysis_id,
+        "revision_id": revision_id
+    }))
+    .execute(&mut **transaction)
+    .await
+    .map_err(|_| ApplicationError::Persistence)?;
+    Ok(())
+}
+
+fn snapshot_hash(snapshot_value: &Value) -> Result<String, ApplicationError> {
+    let bytes = serde_json::to_vec(snapshot_value).map_err(|_| ApplicationError::Persistence)?;
+    Ok(sha256_hex(&bytes))
+}
+
+fn verified_snapshot_value(row: &sqlx::postgres::PgRow) -> Result<Value, ApplicationError> {
+    let value: Value = row
+        .try_get("result_snapshot")
+        .map_err(|_| ApplicationError::Persistence)?;
+    let expected_hash: String = row
+        .try_get("snapshot_hash")
+        .map_err(|_| ApplicationError::Persistence)?;
+    if snapshot_hash(&value)? != expected_hash {
+        return Err(ApplicationError::Persistence);
+    }
+    Ok(value)
+}
+
+fn decode_snapshot_row(row: &sqlx::postgres::PgRow) -> Result<AnalysisSnapshot, ApplicationError> {
+    serde_json::from_value(verified_snapshot_value(row)?).map_err(|_| ApplicationError::Persistence)
 }
 
 fn sha256_hex(value: &[u8]) -> String {

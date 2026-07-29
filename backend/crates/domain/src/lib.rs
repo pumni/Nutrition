@@ -7,8 +7,8 @@ pub use calculation::{
     DeterministicCalculator, ItemCalculationResult, NutrientCalculationResult, TotalNutrientResult,
 };
 pub use ids::{
-    AnalysisId, AnalysisItemId, AnalysisRevisionId, CatalogReleaseId, CompositionProfileId, FoodId,
-    NutrientId, PortionObservationId, RecipeVersionId,
+    AnalysisId, AnalysisItemId, AnalysisRevisionId, CatalogReleaseId, ClarificationQuestionId,
+    CompositionProfileId, FoodId, NutrientId, PortionObservationId, RecipeVersionId,
 };
 pub use nutrition::{
     CompositionSnapshot, CompositionValue, EvidenceQuality, MassEstimate, MassResolutionMethod,

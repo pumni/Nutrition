@@ -8,6 +8,7 @@
 | Rust delivery velocity is too low | Medium | High | ADR-001 remains proposed | Measure next two vertical slices and onboarding | Tech lead |
 | Raw meal text leaks through telemetry | Medium | High | HTTP traces exclude body; no raw-text logs | Add automated redaction/log capture tests | Security owner |
 | Revision child rows are mutated after completion | Low | High | Database triggers, SQL verification, and repository integration tests | Expand adversarial concurrency coverage | Backend owner |
+| Concurrent clarification/correction overwrites history | Low | High | Row lock, expected revision check, append-only revisions, stale-request tests | Add load/concurrency stress test | Backend owner |
 | Calculator behavior drifts silently | Low | High | Decimal arithmetic, engine version, golden tests | Add fixture manifest replay report in CI | Calculation owner |
 | Curation becomes the delivery bottleneck | High | High | Publication is not implemented yet | Assign curator capacity before catalog expansion | Product owner |
 | Runtime becomes coupled to fixture adapters | Medium | Medium | Catalog and persistence are PostgreSQL-backed; only parser is a fixture | Add hosted-parser adapter behind the existing port | Backend owner |

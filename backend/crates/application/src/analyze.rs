@@ -1,18 +1,18 @@
 use crate::{
-    AnalysisItemSnapshot, AnalysisRepository, AnalysisRequest, AnalysisSnapshot, AnalysisStatus,
-    ApplicationError, BehaviorVersions, FoodEvidenceProvider, MealTextParser, ParseRequest,
-    PortionEvidenceProvider,
+    AnalysisItemSnapshot, AnalysisOutcome, AnalysisRepository, AnalysisRequest, AnalysisSnapshot,
+    AnalysisStatus, ApplicationError, BehaviorVersions, ClarificationAnalysis,
+    ClarificationContext, ClarificationOption, ClarificationQuestion, FoodEvidenceProvider,
+    MealTextParser, ParseRequest, PortionEvidenceProvider,
 };
 use async_trait::async_trait;
 use domain::{
-    AnalysisId, AnalysisRevisionId, CalculationInput, DeterministicCalculator, EvidenceQuality,
-    NutrientCode, ResolvedItemInput,
+    AnalysisId, AnalysisRevisionId, CalculationInput, ClarificationQuestionId,
+    DeterministicCalculator, EvidenceQuality, NutrientCode, ResolvedItemInput,
 };
 
 #[async_trait]
 pub trait AnalyzeMeal: Send + Sync {
-    async fn execute(&self, request: AnalysisRequest)
-    -> Result<AnalysisSnapshot, ApplicationError>;
+    async fn execute(&self, request: AnalysisRequest) -> Result<AnalysisOutcome, ApplicationError>;
 }
 
 pub struct MealAnalysisService<P, F, O, R> {
@@ -53,35 +53,61 @@ where
     O: PortionEvidenceProvider,
     R: AnalysisRepository,
 {
-    async fn execute(
-        &self,
-        request: AnalysisRequest,
-    ) -> Result<AnalysisSnapshot, ApplicationError> {
+    async fn execute(&self, request: AnalysisRequest) -> Result<AnalysisOutcome, ApplicationError> {
         validate_request(&request)?;
         let parsed = self
             .parser
             .parse(ParseRequest {
-                text: request.text,
+                text: request.text.clone(),
                 locale: request.locale.clone(),
             })
             .await?;
-        if parsed.items.is_empty() || parsed.items.len() > 10 {
-            return Err(ApplicationError::InvalidInput(
-                "parser must return between 1 and 10 consumed items".to_owned(),
-            ));
-        }
+        validate_parsed_item_count(parsed.items.len())?;
 
-        let mut item_snapshots = Vec::with_capacity(parsed.items.len());
-        let mut calculation_items = Vec::with_capacity(parsed.items.len());
+        let parsed_item_count = parsed.items.len();
+        let mut item_snapshots = Vec::with_capacity(parsed_item_count);
+        let mut calculation_items = Vec::with_capacity(parsed_item_count);
         for item in parsed.items {
             let food = self
                 .food_evidence
                 .resolve_food(&request.locale, &item)
                 .await?;
-            let portion = self
+            let portion = match self
                 .portion_evidence
                 .resolve_portion(&request.locale, &item, food.food_id)
-                .await?;
+                .await
+            {
+                Ok(portion) => portion,
+                Err(ApplicationError::InsufficientEvidence(_)) if parsed_item_count == 1 => {
+                    let suggestions = self
+                        .portion_evidence
+                        .suggestions(&request.locale, food.food_id)
+                        .await?;
+                    if suggestions.is_empty() {
+                        return Err(ApplicationError::InsufficientEvidence(
+                            "no portion clarification options are available".to_owned(),
+                        ));
+                    }
+                    let options = suggestions
+                        .into_iter()
+                        .map(|suggestion| ClarificationOption {
+                            id: format!("unit:{}", suggestion.unit),
+                            label: suggestion.label,
+                        })
+                        .collect();
+                    let clarification = build_portion_clarification(
+                        &request,
+                        &self.versions,
+                        item,
+                        food.food_id,
+                        food.food_name,
+                        options,
+                    );
+                    self.repository.save_clarification(&clarification).await?;
+                    return Ok(AnalysisOutcome::NeedsClarification(clarification));
+                }
+                Err(error) => return Err(error),
+            };
             let profile_id = food.composition.profile_id;
             let evidence_quality = weaker_quality(food.quality, portion.quality);
             calculation_items.push(ResolvedItemInput {
@@ -94,6 +120,8 @@ where
                 source_text: item.source_text,
                 food_id: food.food_id,
                 food_name: food.food_name,
+                quantity: item.quantity,
+                unit_phrase: item.unit_phrase,
                 profile_id,
                 portion_observation_id: portion.mass.evidence_id,
                 estimated_mass_g: portion.mass.central_g,
@@ -123,9 +151,48 @@ where
             requested_nutrients: self.requested_nutrients.clone(),
             calculation,
             is_estimate: true,
+            idempotency: request.idempotency,
         };
         self.repository.save(&snapshot).await?;
-        Ok(snapshot)
+        Ok(AnalysisOutcome::Completed(snapshot))
+    }
+}
+
+fn build_portion_clarification(
+    request: &AnalysisRequest,
+    versions: &BehaviorVersions,
+    item: crate::ParsedMealItem,
+    food_id: domain::FoodId,
+    food_name: String,
+    mut options: Vec<ClarificationOption>,
+) -> ClarificationAnalysis {
+    options.push(ClarificationOption {
+        id: "grams".to_owned(),
+        label: "Nhập khối lượng gam".to_owned(),
+    });
+    options.push(ClarificationOption {
+        id: "unknown".to_owned(),
+        label: "Không chắc".to_owned(),
+    });
+    ClarificationAnalysis {
+        analysis_id: AnalysisId::new(),
+        revision_id: AnalysisRevisionId::new(),
+        revision_number: 1,
+        status: AnalysisStatus::NeedsClarification,
+        locale: request.locale.clone(),
+        versions: versions.clone(),
+        question: ClarificationQuestion {
+            id: ClarificationQuestionId::new(),
+            dimension: "portion".to_owned(),
+            prompt: format!("Bạn có thể làm rõ khẩu phần của “{food_name}” không?"),
+            options,
+        },
+        context: ClarificationContext {
+            item,
+            food_id,
+            food_name,
+        },
+        idempotency: request.idempotency.clone(),
     }
 }
 
@@ -157,6 +224,15 @@ fn validate_request(request: &AnalysisRequest) -> Result<(), ApplicationError> {
     if request.locale.trim().is_empty() || request.locale.len() > 32 {
         return Err(ApplicationError::InvalidInput(
             "locale is required and must be at most 32 bytes".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_parsed_item_count(count: usize) -> Result<(), ApplicationError> {
+    if count == 0 || count > 10 {
+        return Err(ApplicationError::InvalidInput(
+            "parser must return between 1 and 10 consumed items".to_owned(),
         ));
     }
     Ok(())

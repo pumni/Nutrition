@@ -42,6 +42,9 @@ try {
             throw "PostgreSQL-backed API did not become ready"
         }
 
+        $verificationRunId = [guid]::NewGuid().ToString("N")
+        $createKey = "foundation-create-04-$verificationRunId"
+        $correctionKey = "foundation-correction-04-$verificationRunId"
         $requestBody = @{
             text = "2 quả trứng gà luộc, 1 bát cơm trắng"
             locale = "vi-VN"
@@ -50,6 +53,14 @@ try {
         $created = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
+            -Headers @{"Idempotency-Key" = $createKey} `
+            -ContentType "application/json; charset=utf-8" `
+            -Body ([Text.Encoding]::UTF8.GetBytes($requestBody)) `
+            -TimeoutSec 5
+        $idempotentCreateReplay = Invoke-RestMethod `
+            -Method Post `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
+            -Headers @{"Idempotency-Key" = $createKey} `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($requestBody)) `
             -TimeoutSec 5
@@ -59,6 +70,7 @@ try {
 
         if (
             $created.status -ne "completed" -or
+            $created.revision_id -ne $idempotentCreateReplay.revision_id -or
             $created.analysis_id -ne $replayed.analysis_id -or
             $created.revision_id -ne $replayed.revision_id -or
             $replayed.calculation.totals.Count -ne 4 -or
@@ -68,6 +80,91 @@ try {
             $replayed.items[1].upper_mass_g -ne 200
         ) {
             throw "HTTP create/read replay contract failed"
+        }
+
+        $conflictingBody = @{
+            text = "100 g trứng gà luộc"
+            locale = "vi-VN"
+            mode = "balanced"
+        } | ConvertTo-Json
+        $idempotencyConflict = Invoke-WebRequest `
+            -Method Post `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
+            -Headers @{"Idempotency-Key" = $createKey} `
+            -ContentType "application/json; charset=utf-8" `
+            -Body ([Text.Encoding]::UTF8.GetBytes($conflictingBody)) `
+            -SkipHttpErrorCheck `
+            -TimeoutSec 5
+        if ($idempotencyConflict.StatusCode -ne 409) {
+            throw "HTTP idempotency conflict contract failed"
+        }
+
+        $clarificationBody = @{
+            text = "1 ly cơm trắng"
+            locale = "vi-VN"
+            mode = "balanced"
+        } | ConvertTo-Json
+        $clarification = Invoke-RestMethod `
+            -Method Post `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
+            -ContentType "application/json; charset=utf-8" `
+            -Body ([Text.Encoding]::UTF8.GetBytes($clarificationBody)) `
+            -TimeoutSec 5
+        $answerBody = @{
+            expected_revision_id = $clarification.revision_id
+            question_id = $clarification.question.id
+            option_id = "unit:bát"
+            mass_g = $null
+        } | ConvertTo-Json
+        $answered = Invoke-RestMethod `
+            -Method Post `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($clarification.analysis_id)/clarifications" `
+            -ContentType "application/json; charset=utf-8" `
+            -Body ([Text.Encoding]::UTF8.GetBytes($answerBody)) `
+            -TimeoutSec 5
+        if (
+            $clarification.status -ne "needs_clarification" -or
+            $answered.status -ne "completed" -or
+            $answered.revision_number -ne 2 -or
+            $answered.items[0].estimated_mass_g -ne 150
+        ) {
+            throw "HTTP clarification revision contract failed"
+        }
+
+        $correctionBody = @{
+            base_revision_id = $created.revision_id
+            item_corrections = @(
+                @{
+                    item_index = 0
+                    quantity = 1
+                    unit = "quả"
+                }
+            )
+        } | ConvertTo-Json -Depth 4
+        $corrected = Invoke-RestMethod `
+            -Method Post `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)/corrections" `
+            -Headers @{"Idempotency-Key" = $correctionKey} `
+            -ContentType "application/json; charset=utf-8" `
+            -Body ([Text.Encoding]::UTF8.GetBytes($correctionBody)) `
+            -TimeoutSec 5
+        $correctionReplay = Invoke-RestMethod `
+            -Method Post `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)/corrections" `
+            -Headers @{"Idempotency-Key" = $correctionKey} `
+            -ContentType "application/json; charset=utf-8" `
+            -Body ([Text.Encoding]::UTF8.GetBytes($correctionBody)) `
+            -TimeoutSec 5
+        $originalRevision = Invoke-RestMethod `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)/revisions/1" `
+            -TimeoutSec 5
+        if (
+            $corrected.revision_number -ne 2 -or
+            $corrected.items[0].estimated_mass_g -ne 50 -or
+            $correctionReplay.revision_id -ne $corrected.revision_id -or
+            $originalRevision.revision_id -ne $created.revision_id
+        ) {
+            throw "HTTP correction/history/idempotency contract failed"
         }
     }
     finally {

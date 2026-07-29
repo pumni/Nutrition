@@ -1,7 +1,9 @@
 use adapters::FixtureParser;
 use application::{
-    AnalysisMode, AnalysisRequest, AnalysisSnapshot, AnalysisSnapshotReader, AnalyzeMeal,
-    ApplicationError, BehaviorVersions, MealAnalysisService,
+    AnalysisMode, AnalysisOutcome, AnalysisRequest, AnalysisRevisionService, AnalysisSnapshot,
+    AnalysisSnapshotReader, AnalyzeMeal, AnswerClarification, ApplicationError, BehaviorVersions,
+    ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, MealAnalysisService,
+    PortionCorrection,
 };
 use domain::NutrientCode;
 use persistence_postgres::{
@@ -33,23 +35,36 @@ async fn contextual_analysis_is_persisted_and_replayed() {
         ..BehaviorVersions::default()
     };
     let repository = PostgresAnalysisRepository::new(pool.clone());
+    let food_evidence = PostgresCatalogEvidenceProvider::new(pool.clone());
+    let portion_evidence = PostgresPortionEvidenceProvider::new(pool.clone());
     let service = MealAnalysisService::new(
         FixtureParser,
-        PostgresCatalogEvidenceProvider::new(pool.clone()),
-        PostgresPortionEvidenceProvider::new(pool.clone()),
+        food_evidence.clone(),
+        portion_evidence.clone(),
+        repository.clone(),
+        versions.clone(),
+        required_nutrients(),
+    );
+    let revision_service = AnalysisRevisionService::new(
+        food_evidence,
+        portion_evidence,
         repository.clone(),
         versions,
         required_nutrients(),
     );
 
-    let snapshot = service
+    let outcome = service
         .execute(AnalysisRequest {
             text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
             locale: "vi-VN".to_owned(),
             mode: AnalysisMode::Balanced,
+            idempotency: None,
         })
         .await
         .expect("PostgreSQL-backed analysis must complete");
+    let AnalysisOutcome::Completed(snapshot) = outcome else {
+        panic!("supported contextual analysis must complete");
+    };
 
     let replayed = repository
         .find(snapshot.analysis_id)
@@ -85,7 +100,9 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     .expect("resolution status query must succeed");
     assert_eq!(assumed_item_count, 2);
 
-    assert_rejections_are_not_persisted(&service, &pool).await;
+    assert_unknown_food_is_not_persisted(&service, &pool).await;
+    assert_clarification_revision_flow(&service, &revision_service, &repository).await;
+    assert_correction_revision_flow(&revision_service, &repository, &snapshot).await;
 }
 
 fn assert_contextual_snapshot(expected: &AnalysisSnapshot, actual: &AnalysisSnapshot) {
@@ -120,7 +137,7 @@ fn assert_contextual_snapshot(expected: &AnalysisSnapshot, actual: &AnalysisSnap
     assert!(actual.items[1].portion_observation_id.is_some());
 }
 
-async fn assert_rejections_are_not_persisted(
+async fn assert_unknown_food_is_not_persisted(
     service: &(impl AnalyzeMeal + ?Sized),
     pool: &sqlx::PgPool,
 ) {
@@ -128,22 +145,96 @@ async fn assert_rejections_are_not_persisted(
         .fetch_one(pool)
         .await
         .expect("analysis count query must succeed");
-    for text in ["100 g món không tồn tại", "1 ly cơm trắng"] {
-        let error = service
-            .execute(AnalysisRequest {
-                text: text.to_owned(),
-                locale: "vi-VN".to_owned(),
-                mode: AnalysisMode::Balanced,
-            })
-            .await
-            .expect_err("insufficient evidence must not be persisted");
-        assert!(matches!(error, ApplicationError::InsufficientEvidence(_)));
-    }
+    let error = service
+        .execute(AnalysisRequest {
+            text: "100 g món không tồn tại".to_owned(),
+            locale: "vi-VN".to_owned(),
+            mode: AnalysisMode::Balanced,
+            idempotency: None,
+        })
+        .await
+        .expect_err("unknown food must not be persisted");
+    assert!(matches!(error, ApplicationError::InsufficientEvidence(_)));
     let after: i64 = sqlx::query_scalar("SELECT count(*) FROM analysis.meal_analysis")
         .fetch_one(pool)
         .await
         .expect("analysis count query must succeed");
     assert_eq!(before, after);
+}
+
+async fn assert_clarification_revision_flow(
+    analyzer: &(impl AnalyzeMeal + ?Sized),
+    revision_service: &(impl AnswerClarification + ?Sized),
+    repository: &PostgresAnalysisRepository,
+) {
+    let outcome = analyzer
+        .execute(AnalysisRequest {
+            text: "1 ly cơm trắng".to_owned(),
+            locale: "vi-VN".to_owned(),
+            mode: AnalysisMode::Balanced,
+            idempotency: None,
+        })
+        .await
+        .expect("unsupported known portion should request clarification");
+    let AnalysisOutcome::NeedsClarification(pending) = outcome else {
+        panic!("unsupported known portion must request clarification");
+    };
+    let answer = ClarificationAnswerRequest {
+        expected_revision_id: pending.revision_id,
+        question_id: pending.question.id,
+        option_id: "unit:bát".to_owned(),
+        mass_g: None,
+    };
+    let completed = revision_service
+        .answer(pending.analysis_id, answer.clone())
+        .await
+        .expect("clarification answer must create a completed revision");
+    assert_eq!(completed.revision_number, 2);
+    assert_eq!(completed.items[0].estimated_mass_g, decimal_value("150"));
+    let stale = revision_service
+        .answer(pending.analysis_id, answer)
+        .await
+        .expect_err("replayed stale answer must fail");
+    assert!(matches!(stale, ApplicationError::StaleClarification));
+    let first_revision = repository
+        .find_revision(pending.analysis_id, 1)
+        .await
+        .expect("history read must succeed")
+        .expect("clarification revision must remain");
+    assert_eq!(first_revision["status"], "needs_clarification");
+}
+
+async fn assert_correction_revision_flow(
+    revision_service: &(impl CorrectAnalysis + ?Sized),
+    repository: &PostgresAnalysisRepository,
+    original: &AnalysisSnapshot,
+) {
+    let request = CorrectionRequest {
+        base_revision_id: original.revision_id,
+        item_corrections: vec![PortionCorrection {
+            item_index: 0,
+            quantity: Decimal::ONE,
+            unit: "quả".to_owned(),
+        }],
+        idempotency: None,
+    };
+    let corrected = revision_service
+        .correct(original.analysis_id, request.clone())
+        .await
+        .expect("correction must append a revision");
+    assert_eq!(corrected.revision_number, 2);
+    assert_eq!(corrected.items[0].estimated_mass_g, decimal_value("50"));
+    let stale = revision_service
+        .correct(original.analysis_id, request)
+        .await
+        .expect_err("stale base revision must fail");
+    assert!(matches!(stale, ApplicationError::RevisionConflict));
+    let original_history = repository
+        .find_revision(original.analysis_id, 1)
+        .await
+        .expect("history read must succeed")
+        .expect("original revision must remain");
+    assert_eq!(original_history["revision_number"], 1);
 }
 
 fn decimal_value(value: &str) -> Decimal {

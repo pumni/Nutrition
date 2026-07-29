@@ -1,6 +1,7 @@
 use application::{
-    AnalysisRepository, AnalysisSnapshot, ApplicationError, FoodEvidenceProvider, MealTextParser,
-    ParseRequest, ParsedMealDocument, ParsedMealItem, PortionEvidenceProvider,
+    AnalysisRepository, AnalysisSnapshot, ApplicationError, ClarificationAnalysis,
+    ClarificationAnswerRequest, CorrectionRequest, FoodEvidenceProvider, MealTextParser,
+    ParseRequest, ParsedMealDocument, ParsedMealItem, PortionEvidenceProvider, PortionSuggestion,
     ResolvedFoodEvidence, ResolvedPortionEvidence, normalize_vi_search_key,
 };
 use async_trait::async_trait;
@@ -193,11 +194,34 @@ impl PortionEvidenceProvider for FixturePortionEvidenceProvider {
             assumptions: vec!["Sử dụng quan sát khẩu phần thử nghiệm".to_owned()],
         })
     }
+
+    async fn suggestions(
+        &self,
+        _locale: &str,
+        food_id: FoodId,
+    ) -> Result<Vec<PortionSuggestion>, ApplicationError> {
+        let egg_id = FoodId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0020);
+        let rice_id = FoodId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0021);
+        Ok(if food_id == egg_id {
+            vec![PortionSuggestion {
+                unit: "quả".to_owned(),
+                label: "Tính theo quả".to_owned(),
+            }]
+        } else if food_id == rice_id {
+            vec![PortionSuggestion {
+                unit: "bát".to_owned(),
+                label: "Tính theo bát".to_owned(),
+            }]
+        } else {
+            Vec::new()
+        })
+    }
 }
 
 #[derive(Default)]
 pub struct InMemoryAnalysisRepository {
     snapshots: RwLock<Vec<AnalysisSnapshot>>,
+    clarifications: RwLock<Vec<ClarificationAnalysis>>,
 }
 
 impl InMemoryAnalysisRepository {
@@ -209,6 +233,48 @@ impl InMemoryAnalysisRepository {
 #[async_trait]
 impl AnalysisRepository for InMemoryAnalysisRepository {
     async fn save(&self, snapshot: &AnalysisSnapshot) -> Result<(), ApplicationError> {
+        self.snapshots.write().await.push(snapshot.clone());
+        Ok(())
+    }
+
+    async fn save_clarification(
+        &self,
+        clarification: &ClarificationAnalysis,
+    ) -> Result<(), ApplicationError> {
+        self.clarifications
+            .write()
+            .await
+            .push(clarification.clone());
+        Ok(())
+    }
+
+    async fn find_open_clarification(
+        &self,
+        analysis_id: domain::AnalysisId,
+    ) -> Result<Option<ClarificationAnalysis>, ApplicationError> {
+        Ok(self
+            .clarifications
+            .read()
+            .await
+            .iter()
+            .find(|clarification| clarification.analysis_id == analysis_id)
+            .cloned())
+    }
+
+    async fn append_clarification_answer(
+        &self,
+        _answer: &ClarificationAnswerRequest,
+        snapshot: &AnalysisSnapshot,
+    ) -> Result<(), ApplicationError> {
+        self.snapshots.write().await.push(snapshot.clone());
+        Ok(())
+    }
+
+    async fn append_correction(
+        &self,
+        _request: &CorrectionRequest,
+        snapshot: &AnalysisSnapshot,
+    ) -> Result<(), ApplicationError> {
         self.snapshots.write().await.push(snapshot.clone());
         Ok(())
     }
@@ -243,7 +309,8 @@ fn fixture_food(id: FoodId, name: &str, values: &[(&str, &str, NutrientUnit)]) -
 mod tests {
     use super::*;
     use application::{
-        AnalysisMode, AnalysisRequest, AnalyzeMeal, BehaviorVersions, MealAnalysisService,
+        AnalysisMode, AnalysisOutcome, AnalysisRequest, AnalyzeMeal, BehaviorVersions,
+        MealAnalysisService,
     };
 
     #[tokio::test]
@@ -266,9 +333,13 @@ mod tests {
                 text: "100 g trứng gà luộc, 150 g cơm trắng".to_owned(),
                 locale: "vi-VN".to_owned(),
                 mode: AnalysisMode::Balanced,
+                idempotency: None,
             })
             .await
             .expect("direct slice should complete");
+        let AnalysisOutcome::Completed(first) = first else {
+            panic!("explicit grams must complete");
+        };
 
         assert!(first.is_estimate);
         assert_eq!(first.items.len(), 2);
@@ -300,6 +371,7 @@ mod tests {
                 text: "100 g món không tồn tại".to_owned(),
                 locale: "vi-VN".to_owned(),
                 mode: AnalysisMode::Balanced,
+                idempotency: None,
             })
             .await
             .expect_err("unknown food must not resolve");
@@ -322,9 +394,13 @@ mod tests {
                 text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
                 locale: "vi-VN".to_owned(),
                 mode: AnalysisMode::Balanced,
+                idempotency: None,
             })
             .await
             .expect("contextual portions should resolve");
+        let AnalysisOutcome::Completed(result) = result else {
+            panic!("supported contextual portions must complete");
+        };
 
         assert_eq!(result.items[0].estimated_mass_g, Decimal::from(100));
         assert_eq!(result.items[0].lower_mass_g, Some(Decimal::from(90)));
@@ -334,5 +410,32 @@ mod tests {
         assert_eq!(result.items[1].upper_mass_g, Some(Decimal::from(200)));
         assert!(result.calculation.totals[0].lower_amount.is_some());
         assert!(result.calculation.totals[0].upper_amount.is_some());
+    }
+
+    #[tokio::test]
+    async fn unsupported_portion_requests_one_clarification() {
+        let service = MealAnalysisService::new(
+            FixtureParser,
+            FixtureCatalog::foundation_seed(),
+            FixturePortionEvidenceProvider,
+            InMemoryAnalysisRepository::default(),
+            BehaviorVersions::default(),
+            vec![NutrientCode::new("energy_kcal").expect("valid code")],
+        );
+        let outcome = service
+            .execute(AnalysisRequest {
+                text: "1 ly cơm trắng".to_owned(),
+                locale: "vi-VN".to_owned(),
+                mode: AnalysisMode::Balanced,
+                idempotency: None,
+            })
+            .await
+            .expect("known food with unsupported portion should ask");
+
+        let AnalysisOutcome::NeedsClarification(clarification) = outcome else {
+            panic!("unsupported portion must request clarification");
+        };
+        assert_eq!(clarification.question.dimension, "portion");
+        assert_eq!(clarification.question.options.len(), 3);
     }
 }
