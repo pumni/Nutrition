@@ -33,7 +33,7 @@ pub struct ParseRequest {
     pub locale: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ParsedMealDocument {
     pub language: String,
     pub items: Vec<ParsedMealItem>,
@@ -47,6 +47,21 @@ pub struct ParsedMealItem {
     pub quantity: Option<Decimal>,
     pub unit_phrase: Option<String>,
     pub modifiers: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ParserInvocationRecord {
+    pub provider: String,
+    pub model: String,
+    pub prompt_version: String,
+    pub schema_version: String,
+    pub latency_ms: i64,
+    pub retry_count: i32,
+    pub input_tokens: Option<i64>,
+    pub output_tokens: Option<i64>,
+    pub output_sha256: Option<String>,
+    pub status: String,
+    pub error_code: Option<String>,
 }
 
 #[derive(Clone, Debug)]

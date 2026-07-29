@@ -1,7 +1,7 @@
 use crate::{
     AnalysisSnapshot, ClarificationAnalysis, ClarificationAnswerRequest, CorrectionRequest,
-    ParseRequest, ParsedMealDocument, ParsedMealItem, PortionSuggestion, ResolvedFoodEvidence,
-    ResolvedPortionEvidence,
+    ParseRequest, ParsedMealDocument, ParsedMealItem, ParserInvocationRecord, PortionSuggestion,
+    ResolvedFoodEvidence, ResolvedPortionEvidence,
 };
 use async_trait::async_trait;
 use domain::{AnalysisId, AnalysisRevisionId, FoodId};
@@ -36,6 +36,11 @@ pub enum ApplicationError {
 #[async_trait]
 pub trait MealTextParser: Send + Sync {
     async fn parse(&self, request: ParseRequest) -> Result<ParsedMealDocument, ApplicationError>;
+}
+
+#[async_trait]
+pub trait ParserTelemetrySink: Send + Sync {
+    async fn record(&self, invocation: ParserInvocationRecord) -> Result<(), ApplicationError>;
 }
 
 #[async_trait]

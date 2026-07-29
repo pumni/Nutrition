@@ -9,12 +9,12 @@ pub use model::{
     AnalysisItemSnapshot, AnalysisMode, AnalysisOutcome, AnalysisRequest, AnalysisSnapshot,
     AnalysisStatus, BehaviorVersions, ClarificationAnalysis, ClarificationAnswerRequest,
     ClarificationContext, ClarificationOption, ClarificationQuestion, CorrectionRequest,
-    IdempotencyContext, ParseRequest, ParsedMealDocument, ParsedMealItem, PortionCorrection,
-    PortionSuggestion, ResolvedFoodEvidence, ResolvedPortionEvidence,
+    IdempotencyContext, ParseRequest, ParsedMealDocument, ParsedMealItem, ParserInvocationRecord,
+    PortionCorrection, PortionSuggestion, ResolvedFoodEvidence, ResolvedPortionEvidence,
 };
 pub use normalization::normalize_vi_search_key;
 pub use ports::{
     AnalysisRepository, AnalysisSnapshotReader, ApplicationError, FoodEvidenceProvider,
-    MealTextParser, PortionEvidenceProvider,
+    MealTextParser, ParserTelemetrySink, PortionEvidenceProvider,
 };
 pub use revise::{AnalysisRevisionService, AnswerClarification, CorrectAnalysis};

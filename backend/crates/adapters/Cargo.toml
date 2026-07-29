@@ -9,9 +9,14 @@ rust-version.workspace = true
 application.workspace = true
 async-trait.workspace = true
 domain.workspace = true
+hex.workspace = true
+jsonschema.workspace = true
+reqwest.workspace = true
 rust_decimal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 tokio.workspace = true
 
 [lints]
 workspace = true
-

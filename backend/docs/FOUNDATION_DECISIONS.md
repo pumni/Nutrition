@@ -1,7 +1,7 @@
 # Foundation decisions
 
 Status: implementation baseline  
-Behavior release: `foundation-0.5.0`
+Behavior release: `foundation-0.6.0`
 
 ## Scope
 
@@ -15,17 +15,37 @@ quantity + unit + exact curated alias
 → SHA-256 verified read/replay
 ```
 
-The fixture parser is intentionally constrained to:
+The fixture parser remains intentionally constrained to:
 
 ```text
 <quantity> <unit> <food>, <quantity> <unit> <food>
 ```
 
-It is a local/test adapter, not the production Vietnamese parser.
+It is a local/test adapter, not the production Vietnamese parser. Runtime selection is explicit:
+`PARSER_MODE=fixture|hosted`; absence or an unknown value fails startup, and hosted failure never
+falls back to the fixture.
 
 Food identity, exact-name retrieval, profile selection, nutrient evidence, catalog release
-pinning, portion lookup, and analysis persistence now use PostgreSQL. The parser remains a fixture
-adapter, and the active catalog data remains explicitly test-only.
+pinning, portion lookup, and analysis persistence use PostgreSQL. Hosted parsing is available
+behind the existing application port, while active catalog data remains explicitly test-only.
+
+## Hosted parser boundary
+
+The provider adapter accepts only an HTTPS endpoint and bounded configuration. It sends a fixed
+system instruction, the strict versioned JSON schema, locale, and untrusted meal text. It does not
+send user identity, authorization, history, nutrition data, internal IDs, or source URLs.
+
+Provider output is untrusted. The adapter applies a byte limit while streaming the response,
+strict envelope deserialization, JSON Schema validation, then semantic checks that require every
+source span and food phrase to occur in the input and reject negated consumption or duplicates.
+Schema failure and transient transport/timeout failure receive at most one retry. Semantic failure
+does not retry. Repeated failures open a provider/model circuit and all terminal failures surface
+as parser unavailable rather than fabricated analysis.
+
+Hosted invocation telemetry is best-effort so an observability outage does not alter nutrition
+behavior. PostgreSQL stores provider/model, prompt/schema versions, latency, one-bit retry count,
+optional token counts, output SHA-256, status, and a bounded error code. It has no raw request,
+response, meal text, user, or authorization column.
 
 Food resolution and portion resolution are separate application ports. Explicit grams do not
 require a portion observation. Other units require a food-specific observation in the active
@@ -100,7 +120,8 @@ No replay path may depend on unrecorded “current” configuration.
 
 ## Privacy boundary
 
-The API and telemetry do not log raw meal text. Persistence provides an encrypted raw-text field,
+The API and telemetry do not log raw meal text. Hosted telemetry stores only an output hash and
+non-content operational metadata. Persistence provides an encrypted raw-text field,
 but key management and retention are intentionally not implemented until the product/legal policy
 is approved. Item source spans remain sensitive analysis data and must follow the same deletion
 policy.
@@ -121,7 +142,8 @@ an external transport adapter remains deferred.
 
 ## Deferred
 
-- Hosted LLM provider.
+- Provider-specific hosted LLM contract mapping, legal approval, data residency, and retention.
+- Staging parser evaluation against the approved Vietnamese meal benchmark.
 - Production household/count/volume portion measurement study and policy.
 - Recipe calculation.
 - Production source adapter and curated seed release.

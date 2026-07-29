@@ -28,6 +28,7 @@ try {
 
     Write-Output "Building and smoke-testing the PostgreSQL-backed API..."
     $env:AUTH_MODE = "development"
+    $env:PARSER_MODE = "fixture"
     cargo build -p api-http
     $apiPath = (Resolve-Path ".\target\debug\api-http.exe").Path
     $apiProcess = Start-Process -FilePath $apiPath -PassThru -WindowStyle Hidden

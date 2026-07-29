@@ -3,13 +3,13 @@
 Evidence-first nutrition analysis backend based on
 [`nutrition_backend_blueprint_v1.0`](nutrition_backend_blueprint_v1.0/00_README.md).
 
-Current behavior release: `foundation-0.5.0`.
+Current behavior release: `foundation-0.6.0`.
 
 ## Implemented foundation slice
 
 ```text
 quantity + unit + food
-→ deterministic fixture parser
+→ explicit fixture parser or bounded hosted-parser anti-corruption adapter
 → exact PostgreSQL catalog lookup
 → explicit mass or release-scoped portion observation
 → direct composition profile
@@ -19,9 +19,10 @@ quantity + unit + food
 → one-turn clarification or append-only correction revision
 ```
 
-This deterministic slice proves domain boundaries, calculation semantics, behavior versioning,
+This slice proves domain boundaries, calculation semantics, behavior versioning,
 unknown-food rejection, PostgreSQL transaction boundaries, immutable revision history,
-clarification/correction state transitions, and idempotent create/correction replay.
+clarification/correction state transitions, idempotent create/correction replay, and a fail-closed
+hosted parsing boundary.
 
 ## Prerequisites
 
@@ -62,12 +63,30 @@ evidence.
 $env:APP_BIND_ADDR = "127.0.0.1:8080"
 $env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
 $env:AUTH_MODE = "development"
+$env:PARSER_MODE = "fixture"
 $env:RUST_LOG = "info"
 cargo run -p api-http
 ```
 
 `AUTH_MODE=development` accepts only `Authorization: Bearer dev:<uuid>` and exists for local/CI
 contract testing. Any other auth mode fails startup until a production OIDC adapter is provided.
+`PARSER_MODE` is also required: `fixture` is local/CI only, while `hosted` requires an approved
+provider configuration and never silently falls back to fixture behavior.
+
+Hosted mode uses a provider-neutral HTTPS envelope:
+
+```powershell
+$env:PARSER_MODE = "hosted"
+$env:LLM_ENDPOINT = "https://approved-provider.example/v1/meal-parse"
+$env:LLM_API_KEY = "<secret>"
+$env:LLM_PROVIDER = "<provider-version>"
+$env:LLM_MODEL = "<model-version>"
+```
+
+Optional bounded settings are `LLM_TIMEOUT_MS` (default 3000),
+`LLM_MAXIMUM_RESPONSE_BYTES` (65536), `LLM_CIRCUIT_FAILURE_THRESHOLD` (5), and
+`LLM_CIRCUIT_COOLDOWN_SECONDS` (30). See
+[`docs/HOSTED_PARSER.md`](docs/HOSTED_PARSER.md) for the transport contract and privacy boundary.
 
 Health and readiness:
 
@@ -110,9 +129,10 @@ The read path verifies the persisted snapshot SHA-256 before deserialization.
 
 ## PostgreSQL
 
-The ten migrations create seven logical schemas, the minimal walking-skeleton tables, search
+The eleven migrations create seven logical schemas, the minimal walking-skeleton tables, search
 indexes, behavior version fields, snapshot persistence, scoped idempotency, release membership,
-workflow state enforcement, worker leases, audit storage, ownership, and immutability guards.
+workflow state enforcement, worker leases, audit storage, ownership, parser invocation telemetry,
+and immutability guards.
 
 Apply migrations locally:
 
@@ -134,7 +154,8 @@ Run the full PostgreSQL integration, API smoke, replay, and immutability suite:
 
 - `domain`: IDs, units, evidence semantics, pure deterministic calculator.
 - `application`: use cases and ports.
-- `adapters`: deterministic fixture parser and in-memory test doubles.
+- `adapters`: deterministic fixture parser, bounded hosted-parser adapter, and in-memory test
+  doubles.
 - `persistence-postgres`: migrations, exact catalog lookup, contextual portion lookup,
   transactional analysis repository, snapshot reader, and explicit test-only seed.
 - `api-http`: Axum HTTP process.

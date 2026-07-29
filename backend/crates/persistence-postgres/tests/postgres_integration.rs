@@ -3,13 +3,13 @@ use application::{
     AnalysisMode, AnalysisOutcome, AnalysisRequest, AnalysisRevisionService, AnalysisSnapshot,
     AnalysisSnapshotReader, AnalyzeMeal, AnswerClarification, ApplicationError, BehaviorVersions,
     ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, MealAnalysisService,
-    PortionCorrection,
+    ParserInvocationRecord, ParserTelemetrySink, PortionCorrection,
 };
 use domain::{NutrientCode, UserId};
 use persistence_postgres::{
-    PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresPortionEvidenceProvider,
-    active_catalog_release_id, claim_jobs, complete_job, connect, deliver_outbox_batch, fail_job,
-    migrate, seed_foundation_fixture,
+    PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresParserTelemetrySink,
+    PostgresPortionEvidenceProvider, active_catalog_release_id, claim_jobs, complete_job, connect,
+    deliver_outbox_batch, fail_job, migrate, seed_foundation_fixture,
 };
 use rust_decimal::Decimal;
 use std::{env, str::FromStr};
@@ -28,7 +28,6 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     seed_foundation_fixture(&pool)
         .await
         .expect("foundation seed must apply idempotently");
-
     let versions = BehaviorVersions {
         catalog_release_id: active_catalog_release_id(&pool)
             .await
@@ -123,6 +122,61 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     assert_unknown_food_is_not_persisted(&service, &pool).await;
     assert_clarification_revision_flow(&service, &revision_service, &repository).await;
     assert_correction_revision_flow(&revision_service, &repository, &snapshot).await;
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn parser_telemetry_persists_only_non_raw_metadata() {
+    let database_url =
+        env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
+    let pool = connect(&database_url, 2)
+        .await
+        .expect("integration database must connect");
+    migrate(&pool)
+        .await
+        .expect("integration migrations must apply");
+    assert_parser_telemetry_is_non_raw(&pool).await;
+}
+
+async fn assert_parser_telemetry_is_non_raw(pool: &sqlx::PgPool) {
+    PostgresParserTelemetrySink::new(pool.clone())
+        .record(ParserInvocationRecord {
+            provider: "integration-provider".to_owned(),
+            model: "integration-model".to_owned(),
+            prompt_version: "hosted-parser-0.1.0".to_owned(),
+            schema_version: "parsed-meal-0.1.0".to_owned(),
+            latency_ms: 42,
+            retry_count: 1,
+            input_tokens: Some(10),
+            output_tokens: Some(20),
+            output_sha256: Some("a".repeat(64)),
+            status: "succeeded".to_owned(),
+            error_code: None,
+        })
+        .await
+        .expect("non-raw parser telemetry must persist");
+    let persisted: (i64, i32, Option<i64>, Option<i64>, String) = sqlx::query_as(
+        "SELECT latency_ms, retry_count, input_tokens, output_tokens, output_sha256
+           FROM ops.parser_invocation
+          WHERE provider = 'integration-provider'
+          ORDER BY created_at DESC
+          LIMIT 1",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("parser telemetry must be readable");
+    assert_eq!(persisted, (42, 1, Some(10), Some(20), "a".repeat(64)));
+    let sensitive_columns: i64 = sqlx::query_scalar(
+        "SELECT count(*)
+           FROM information_schema.columns
+          WHERE table_schema = 'ops'
+            AND table_name = 'parser_invocation'
+            AND column_name IN ('meal_text', 'raw_text', 'request', 'response', 'payload')",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("telemetry schema inspection must succeed");
+    assert_eq!(sensitive_columns, 0);
 }
 
 #[tokio::test]

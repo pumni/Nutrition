@@ -1,4 +1,7 @@
-use adapters::FixtureParser;
+use adapters::{
+    ConfiguredMealParser, FixtureParser, HOSTED_PROMPT_VERSION, HostedMealParser,
+    HostedParserConfig, PARSER_SCHEMA_VERSION,
+};
 use application::{
     AnalysisRequest, AnalysisRevisionService, AnalysisSnapshot, AnalysisSnapshotReader,
     AnalyzeMeal, AnswerClarification, ApplicationError, BehaviorVersions,
@@ -14,12 +17,12 @@ use axum::{
 };
 use domain::{AnalysisId, NutrientCode, UserId};
 use persistence_postgres::{
-    PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresPortionEvidenceProvider,
-    active_catalog_release_id,
+    PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresParserTelemetrySink,
+    PostgresPortionEvidenceProvider, active_catalog_release_id,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::{env, net::SocketAddr, sync::Arc};
+use std::{env, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
@@ -108,8 +111,13 @@ async fn main() {
     let catalog_release_id = active_catalog_release_id(&pool)
         .await
         .expect("an active catalog release is required");
+    let (parser, prompt_version, model_provider_version) =
+        configured_parser(&pool).expect("parser configuration is invalid");
     let versions = BehaviorVersions {
         catalog_release_id,
+        parser_schema_version: PARSER_SCHEMA_VERSION.to_owned(),
+        prompt_version,
+        model_provider_version,
         ..BehaviorVersions::default()
     };
     let repository = PostgresAnalysisRepository::new(pool.clone());
@@ -117,7 +125,7 @@ async fn main() {
     let portion_evidence = PostgresPortionEvidenceProvider::new(pool.clone());
 
     let analyzer = MealAnalysisService::new(
-        FixtureParser,
+        parser,
         food_evidence.clone(),
         portion_evidence.clone(),
         repository.clone(),
@@ -397,6 +405,63 @@ fn required_nutrients() -> Vec<NutrientCode> {
         .into_iter()
         .map(|code| NutrientCode::new(code).expect("built-in nutrient code must be valid"))
         .collect()
+}
+
+fn configured_parser(
+    pool: &sqlx::PgPool,
+) -> Result<(ConfiguredMealParser, String, String), String> {
+    match env::var("PARSER_MODE")
+        .map_err(|_| "PARSER_MODE is required".to_owned())?
+        .as_str()
+    {
+        "fixture" => Ok((
+            ConfiguredMealParser::Fixture(FixtureParser),
+            "fixture-parser-0.2.0".to_owned(),
+            "fixture/local".to_owned(),
+        )),
+        "hosted" => {
+            let provider =
+                env::var("LLM_PROVIDER").map_err(|_| "LLM_PROVIDER is required".to_owned())?;
+            let model = env::var("LLM_MODEL").map_err(|_| "LLM_MODEL is required".to_owned())?;
+            let config = HostedParserConfig {
+                endpoint: env::var("LLM_ENDPOINT")
+                    .map_err(|_| "LLM_ENDPOINT is required".to_owned())?,
+                api_key: env::var("LLM_API_KEY")
+                    .map_err(|_| "LLM_API_KEY is required".to_owned())?,
+                provider: provider.clone(),
+                model: model.clone(),
+                timeout: Duration::from_millis(environment_number("LLM_TIMEOUT_MS", 3_000)?),
+                maximum_response_bytes: environment_number("LLM_MAXIMUM_RESPONSE_BYTES", 65_536)?,
+                circuit_failure_threshold: environment_number("LLM_CIRCUIT_FAILURE_THRESHOLD", 5)?,
+                circuit_cooldown: Duration::from_secs(environment_number(
+                    "LLM_CIRCUIT_COOLDOWN_SECONDS",
+                    30,
+                )?),
+            };
+            let parser = HostedMealParser::with_reqwest(config)
+                .map_err(|error| error.to_string())?
+                .with_telemetry(Arc::new(PostgresParserTelemetrySink::new(pool.clone())));
+            Ok((
+                ConfiguredMealParser::Hosted(Box::new(parser)),
+                HOSTED_PROMPT_VERSION.to_owned(),
+                format!("{provider}/{model}"),
+            ))
+        }
+        _ => Err("PARSER_MODE must be fixture or hosted".to_owned()),
+    }
+}
+
+fn environment_number<T>(name: &str, default: T) -> Result<T, String>
+where
+    T: FromStr + Copy,
+{
+    match env::var(name) {
+        Ok(value) => value
+            .parse()
+            .map_err(|_| format!("{name} must be a valid number")),
+        Err(env::VarError::NotPresent) => Ok(default),
+        Err(env::VarError::NotUnicode(_)) => Err(format!("{name} must be valid Unicode")),
+    }
 }
 
 fn initialize_tracing() {
