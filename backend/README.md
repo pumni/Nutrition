@@ -3,7 +3,7 @@
 Evidence-first nutrition analysis backend based on
 [`nutrition_backend_blueprint_v1.0`](nutrition_backend_blueprint_v1.0/00_README.md).
 
-Current behavior release: `foundation-0.4.0`.
+Current behavior release: `foundation-0.5.0`.
 
 ## Implemented foundation slice
 
@@ -61,9 +61,13 @@ evidence.
 ```powershell
 $env:APP_BIND_ADDR = "127.0.0.1:8080"
 $env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
+$env:AUTH_MODE = "development"
 $env:RUST_LOG = "info"
 cargo run -p api-http
 ```
+
+`AUTH_MODE=development` accepts only `Authorization: Bearer dev:<uuid>` and exists for local/CI
+contract testing. Any other auth mode fails startup until a production OIDC adapter is provided.
 
 Health and readiness:
 
@@ -76,6 +80,7 @@ Foundation analysis request:
 
 ```http
 POST /v1/nutrition/analyses
+Authorization: Bearer dev:0198f100-0000-7000-8000-000000000098
 Idempotency-Key: <opaque-key>
 Content-Type: application/json
 
@@ -105,9 +110,9 @@ The read path verifies the persisted snapshot SHA-256 before deserialization.
 
 ## PostgreSQL
 
-The nine migrations create seven logical schemas, the minimal walking-skeleton tables, search
+The ten migrations create seven logical schemas, the minimal walking-skeleton tables, search
 indexes, behavior version fields, snapshot persistence, scoped idempotency, release membership,
-workflow state enforcement, and immutability guards.
+workflow state enforcement, worker leases, audit storage, ownership, and immutability guards.
 
 Apply migrations locally:
 
@@ -134,6 +139,10 @@ Run the full PostgreSQL integration, API smoke, replay, and immutability suite:
   transactional analysis repository, snapshot reader, and explicit test-only seed.
 - `api-http`: Axum HTTP process.
 - `worker`: PostgreSQL-backed worker process foundation.
+
+Worker modes are `idle`, `run-once`, and `loop`. `run-once` is used in verification; `loop` adds
+bounded polling and graceful shutdown. The current outbox target is an explicit foundation test
+sink, not an external broker.
 
 See [`docs/FOUNDATION_DECISIONS.md`](docs/FOUNDATION_DECISIONS.md) for decisions and deferred scope.
 The initial governance artifacts are

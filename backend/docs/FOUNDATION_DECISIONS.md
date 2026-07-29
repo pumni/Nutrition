@@ -1,7 +1,7 @@
 # Foundation decisions
 
 Status: implementation baseline  
-Behavior release: `foundation-0.4.0`
+Behavior release: `foundation-0.5.0`
 
 ## Scope
 
@@ -105,11 +105,25 @@ but key management and retention are intentionally not implemented until the pro
 is approved. Item source spans remain sensitive analysis data and must follow the same deletion
 policy.
 
+API analysis routes require an authenticated development principal and enforce PostgreSQL ownership
+before read, clarification, correction, or history access. The development bearer format is not a
+production authentication mechanism; non-development startup is intentionally blocked until an
+OIDC adapter is configured. Request bodies are capped at 16 KiB, and verification scans logging
+macros for meal text, authorization, raw text, and database URL usage.
+
+## Worker reliability boundary
+
+Jobs are claimed with `FOR UPDATE SKIP LOCKED`, increment attempts at claim, and move through
+bounded retry or `dead`. Running jobs require a lease owner and timestamp. The worker supports
+typed `idle`, `run-once`, and continuous loop modes with bounded batches and graceful shutdown.
+Outbox run-once delivery currently targets a database-local test sink by setting `published_at`;
+an external transport adapter remains deferred.
+
 ## Deferred
 
 - Hosted LLM provider.
 - Production household/count/volume portion measurement study and policy.
 - Recipe calculation.
 - Production source adapter and curated seed release.
-- Authentication provider and curation UI.
+- Production OIDC provider and curation UI.
 - Redis, message broker, vector search, graph database, and Kubernetes.

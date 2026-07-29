@@ -27,6 +27,10 @@ pub enum ApplicationError {
     StaleClarification,
     #[error("idempotency key was reused with a different request")]
     IdempotencyConflict,
+    #[error("authentication is required")]
+    Unauthorized,
+    #[error("the authenticated principal cannot access this analysis")]
+    Forbidden,
 }
 
 #[async_trait]

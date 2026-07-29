@@ -8,7 +8,7 @@ pub use calculation::{
 };
 pub use ids::{
     AnalysisId, AnalysisItemId, AnalysisRevisionId, CatalogReleaseId, ClarificationQuestionId,
-    CompositionProfileId, FoodId, NutrientId, PortionObservationId, RecipeVersionId,
+    CompositionProfileId, FoodId, NutrientId, PortionObservationId, RecipeVersionId, UserId,
 };
 pub use nutrition::{
     CompositionSnapshot, CompositionValue, EvidenceQuality, MassEstimate, MassResolutionMethod,

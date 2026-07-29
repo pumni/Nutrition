@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "adapters"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "application",
  "async-trait",
@@ -41,7 +41,7 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "api-http"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "adapters",
  "application",
@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "application"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "domain",
@@ -382,7 +382,7 @@ dependencies = [
 
 [[package]]
 name = "domain"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "rust_decimal",
  "serde",
@@ -1085,7 +1085,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "persistence-postgres"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "adapters",
  "application",
@@ -2458,7 +2458,7 @@ dependencies = [
 
 [[package]]
 name = "worker"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "persistence-postgres",
  "sqlx",

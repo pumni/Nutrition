@@ -5,10 +5,11 @@ use application::{
     ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, MealAnalysisService,
     PortionCorrection,
 };
-use domain::NutrientCode;
+use domain::{NutrientCode, UserId};
 use persistence_postgres::{
     PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresPortionEvidenceProvider,
-    active_catalog_release_id, connect, migrate, seed_foundation_fixture,
+    active_catalog_release_id, claim_jobs, complete_job, connect, deliver_outbox_batch, fail_job,
+    migrate, seed_foundation_fixture,
 };
 use rust_decimal::Decimal;
 use std::{env, str::FromStr};
@@ -59,6 +60,7 @@ async fn contextual_analysis_is_persisted_and_replayed() {
             locale: "vi-VN".to_owned(),
             mode: AnalysisMode::Balanced,
             idempotency: None,
+            owner_id: Some(UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0098)),
         })
         .await
         .expect("PostgreSQL-backed analysis must complete");
@@ -99,10 +101,81 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     .await
     .expect("resolution status query must succeed");
     assert_eq!(assumed_item_count, 2);
+    assert!(
+        repository
+            .authorize_analysis(
+                snapshot.analysis_id,
+                UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0098)
+            )
+            .await
+            .expect("owner authorization query must succeed")
+    );
+    assert!(
+        !repository
+            .authorize_analysis(
+                snapshot.analysis_id,
+                UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0097)
+            )
+            .await
+            .expect("foreign authorization query must succeed")
+    );
 
     assert_unknown_food_is_not_persisted(&service, &pool).await;
     assert_clarification_revision_flow(&service, &revision_service, &repository).await;
     assert_correction_revision_flow(&revision_service, &repository, &snapshot).await;
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn worker_claim_retry_and_outbox_delivery_are_bounded() {
+    let database_url =
+        env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
+    let pool = connect(&database_url, 4)
+        .await
+        .expect("integration database must connect");
+    migrate(&pool)
+        .await
+        .expect("integration migrations must apply");
+    let noop_id = uuid::Uuid::now_v7();
+    let failing_id = uuid::Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO ops.job (id, job_type, payload, status, max_attempts)
+         VALUES ($1, 'foundation_noop', '{}', 'queued', 3),
+                ($2, 'unsupported_fixture', '{}', 'queued', 1)",
+    )
+    .bind(noop_id)
+    .bind(failing_id)
+    .execute(&pool)
+    .await
+    .expect("fixture jobs must insert");
+    let claimed = claim_jobs(&pool, "integration-worker", 10)
+        .await
+        .expect("jobs must claim");
+    let noop = claimed
+        .iter()
+        .find(|job| job.id == noop_id)
+        .expect("noop job must be claimed");
+    complete_job(&pool, noop.id)
+        .await
+        .expect("noop job must complete");
+    let failing = claimed
+        .iter()
+        .find(|job| job.id == failing_id)
+        .expect("failing job must be claimed");
+    fail_job(&pool, failing, "fixture_failure")
+        .await
+        .expect("failing job must transition");
+    let failing_status: String = sqlx::query_scalar("SELECT status FROM ops.job WHERE id = $1")
+        .bind(failing_id)
+        .fetch_one(&pool)
+        .await
+        .expect("job status query must succeed");
+    assert_eq!(failing_status, "dead");
+
+    let delivered = deliver_outbox_batch(&pool, "integration-worker", 100)
+        .await
+        .expect("outbox batch must deliver");
+    assert!(delivered > 0);
 }
 
 fn assert_contextual_snapshot(expected: &AnalysisSnapshot, actual: &AnalysisSnapshot) {
@@ -151,6 +224,7 @@ async fn assert_unknown_food_is_not_persisted(
             locale: "vi-VN".to_owned(),
             mode: AnalysisMode::Balanced,
             idempotency: None,
+            owner_id: None,
         })
         .await
         .expect_err("unknown food must not be persisted");
@@ -173,6 +247,7 @@ async fn assert_clarification_revision_flow(
             locale: "vi-VN".to_owned(),
             mode: AnalysisMode::Balanced,
             idempotency: None,
+            owner_id: None,
         })
         .await
         .expect("unsupported known portion should request clarification");

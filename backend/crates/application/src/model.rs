@@ -1,7 +1,7 @@
 use domain::{
     AnalysisId, AnalysisRevisionId, CalculationResult, CatalogReleaseId, ClarificationQuestionId,
     CompositionProfileId, CompositionSnapshot, EvidenceQuality, FoodId, MassEstimate,
-    MassResolutionMethod, NutrientCode, PortionObservationId,
+    MassResolutionMethod, NutrientCode, PortionObservationId, UserId,
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -23,6 +23,8 @@ pub struct AnalysisRequest {
     pub mode: AnalysisMode,
     #[serde(skip)]
     pub idempotency: Option<IdempotencyContext>,
+    #[serde(skip)]
+    pub owner_id: Option<UserId>,
 }
 
 #[derive(Clone, Debug)]
@@ -140,6 +142,8 @@ pub struct AnalysisSnapshot {
     pub is_estimate: bool,
     #[serde(skip)]
     pub idempotency: Option<IdempotencyContext>,
+    #[serde(skip)]
+    pub owner_id: Option<UserId>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -176,6 +180,8 @@ pub struct ClarificationAnalysis {
     pub context: ClarificationContext,
     #[serde(skip)]
     pub idempotency: Option<IdempotencyContext>,
+    #[serde(skip)]
+    pub owner_id: Option<UserId>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

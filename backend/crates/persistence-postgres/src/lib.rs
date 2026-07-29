@@ -1,10 +1,12 @@
 mod analysis_repository;
 mod catalog_repository;
+mod ops_repository;
 mod portion_repository;
 mod seed;
 
 pub use analysis_repository::PostgresAnalysisRepository;
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
+pub use ops_repository::{ClaimedJob, claim_jobs, complete_job, deliver_outbox_batch, fail_job};
 pub use portion_repository::PostgresPortionEvidenceProvider;
 pub use seed::seed_foundation_fixture;
 

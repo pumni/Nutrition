@@ -23,6 +23,21 @@ Get-Content -Raw -LiteralPath ".\fixtures\vietnamese-meal-bench\foundation-cases
     ConvertFrom-Json |
     Out-Null
 
+Write-Output "Checking prohibited sensitive logging patterns..."
+$previousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+$PSNativeCommandUseErrorActionPreference = $false
+$sensitiveLogMatches = rg --line-number `
+    '(info|warn|error|debug|trace)!\([^)]*(request\.text|raw_text|authorization|database_url)' `
+    crates
+$sensitiveLogExitCode = $LASTEXITCODE
+$PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
+if ($sensitiveLogExitCode -eq 0) {
+    throw "Potential sensitive value found in a logging macro: $sensitiveLogMatches"
+}
+if ($sensitiveLogExitCode -gt 1) {
+    throw "Sensitive logging scan failed"
+}
+
 Write-Output "Validating Docker Compose configuration..."
 docker compose -f deploy/compose.yaml config --quiet
 

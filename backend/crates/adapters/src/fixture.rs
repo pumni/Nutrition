@@ -334,6 +334,7 @@ mod tests {
                 locale: "vi-VN".to_owned(),
                 mode: AnalysisMode::Balanced,
                 idempotency: None,
+                owner_id: None,
             })
             .await
             .expect("direct slice should complete");
@@ -372,6 +373,7 @@ mod tests {
                 locale: "vi-VN".to_owned(),
                 mode: AnalysisMode::Balanced,
                 idempotency: None,
+                owner_id: None,
             })
             .await
             .expect_err("unknown food must not resolve");
@@ -395,6 +397,7 @@ mod tests {
                 locale: "vi-VN".to_owned(),
                 mode: AnalysisMode::Balanced,
                 idempotency: None,
+                owner_id: None,
             })
             .await
             .expect("contextual portions should resolve");
@@ -428,6 +431,7 @@ mod tests {
                 locale: "vi-VN".to_owned(),
                 mode: AnalysisMode::Balanced,
                 idempotency: None,
+                owner_id: None,
             })
             .await
             .expect("known food with unsupported portion should ask");

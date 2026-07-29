@@ -18,7 +18,16 @@ try {
     Write-Output "Running PostgreSQL integration tests..."
     cargo test -p persistence-postgres --test postgres_integration -- --ignored
 
+    Write-Output "Running one bounded worker batch..."
+    $env:RUN_MIGRATIONS = "false"
+    $env:RUN_FOUNDATION_SEED = "false"
+    $env:WORKER_MODE = "run-once"
+    $env:WORKER_ID = "verification-worker"
+    cargo run -p worker
+    Remove-Item Env:\WORKER_MODE
+
     Write-Output "Building and smoke-testing the PostgreSQL-backed API..."
+    $env:AUTH_MODE = "development"
     cargo build -p api-http
     $apiPath = (Resolve-Path ".\target\debug\api-http.exe").Path
     $apiProcess = Start-Process -FilePath $apiPath -PassThru -WindowStyle Hidden
@@ -45,6 +54,16 @@ try {
         $verificationRunId = [guid]::NewGuid().ToString("N")
         $createKey = "foundation-create-04-$verificationRunId"
         $correctionKey = "foundation-correction-04-$verificationRunId"
+        $authorization = "Bearer dev:0198f100-0000-7000-8000-000000000098"
+        $createHeaders = @{
+            Authorization = $authorization
+            "Idempotency-Key" = $createKey
+        }
+        $correctionHeaders = @{
+            Authorization = $authorization
+            "Idempotency-Key" = $correctionKey
+        }
+        $authHeaders = @{Authorization = $authorization}
         $requestBody = @{
             text = "2 quả trứng gà luộc, 1 bát cơm trắng"
             locale = "vi-VN"
@@ -53,19 +72,20 @@ try {
         $created = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
-            -Headers @{"Idempotency-Key" = $createKey} `
+            -Headers $createHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($requestBody)) `
             -TimeoutSec 5
         $idempotentCreateReplay = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
-            -Headers @{"Idempotency-Key" = $createKey} `
+            -Headers $createHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($requestBody)) `
             -TimeoutSec 5
         $replayed = Invoke-RestMethod `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)" `
+            -Headers $authHeaders `
             -TimeoutSec 5
 
         if (
@@ -81,6 +101,18 @@ try {
         ) {
             throw "HTTP create/read replay contract failed"
         }
+        $unauthorizedRead = Invoke-WebRequest `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)" `
+            -SkipHttpErrorCheck `
+            -TimeoutSec 5
+        $foreignRead = Invoke-WebRequest `
+            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)" `
+            -Headers @{Authorization = "Bearer dev:0198f100-0000-7000-8000-000000000097"} `
+            -SkipHttpErrorCheck `
+            -TimeoutSec 5
+        if ($unauthorizedRead.StatusCode -ne 401 -or $foreignRead.StatusCode -ne 403) {
+            throw "HTTP authentication/ownership contract failed"
+        }
 
         $conflictingBody = @{
             text = "100 g trứng gà luộc"
@@ -90,7 +122,7 @@ try {
         $idempotencyConflict = Invoke-WebRequest `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
-            -Headers @{"Idempotency-Key" = $createKey} `
+            -Headers $createHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($conflictingBody)) `
             -SkipHttpErrorCheck `
@@ -107,6 +139,7 @@ try {
         $clarification = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
+            -Headers $authHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($clarificationBody)) `
             -TimeoutSec 5
@@ -119,6 +152,7 @@ try {
         $answered = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($clarification.analysis_id)/clarifications" `
+            -Headers $authHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($answerBody)) `
             -TimeoutSec 5
@@ -144,19 +178,20 @@ try {
         $corrected = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)/corrections" `
-            -Headers @{"Idempotency-Key" = $correctionKey} `
+            -Headers $correctionHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($correctionBody)) `
             -TimeoutSec 5
         $correctionReplay = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)/corrections" `
-            -Headers @{"Idempotency-Key" = $correctionKey} `
+            -Headers $correctionHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($correctionBody)) `
             -TimeoutSec 5
         $originalRevision = Invoke-RestMethod `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)/revisions/1" `
+            -Headers $authHeaders `
             -TimeoutSec 5
         if (
             $corrected.revision_number -ne 2 -or

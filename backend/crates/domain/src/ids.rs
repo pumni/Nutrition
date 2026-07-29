@@ -64,3 +64,4 @@ uuid_id!(FoodId);
 uuid_id!(NutrientId);
 uuid_id!(PortionObservationId);
 uuid_id!(RecipeVersionId);
+uuid_id!(UserId);

@@ -349,6 +349,8 @@ DECLARE
     transition_blocked boolean := false;
     answer_blocked boolean := false;
     correction_blocked boolean := false;
+    owner_blocked boolean := false;
+    invalid_lease_blocked boolean := false;
 BEGIN
     BEGIN
         UPDATE analysis.meal_analysis
@@ -374,7 +376,31 @@ BEGIN
         correction_blocked := true;
     END;
 
-    IF NOT transition_blocked OR NOT answer_blocked OR NOT correction_blocked THEN
+    BEGIN
+        UPDATE analysis.meal_analysis
+           SET user_id = '0198f000-0000-7000-8000-000000000013'
+         WHERE id = '0198f000-0000-7000-8000-000000000006';
+    EXCEPTION WHEN raise_exception THEN
+        owner_blocked := true;
+    END;
+
+    BEGIN
+        INSERT INTO ops.job (id, job_type, payload, status)
+        VALUES (
+            '0198f000-0000-7000-8000-000000000014',
+            'invalid_running_job',
+            '{}',
+            'running'
+        );
+    EXCEPTION WHEN check_violation THEN
+        invalid_lease_blocked := true;
+    END;
+
+    IF NOT transition_blocked
+       OR NOT answer_blocked
+       OR NOT correction_blocked
+       OR NOT owner_blocked
+       OR NOT invalid_lease_blocked THEN
         RAISE EXCEPTION 'workflow transition or append-only guards were not enforced';
     END IF;
 END;

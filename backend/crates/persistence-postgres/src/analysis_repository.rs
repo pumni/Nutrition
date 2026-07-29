@@ -5,7 +5,7 @@ use application::{
 use async_trait::async_trait;
 use domain::{
     AnalysisId, AnalysisItemId, AnalysisRevisionId, EvidenceQuality, MassResolutionMethod,
-    NutrientCode, NutrientUnit, ValueStatus,
+    NutrientCode, NutrientUnit, UserId, ValueStatus,
 };
 use hex::encode;
 use serde_json::{Value, json};
@@ -63,6 +63,29 @@ impl PostgresAnalysisRepository {
             return Err(ApplicationError::IdempotencyConflict);
         }
         verified_snapshot_value(&row).map(Some)
+    }
+
+    /// Checks whether an authenticated user owns an analysis.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Persistence` when `PostgreSQL` cannot perform the ownership query.
+    pub async fn authorize_analysis(
+        &self,
+        analysis_id: AnalysisId,
+        user_id: UserId,
+    ) -> Result<bool, ApplicationError> {
+        sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (
+                SELECT 1 FROM analysis.meal_analysis
+                WHERE id = $1 AND user_id = $2
+            )",
+        )
+        .bind(analysis_id.as_uuid())
+        .bind(user_id.as_uuid())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|_| ApplicationError::Persistence)
     }
 }
 
@@ -214,10 +237,11 @@ async fn persist_clarification(
         .await
         .map_err(|_| ApplicationError::Persistence)?;
     sqlx::query(
-        "INSERT INTO analysis.meal_analysis (id, locale, idempotency_key, status)
-         VALUES ($1, $2, $3, 'resolving')",
+        "INSERT INTO analysis.meal_analysis (id, user_id, locale, idempotency_key, status)
+         VALUES ($1, $2, $3, $4, 'resolving')",
     )
     .bind(clarification.analysis_id.as_uuid())
+    .bind(clarification.owner_id.map(UserId::as_uuid))
     .bind(&clarification.locale)
     .bind(
         clarification
@@ -512,11 +536,12 @@ async fn insert_analysis(
     sqlx::query(
         r"
         INSERT INTO analysis.meal_analysis (
-            id, locale, idempotency_key, status
-        ) VALUES ($1, $2, $3, 'resolving')
+            id, user_id, locale, idempotency_key, status
+        ) VALUES ($1, $2, $3, $4, 'resolving')
         ",
     )
     .bind(snapshot.analysis_id.as_uuid())
+    .bind(snapshot.owner_id.map(UserId::as_uuid))
     .bind(&snapshot.locale)
     .bind(
         snapshot

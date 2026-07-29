@@ -7,12 +7,12 @@ use application::{
 };
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use domain::{AnalysisId, NutrientCode};
+use domain::{AnalysisId, NutrientCode, UserId};
 use persistence_postgres::{
     PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresPortionEvidenceProvider,
     active_catalog_release_id,
@@ -73,6 +73,8 @@ impl IntoResponse for ApiError {
             ApplicationError::RevisionConflict => (StatusCode::CONFLICT, "revision_conflict"),
             ApplicationError::StaleClarification => (StatusCode::CONFLICT, "stale_clarification"),
             ApplicationError::IdempotencyConflict => (StatusCode::CONFLICT, "idempotency_conflict"),
+            ApplicationError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
+            ApplicationError::Forbidden => (StatusCode::FORBIDDEN, "forbidden"),
         };
         (
             status,
@@ -90,6 +92,11 @@ impl IntoResponse for ApiError {
 #[tokio::main]
 async fn main() {
     initialize_tracing();
+    let auth_mode = env::var("AUTH_MODE").expect("AUTH_MODE is required");
+    assert!(
+        auth_mode == "development",
+        "only AUTH_MODE=development is available; production requires an OIDC adapter"
+    );
     let bind_addr = env::var("APP_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_owned());
     let address: SocketAddr = bind_addr
         .parse()
@@ -151,6 +158,7 @@ async fn main() {
             get(find_revision),
         )
         .with_state(state)
+        .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
         .layer(TraceLayer::new_for_http())
         .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid));
@@ -201,19 +209,21 @@ async fn analyze(
     headers: HeaderMap,
     Json(mut request): Json<AnalysisRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let scope = "anonymous:create";
+    let principal = authenticate(&headers)?;
+    request.owner_id = Some(principal);
+    let scope = format!("user:{principal}:create");
     if let Some(key) = idempotency_key(&headers)? {
         let request_hash = json_hash(&request)?;
         if let Some(response) = state
             .repository
-            .find_idempotent_response(scope, &key, &request_hash)
+            .find_idempotent_response(&scope, &key, &request_hash)
             .await
             .map_err(ApiError)?
         {
             return Ok(Json(response));
         }
         request.idempotency = Some(IdempotencyContext {
-            scope_key: scope.to_owned(),
+            scope_key: scope,
             key,
             request_hash,
         });
@@ -230,9 +240,11 @@ async fn analyze(
 async fn answer_clarification(
     State(state): State<AppState>,
     Path(analysis_id): Path<String>,
+    headers: HeaderMap,
     Json(request): Json<ClarificationAnswerRequest>,
 ) -> Result<Json<AnalysisSnapshot>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
+    authorize(&state, analysis_id, authenticate(&headers)?).await?;
     state
         .clarification
         .answer(analysis_id, request)
@@ -248,7 +260,9 @@ async fn correct_analysis(
     Json(mut request): Json<CorrectionRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
-    let scope = format!("anonymous:correction:{analysis_id}");
+    let principal = authenticate(&headers)?;
+    authorize(&state, analysis_id, principal).await?;
+    let scope = format!("user:{principal}:correction:{analysis_id}");
     if let Some(key) = idempotency_key(&headers)? {
         let request_hash = json_hash(&request)?;
         if let Some(response) = state
@@ -277,8 +291,10 @@ async fn correct_analysis(
 async fn find_analysis(
     State(state): State<AppState>,
     Path(analysis_id): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<AnalysisSnapshot>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
+    authorize(&state, analysis_id, authenticate(&headers)?).await?;
     state
         .reader
         .find(analysis_id)
@@ -291,8 +307,10 @@ async fn find_analysis(
 async fn find_revision(
     State(state): State<AppState>,
     Path((analysis_id, revision_number)): Path<(String, u32)>,
+    headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
+    authorize(&state, analysis_id, authenticate(&headers)?).await?;
     state
         .reader
         .find_revision(analysis_id, revision_number)
@@ -308,6 +326,37 @@ fn parse_analysis_id(value: &str) -> Result<AnalysisId, ApiError> {
             "invalid analysis ID".to_owned(),
         ))
     })
+}
+
+fn authenticate(headers: &HeaderMap) -> Result<UserId, ApiError> {
+    let value = headers
+        .get("authorization")
+        .ok_or(ApiError(ApplicationError::Unauthorized))?
+        .to_str()
+        .map_err(|_| ApiError(ApplicationError::Unauthorized))?;
+    let user_id = value
+        .strip_prefix("Bearer dev:")
+        .ok_or(ApiError(ApplicationError::Unauthorized))?;
+    user_id
+        .parse::<UserId>()
+        .map_err(|_| ApiError(ApplicationError::Unauthorized))
+}
+
+async fn authorize(
+    state: &AppState,
+    analysis_id: AnalysisId,
+    user_id: UserId,
+) -> Result<(), ApiError> {
+    if state
+        .repository
+        .authorize_analysis(analysis_id, user_id)
+        .await
+        .map_err(ApiError)?
+    {
+        Ok(())
+    } else {
+        Err(ApiError(ApplicationError::Forbidden))
+    }
 }
 
 fn idempotency_key(headers: &HeaderMap) -> Result<Option<String>, ApiError> {

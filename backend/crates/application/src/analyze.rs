@@ -152,6 +152,7 @@ where
             calculation,
             is_estimate: true,
             idempotency: request.idempotency,
+            owner_id: request.owner_id,
         };
         self.repository.save(&snapshot).await?;
         Ok(AnalysisOutcome::Completed(snapshot))
@@ -193,6 +194,7 @@ fn build_portion_clarification(
             food_name,
         },
         idempotency: request.idempotency.clone(),
+        owner_id: request.owner_id,
     }
 }
 
