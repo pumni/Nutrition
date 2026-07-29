@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: nutrition
+      POSTGRES_USER: nutrition
+      POSTGRES_PASSWORD: nutrition
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nutrition -d nutrition"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - nutrition-postgres-data:/var/lib/postgresql
+      - ../migrations:/migrations:ro
+
+volumes:
+  nutrition-postgres-data:

@@ -1,0 +1,43 @@
+[
+  {
+    "sample_id": "vmb-foundation-0001",
+    "text": "100 g trứng gà luộc",
+    "locale": "vi-VN",
+    "expected_decision": "resolve",
+    "expected_food_names": ["Trứng gà luộc"],
+    "expected_nutrition": {
+      "energy_kcal": "155",
+      "protein_g": "12.6",
+      "carbohydrate_g": "1.12",
+      "fat_g": "10.6"
+    },
+    "tags": ["foundation", "explicit-mass", "exact-alias"],
+    "adjudication_status": "engineering_fixture"
+  },
+  {
+    "sample_id": "vmb-foundation-0002",
+    "text": "100 g trứng gà luộc, 150 g cơm trắng",
+    "locale": "vi-VN",
+    "expected_decision": "resolve",
+    "expected_food_names": ["Trứng gà luộc", "Cơm trắng"],
+    "expected_nutrition": {
+      "energy_kcal": "350",
+      "protein_g": "16.635",
+      "carbohydrate_g": "43.42",
+      "fat_g": "11.02"
+    },
+    "tags": ["foundation", "explicit-mass", "multiple-items"],
+    "adjudication_status": "engineering_fixture"
+  },
+  {
+    "sample_id": "vmb-foundation-0003",
+    "text": "100 g món không tồn tại",
+    "locale": "vi-VN",
+    "expected_decision": "insufficient",
+    "expected_food_names": [],
+    "expected_nutrition": {},
+    "tags": ["foundation", "unknown-food", "no-force-match"],
+    "adjudication_status": "engineering_fixture"
+  }
+]
+
