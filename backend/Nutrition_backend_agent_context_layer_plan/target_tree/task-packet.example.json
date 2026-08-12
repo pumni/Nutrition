@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "ACL-EXAMPLE-001",
+  "objective": "Update one ACL documentation sentence without runtime behavior changes.",
+  "decision_authority": "architect",
+  "executor_role": "implementation_only",
+  "context_profile": "agent-context-maintenance",
+  "required_baseline_commit": "da04e773a214e8f8232db149d1f35f3f0bd61ce1",
+  "allowed_paths": [
+    ".agent/README.md"
+  ],
+  "forbidden_paths": [
+    "crates/**",
+    "migrations/**",
+    "Cargo.toml",
+    "Cargo.lock"
+  ],
+  "create_files": [],
+  "modify_files": [
+    {
+      "path": ".agent/README.md",
+      "changes": [
+        "Replace the exact architect-specified sentence only."
+      ]
+    }
+  ],
+  "implementation_sequence": [
+    "Validate the task packet.",
+    "Open only the required context profile.",
+    "Apply the exact sentence replacement.",
+    "Run required verification."
+  ],
+  "decision_points": [],
+  "impacts": {
+    "runtime_behavior": "none",
+    "domain_behavior": "none",
+    "api": "none",
+    "database": "none",
+    "dependencies": "none",
+    "behavior_versions": "none"
+  },
+  "acceptance_criteria": [
+    "Only .agent/README.md changes.",
+    "ACL verification passes."
+  ],
+  "verification": [
+    {
+      "gate": "acl-integrity",
+      "command": ".\\scripts\\verify-agent-context.ps1",
+      "required": true
+    }
+  ],
+  "escalation_conditions": [
+    "Target sentence is not present exactly.",
+    "Any required change falls outside allowed_paths."
+  ],
+  "completion_report_required": true
+}
