@@ -4,7 +4,7 @@
   "contract_release": "agent-contract-1.1.0",
   "verifier_release": "agent-verifier-2.1.0",
   "verification_registry_release": "agent-gates-2.1.0",
-  "runner_release": "agent-runner-1.0.0",
+  "runner_release": "agent-runner-1.0.1",
   "verification_report_release": "agent-verification-report-2.0.0",
   "implementation_report_release": "agent-implementation-report-1.1.0",
   "project": {

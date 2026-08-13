@@ -162,7 +162,7 @@ function Assert-Manifest([string]$Root) {
     if ((Require-Property $manifest "contract_release" "manifest") -ne "agent-contract-1.1.0") { Fail "manifest contract_release mismatch" }
     if ((Require-Property $manifest "verifier_release" "manifest") -ne "agent-verifier-2.1.0") { Fail "manifest verifier_release mismatch" }
     if ((Require-Property $manifest "verification_registry_release" "manifest") -ne "agent-gates-2.1.0") { Fail "manifest verification_registry_release mismatch" }
-    if ((Require-Property $manifest "runner_release" "manifest") -ne "agent-runner-1.0.0") { Fail "manifest runner_release mismatch" }
+    if ((Require-Property $manifest "runner_release" "manifest") -ne "agent-runner-1.0.1") { Fail "manifest runner_release mismatch" }
     if ((Require-Property $manifest "verification_report_release" "manifest") -ne "agent-verification-report-2.0.0") { Fail "manifest verification_report_release mismatch" }
     if ((Require-Property $manifest "implementation_report_release" "manifest") -ne "agent-implementation-report-1.1.0") { Fail "manifest implementation_report_release mismatch" }
     if ((Require-Property $manifest "project" "manifest").repository -ne "pumni/Nutrition_backend") { Fail "manifest repository mismatch" }

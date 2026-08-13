@@ -30,6 +30,10 @@
     {"name":"temporary_raw_output_removed","expected":"pass"},
     {"name":"runner_exit_zero_only_on_pass","expected":"pass"},
     {"name":"verifier_repository_root_override","expected":"pass"},
-    {"name":"p10a_exact_scope_regression","expected":"pass"}
+    {"name":"p10a_exact_scope_regression","expected":"pass"},
+    {"name":"packet_snapshot_immutable","expected":"pass"},
+    {"name":"target_e2e_valid_change","expected":"pass"},
+    {"name":"target_e2e_unauthorized_change","expected":"fail"},
+    {"name":"bounded_process_output_capture","expected":"pass"}
   ]
 }

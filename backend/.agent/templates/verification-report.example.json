@@ -3,7 +3,7 @@
   "task_id": "ACL-EXAMPLE-001",
   "task_packet_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "releases": {
-    "runner_release": "agent-runner-1.0.0",
+    "runner_release": "agent-runner-1.0.1",
     "verifier_release": "agent-verifier-2.1.0",
     "verification_registry_release": "agent-gates-2.1.0"
   },
