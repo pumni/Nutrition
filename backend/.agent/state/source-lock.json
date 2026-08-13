@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "algorithm": "SHA256",
+  "sources": [
+    {"path": "Cargo.toml", "sha256": "3d8bb62501e3388980a5ae9d42b9ae84be0aae48cc587c2782f3ab0aed7a2b61"},
+    {"path": "docs/FOUNDATION_DECISIONS.md", "sha256": "f3f8387e3fe373a20550b64b37e8451ff76cb591eaff6811bc57e31098dff5d2"},
+    {"path": "docs/HOSTED_PARSER.md", "sha256": "b6501639f00d23e1f6d6d19433896c05f8eaacd495a8935adf5615a5b1c1b497"},
+    {"path": "docs/RISK_REGISTER.md", "sha256": "11997fb525dcf08ff81675f6d491a0642682ec29fc283b1bbaaacf46afe6b105"},
+    {"path": "docs/SECURITY_AND_OPERATIONS.md", "sha256": "7c2a2398a88bbbaa050d3caa6895d5bd6186690b16f3ef883774eef6160a92f3"},
+    {"path": "nutrition_backend_blueprint_v1.0/00_README.md", "sha256": "82ae8b6691dd9fa700ed9009ff2c75e19711f33d59302ac9308efe27a64d13cb"},
+    {"path": "nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md", "sha256": "a6cd2033dd68094a2b41aebc4638cd68023d1473a8f05fc81134df2952ffc6ed"},
+    {"path": "nutrition_backend_blueprint_v1.0/13_IMPLEMENTATION_CHECKLIST.md", "sha256": "3567d032f06d516964dac33959988f2a67b2be068d2ee2e35776f3cc04afd4bb"}
+  ]
+}

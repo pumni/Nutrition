@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "cases": [
+    {"name": "valid_context_maintenance_packet", "expected": "pass"},
+    {"name": "missing_context_profile", "expected": "fail"},
+    {"name": "unknown_context_profile", "expected": "fail"},
+    {"name": "non_empty_decision_points", "expected": "fail"},
+    {"name": "allowed_and_forbidden_overlap", "expected": "fail"},
+    {"name": "dependency_change_declared_none", "expected": "fail"},
+    {"name": "migration_change_declared_none", "expected": "fail"},
+    {"name": "changed_file_outside_allowlist", "expected": "fail"},
+    {"name": "forbidden_runtime_file_for_acl_task", "expected": "fail"},
+    {"name": "stale_source_hash", "expected": "fail"},
+    {"name": "oversized_agents_md_fixture", "expected": "fail"},
+    {"name": "profile_references_missing_file", "expected": "fail"}
+  ]
+}
