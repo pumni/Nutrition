@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "rules": [
+    {"path_pattern": "crates/domain/**", "recommended_profile": "domain-calculation", "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"], "risk_tags": ["calculation", "domain-boundary"], "forbidden_impacts": ["network", "database", "provider-dependency", "unversioned-behavior"]},
+    {"path_pattern": "crates/application/**", "recommended_profile": "application-analysis", "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"], "risk_tags": ["orchestration", "revisions", "clarification"], "forbidden_impacts": ["overwrite-completed-revision", "unversioned-behavior"]},
+    {"path_pattern": "crates/adapters/src/hosted_parser.rs", "recommended_profile": "parser-hosted", "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test", "schema-validation"], "risk_tags": ["provider", "privacy", "parser"], "forbidden_impacts": ["nutrition-invention", "raw-telemetry", "fixture-fallback", "redirect-forwarding"]},
+    {"path_pattern": "schemas/**", "recommended_profile": "parser-hosted", "mandatory_gates": ["schema-validation", "cargo-test"], "risk_tags": ["parser-contract", "versioning"], "forbidden_impacts": ["unversioned-parser-contract"]},
+    {"path_pattern": "crates/persistence-postgres/**", "recommended_profile": "persistence-postgres", "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test", "postgres-verify"], "risk_tags": ["database", "replay", "immutability"], "forbidden_impacts": ["weakened-immutability", "unversioned-replay"]},
+    {"path_pattern": "migrations/**", "recommended_profile": "persistence-postgres", "mandatory_gates": ["postgres-verify"], "risk_tags": ["database", "migration"], "forbidden_impacts": ["edit-applied-migration", "schema-without-packet"]},
+    {"path_pattern": "crates/api-http/**", "recommended_profile": "api-http", "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"], "risk_tags": ["api", "auth", "privacy"], "forbidden_impacts": ["ownership-bypass", "request-limit-weakening", "sensitive-logging"]},
+    {"path_pattern": "crates/worker/**", "recommended_profile": "worker-ops", "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"], "risk_tags": ["lease", "retry", "outbox"], "forbidden_impacts": ["unbounded-retry", "non-idempotent-side-effect"]},
+    {"path_pattern": "fixtures/**", "recommended_profile": "data-governance", "mandatory_gates": ["foundation-verify"], "risk_tags": ["test-only-evidence", "benchmark"], "forbidden_impacts": ["fixture-as-production", "unknown-force-match"]},
+    {"path_pattern": "seeds/**", "recommended_profile": "data-governance", "mandatory_gates": ["foundation-verify", "postgres-verify"], "risk_tags": ["catalog", "release"], "forbidden_impacts": ["unreviewed-publication", "active-release-mutation"]},
+    {"path_pattern": ".agent/**", "recommended_profile": "agent-context-maintenance", "mandatory_gates": ["acl-self-test", "acl-integrity", "foundation-verify"], "risk_tags": ["governance", "context-drift"], "forbidden_impacts": ["runtime-behavior", "dependency-change", "database-change"]},
+    {"path_pattern": "AGENTS.md", "recommended_profile": "agent-context-maintenance", "mandatory_gates": ["acl-integrity", "foundation-verify"], "risk_tags": ["governance", "entrypoint"], "forbidden_impacts": ["runtime-behavior", "dependency-change"]},
+    {"path_pattern": "scripts/verify-agent-context.ps1", "recommended_profile": "agent-context-maintenance", "mandatory_gates": ["acl-self-test", "acl-integrity", "foundation-verify"], "risk_tags": ["verification", "scope-control"], "forbidden_impacts": ["runtime-behavior", "dependency-change"]},
+    {"path_pattern": "scripts/verify.ps1", "recommended_profile": "agent-context-maintenance", "mandatory_gates": ["acl-integrity", "foundation-verify"], "risk_tags": ["verification", "release-gate"], "forbidden_impacts": ["weakened-foundation-gate"]}
+  ]
+}

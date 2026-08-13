@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0.0",
+  "profiles": [
+    {
+      "name": "core",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json"],
+      "allowed_path_patterns": [".agent/**", "docs/**", "README.md", "scripts/**"],
+      "forbidden_path_patterns": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock"],
+      "mandatory_verification_gates": ["acl-integrity", "foundation-verify"]
+    },
+    {
+      "name": "domain-calculation",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json", ".agent/invariants/product-domain.md", ".agent/invariants/data-replay.md", ".agent/contexts/domain.md"],
+      "allowed_path_patterns": ["crates/domain/**", "fixtures/**", "docs/**"],
+      "forbidden_path_patterns": ["Cargo.toml", "Cargo.lock", "migrations/**", "network/**", "provider/**"],
+      "mandatory_verification_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]
+    },
+    {
+      "name": "application-analysis",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json", ".agent/invariants/product-domain.md", ".agent/invariants/data-replay.md", ".agent/contexts/application.md"],
+      "allowed_path_patterns": ["crates/application/**"],
+      "forbidden_path_patterns": ["migrations/**", "Cargo.toml", "Cargo.lock", "provider/**"],
+      "mandatory_verification_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]
+    },
+    {
+      "name": "parser-hosted",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json", ".agent/invariants/llm-boundary.md", ".agent/contexts/parser.md"],
+      "allowed_path_patterns": ["crates/adapters/src/hosted_parser.rs", "schemas/**", "crates/persistence-postgres/src/parser_telemetry.rs"],
+      "forbidden_path_patterns": ["crates/domain/**", "migrations/**", "provider-tools/**", "raw-telemetry/**"],
+      "mandatory_verification_gates": ["cargo-fmt", "cargo-clippy", "cargo-test", "schema-validation"]
+    },
+    {
+      "name": "persistence-postgres",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json", ".agent/invariants/data-replay.md", ".agent/contexts/persistence.md"],
+      "allowed_path_patterns": ["crates/persistence-postgres/**", "migrations/**"],
+      "forbidden_path_patterns": ["Cargo.toml", "Cargo.lock", "applied-migration-edit/**", "network/**"],
+      "mandatory_verification_gates": ["cargo-fmt", "cargo-clippy", "cargo-test", "postgres-verify"]
+    },
+    {
+      "name": "api-http",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json", ".agent/contexts/api.md", ".agent/contexts/application.md"],
+      "allowed_path_patterns": ["crates/api-http/**"],
+      "forbidden_path_patterns": ["migrations/**", "Cargo.toml", "Cargo.lock", "raw-sensitive-logging/**"],
+      "mandatory_verification_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]
+    },
+    {
+      "name": "worker-ops",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json", ".agent/contexts/worker.md", ".agent/contexts/persistence.md"],
+      "allowed_path_patterns": ["crates/worker/**", "crates/persistence-postgres/src/ops_repository.rs"],
+      "forbidden_path_patterns": ["migrations/**", "Cargo.toml", "Cargo.lock", "unbounded-retry/**"],
+      "mandatory_verification_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]
+    },
+    {
+      "name": "data-governance",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json", ".agent/invariants/data-replay.md", ".agent/contexts/data-governance.md"],
+      "allowed_path_patterns": ["seeds/**", "fixtures/**", "docs/**"],
+      "forbidden_path_patterns": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock", "automatic-publication/**"],
+      "mandatory_verification_gates": ["foundation-verify"]
+    },
+    {
+      "name": "agent-context-maintenance",
+      "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/contexts/verification.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json"],
+      "allowed_path_patterns": ["AGENTS.md", ".agent/**", "scripts/verify-agent-context.ps1", "scripts/verify.ps1", "README.md"],
+      "forbidden_path_patterns": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock", "deploy/**"],
+      "mandatory_verification_gates": ["acl-self-test", "acl-integrity", "foundation-verify"]
+    }
+  ]
+}

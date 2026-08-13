@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "gates": [
+    {"name": "acl-self-test", "command": ".\\scripts\\verify-agent-context.ps1 -SelfTest", "purpose": "validate verifier mechanics and negative scope cases"},
+    {"name": "acl-integrity", "command": ".\\scripts\\verify-agent-context.ps1", "purpose": "validate manifest, profiles, source register, source lock, budgets, and task scope"},
+    {"name": "cargo-fmt", "command": "cargo fmt --all -- --check", "purpose": "verify Rust formatting"},
+    {"name": "cargo-clippy", "command": "cargo clippy --workspace --all-targets -- -D warnings", "purpose": "verify lint-clean workspace"},
+    {"name": "cargo-test", "command": "cargo test --workspace", "purpose": "run workspace tests"},
+    {"name": "schema-validation", "command": "ConvertFrom-Json schemas/parsed-meal-0.1.0.json", "purpose": "verify parser schema JSON"},
+    {"name": "foundation-verify", "command": ".\\scripts\\verify.ps1", "purpose": "run foundation formatting, lint, tests, JSON, logging, and Compose gates"},
+    {"name": "postgres-verify", "command": ".\\scripts\\verify-postgres.ps1", "purpose": "run PostgreSQL migration, integration, API smoke, worker, and immutability gates"},
+    {"name": "benchmark-external", "command": "external VietnameseMealBench release gate", "purpose": "evaluate named parser/resolver/portion/calculator behavior releases; not universally runnable"}
+  ]
+}

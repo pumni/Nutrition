@@ -1,0 +1,8 @@
+Context release: agent-context-1.0.0
+Derived from: `scripts/verify.ps1`, `scripts/verify-postgres.ps1`, `schemas/parsed-meal-0.1.0.json`, `fixtures/vietnamese-meal-bench/manifest.json`, `fixtures/vietnamese-meal-bench/foundation-cases.json`, `deploy/compose.yaml`, `nutrition_backend_blueprint_v1.0/09_TESTING_EVALUATION_AND_OBSERVABILITY.md`
+Use when: maintaining ACL verification, selecting repository gates, or validating context-layer changes.
+Do not infer: that an ignored integration test is a pass for a missing PostgreSQL environment, or that a future benchmark gate is universally runnable.
+
+The foundation verifier runs `cargo fmt --all -- --check`, workspace Clippy with warnings denied, workspace tests, JSON parsing, prohibited sensitive-log scanning, and Docker Compose validation. `scripts/verify-postgres.ps1` starts PostgreSQL, applies migrations and the test-only seed, runs ignored integration tests, exercises a bounded worker batch, smoke-tests the API contracts, and runs database immutability verification.
+
+ACL verification must validate manifest and context release, profile uniqueness and references, source-register paths, source locks, byte budgets, empty decision points, non-empty gates, profile forbidden paths, and task-scope changed paths. External benchmark evaluation is a release gate when named by a packet, not a universal local command.
