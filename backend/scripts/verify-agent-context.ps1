@@ -194,7 +194,7 @@ function Assert-Template([string]$Root) {
     if (@($template.decision_points).Count -ne 0) { Fail "task packet template decision_points must be empty" }
 }
 
-function Assert-Impacts($Packet, [string[]]$IntendedPaths) {
+function Assert-Impacts($Packet, [string[]]$IntendedPaths, [string[]]$ActualPaths = @()) {
     $impacts = Require-Property $Packet "impacts" "task packet"
     foreach ($name in @("runtime_behavior", "domain_behavior", "api", "database", "dependencies", "behavior_versions")) {
         $value = Require-Property $impacts $name "task packet impacts"
@@ -204,9 +204,35 @@ function Assert-Impacts($Packet, [string[]]$IntendedPaths) {
         Fail "specified_change impact requires impact_spec"
     }
     $normalized = @($IntendedPaths | ForEach-Object { Normalize-RepoPath $_ })
+    $actual = @($ActualPaths | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
     if ($impacts.dependencies -eq "none" -and @($normalized | Where-Object { $_ -eq "Cargo.toml" -or $_ -eq "Cargo.lock" }).Count -gt 0) { Fail "dependency files changed while dependencies impact is none" }
     if ($impacts.database -eq "none" -and @($normalized | Where-Object { Test-GlobMatch $_ "migrations/**" }).Count -gt 0) { Fail "migration changed while database impact is none" }
     if ($impacts.behavior_versions -eq "none" -and @($normalized | Where-Object { $_ -match '(?i)(behavior.?version|version.?vector|parser.?schema.?version|calculation.?engine.?version|docs/releases/)' }).Count -gt 0) { Fail "behavior-version path changed while behavior_versions impact is none" }
+    if ($impacts.dependencies -eq "none" -and @($actual | Where-Object { $_ -eq "Cargo.toml" -or $_ -eq "Cargo.lock" }).Count -gt 0) { Fail "actual dependency impact mismatch: $($actual -join ', ')" }
+    if ($impacts.database -eq "none" -and @($actual | Where-Object { Test-GlobMatch $_ "migrations/**" }).Count -gt 0) { Fail "actual database impact mismatch: $($actual -join ', ')" }
+    if ($impacts.behavior_versions -eq "none" -and @($actual | Where-Object { $_ -match '(?i)(behavior.?version|version.?vector|parser.?schema.?version|calculation.?engine.?version|docs/releases/)' }).Count -gt 0) { Fail "actual behavior-version impact mismatch: $($actual -join ', ')" }
+}
+
+function Assert-VerificationGates([string]$Root, $Packet, $Profile) {
+    $verificationMap = Load-Json (Get-RepoPath $Root ".agent/maps/verification-map.json")
+    $knownGates = @($verificationMap.gates | ForEach-Object { [string]$_.name })
+    if ($knownGates.Count -eq 0) { Fail "verification map has no gates" }
+    $entries = @($Packet.verification)
+    foreach ($entry in $entries) {
+        [void](Require-Property $entry "gate" "task packet verification entry")
+        [void](Require-Property $entry "command" "task packet verification entry")
+        [void](Require-Property $entry "required" "task packet verification entry")
+        if ([string]::IsNullOrWhiteSpace([string]$entry.gate)) { Fail "declared verification gate name is blank" }
+        if ([string]::IsNullOrWhiteSpace([string]$entry.command)) { Fail "verification gate '$($entry.gate)' has a blank command" }
+        if ($entry.required -isnot [bool]) { Fail "verification gate '$($entry.gate)' required must be boolean" }
+        if ($entry.gate -notin $knownGates) { Fail "unknown declared verification gate: $($entry.gate)" }
+    }
+    $requiredGates = @($Profile.mandatory_verification_gates | ForEach-Object { [string]$_ })
+    foreach ($gate in $requiredGates) {
+        $matching = @($entries | Where-Object { $_.gate -eq $gate })
+        if ($matching.Count -eq 0) { Fail "missing mandatory profile gate: $gate" }
+        if (@($matching | Where-Object { $_.required -eq $true }).Count -eq 0) { Fail "mandatory profile gate is not required: $gate" }
+    }
 }
 
 function Assert-TaskPacketObject($Packet, [string]$Root, $Profiles) {
@@ -228,6 +254,11 @@ function Assert-TaskPacketObject($Packet, [string]$Root, $Profiles) {
         [void](Require-Property $modification "changes" "task packet modify_files item")
         $intended += Normalize-RepoPath $modification.path
     }
+    foreach ($path in $intended) {
+        if (@($allowed | Where-Object { Test-GlobMatch $path $_ }).Count -eq 0) { Fail "intended path outside packet allowed_paths: $path" }
+        if (@($forbidden | Where-Object { Test-GlobMatch $path $_ }).Count -gt 0) { Fail "intended path matches forbidden path: $path" }
+    }
+    Assert-VerificationGates $Root $Packet $profile[0]
     Assert-Impacts $Packet $intended
     $profileAllowed = @($profile[0].allowed_path_patterns | ForEach-Object { Normalize-RepoPath $_ })
     foreach ($path in $allowed) {
@@ -244,20 +275,56 @@ function Assert-TaskPacketObject($Packet, [string]$Root, $Profiles) {
     return $intended
 }
 
-function Get-GitChangedFiles([string]$Root) {
-    $output = @(& git -C $Root diff --name-only)
-    if ($LASTEXITCODE -ne 0) { Fail "git diff --name-only failed in task mode" }
-    return @($output | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" })
+function Invoke-GitCommand([string]$Root, [string[]]$Arguments) {
+    $output = @(& git -C $Root @Arguments)
+    if ($LASTEXITCODE -ne 0) { Fail "git command failed: git -C $Root $($Arguments -join ' ')" }
+    return @($output | ForEach-Object { [string]$_ })
 }
 
-function Assert-ChangedScope([string]$Root, $Packet) {
-    $changed = @(Get-GitChangedFiles $Root)
+function Assert-TaskBaseline([string]$Root, $Packet) {
+    $baseline = [string]$Packet.required_baseline_commit
+    if ($baseline -notmatch '^[0-9a-fA-F]{40}$') { Fail "BLOCKED_BASELINE_DRIFT: required_baseline_commit is not a 40-character SHA" }
+    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+        & git -C $Root cat-file -e "$($baseline)^{commit}" 2>$null
+        $baselineExitCode = $LASTEXITCODE
+        $head = @(& git -C $Root rev-parse --verify "HEAD^{commit}" 2>$null) | Select-Object -First 1
+        $headExitCode = $LASTEXITCODE
+        if ($baselineExitCode -eq 0 -and $headExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace([string]$head)) {
+            & git -C $Root merge-base --is-ancestor $baseline $head 2>$null
+            $ancestorExitCode = $LASTEXITCODE
+        }
+        else {
+            $ancestorExitCode = 1
+        }
+    }
+    finally {
+        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+    }
+    if ($baselineExitCode -ne 0) { Fail "BLOCKED_BASELINE_DRIFT: baseline commit is not available locally" }
+    if ($headExitCode -ne 0 -or [string]::IsNullOrWhiteSpace([string]$head)) { Fail "BLOCKED_BASELINE_DRIFT: HEAD is not a commit" }
+    if ($ancestorExitCode -ne 0) { Fail "BLOCKED_BASELINE_DRIFT: baseline is not an ancestor of HEAD" }
+    return [string]$head
+}
+
+function Get-ActualTaskChanges([string]$Root, [string]$Baseline) {
+    $committed = @(Invoke-GitCommand $Root @("diff", "--name-only", "--no-renames", "$Baseline..HEAD"))
+    $staged = @(Invoke-GitCommand $Root @("diff", "--cached", "--name-only", "--no-renames"))
+    $unstaged = @(Invoke-GitCommand $Root @("diff", "--name-only", "--no-renames"))
+    $untracked = @(Invoke-GitCommand $Root @("ls-files", "--others", "--exclude-standard", "--full-name"))
+    return @($committed + $staged + $unstaged + $untracked | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
+}
+
+function Assert-ChangedScope([string]$Root, $Packet, [string[]]$ActualTaskChanges) {
+    $changed = @($ActualTaskChanges | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
     $allowed = @($Packet.allowed_paths | ForEach-Object { Normalize-RepoPath $_ })
     $forbidden = @($Packet.forbidden_paths | ForEach-Object { Normalize-RepoPath $_ })
     foreach ($path in $changed) {
         if (@($forbidden | Where-Object { Test-GlobMatch $path $_ }).Count -gt 0) { Fail "changed path is forbidden by task packet: $path" }
         if (@($allowed | Where-Object { Test-GlobMatch $path $_ }).Count -eq 0) { Fail "changed path is outside task allowlist: $path" }
     }
+    Assert-Impacts $Packet @() $changed
     Write-Output "[PASS] Task changed-path scope: $($changed.Count) tracked changed file(s)."
 }
 
@@ -274,7 +341,7 @@ function Assert-Integrity([string]$Root) {
 }
 
 function New-BaseSelfTestPacket {
-    return [ordered]@{
+    $packet = [pscustomobject][ordered]@{
         schema_version = "1.0.0"
         task_id = "ACL-SELFTEST"
         objective = "Exercise ACL verifier"
@@ -285,21 +352,232 @@ function New-BaseSelfTestPacket {
         allowed_paths = @(".agent/README.md")
         forbidden_paths = @("crates/**", "migrations/**", "Cargo.toml", "Cargo.lock")
         create_files = @()
-        modify_files = @(@{path = ".agent/README.md"; changes = @("replace exact sentence")})
+        modify_files = @([pscustomobject]@{path = ".agent/README.md"; changes = @("replace exact sentence")})
         implementation_sequence = @("validate", "change", "verify")
         decision_points = @()
-        impacts = [ordered]@{runtime_behavior = "none"; domain_behavior = "none"; api = "none"; database = "none"; dependencies = "none"; behavior_versions = "none"}
+        impacts = [pscustomobject][ordered]@{runtime_behavior = "none"; domain_behavior = "none"; api = "none"; database = "none"; dependencies = "none"; behavior_versions = "none"}
         acceptance_criteria = @("scope remains ACL-only")
-        verification = @(@{gate = "acl-integrity"; command = ".\\scripts\\verify-agent-context.ps1"; required = $true})
+        verification = @(
+            [pscustomobject]@{gate = "acl-self-test"; command = ".\\scripts\\verify-agent-context.ps1 -SelfTest"; required = $true},
+            [pscustomobject]@{gate = "acl-integrity"; command = ".\\scripts\\verify-agent-context.ps1"; required = $true},
+            [pscustomobject]@{gate = "foundation-verify"; command = ".\\scripts\\verify.ps1"; required = $true}
+        )
         escalation_conditions = @("outside allowlist")
         completion_report_required = $true
     }
+    return $packet
+}
+
+function Set-SelfTestFile([string]$Root, [string]$RelativePath, [string]$Content) {
+    $path = Get-RepoPath $Root $RelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
+    Set-Content -LiteralPath $path -Value $Content -NoNewline
+}
+
+function New-SelfTestGitRepository([string]$SourceRoot, [hashtable]$BaselineFiles = @{}) {
+    $root = Join-Path ([IO.Path]::GetTempPath()) ("agent-context-git-selftest-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $root | Out-Null
+    try {
+        [void](Invoke-GitCommand $root @("init", "--quiet"))
+        [void](Invoke-GitCommand $root @("config", "user.name", "ACL P09 SelfTest"))
+        [void](Invoke-GitCommand $root @("config", "user.email", "acl-p09-selftest@example.invalid"))
+        Set-SelfTestFile $root "selftest-ignore" ""
+        [void](Invoke-GitCommand $root @("config", "core.excludesFile", (Get-RepoPath $root "selftest-ignore")))
+        Set-SelfTestFile $root ".agent/README.md" "temporary ACL fixture"
+        $mapSource = Get-RepoPath $SourceRoot ".agent/maps/verification-map.json"
+        $mapDestination = Get-RepoPath $root ".agent/maps/verification-map.json"
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $mapDestination) | Out-Null
+        Copy-Item -Force -LiteralPath $mapSource -Destination $mapDestination
+        foreach ($entry in $BaselineFiles.GetEnumerator()) {
+            Set-SelfTestFile $root ([string]$entry.Key) ([string]$entry.Value)
+        }
+        [void](Invoke-GitCommand $root @("add", "--all"))
+        [void](Invoke-GitCommand $root @("commit", "--quiet", "-m", "P09 self-test baseline"))
+        $baseline = [string](@(Invoke-GitCommand $root @("rev-parse", "HEAD")) | Select-Object -First 1)
+        return [pscustomobject]@{ Root = $root; Baseline = $baseline }
+    }
+    catch {
+        if (Test-Path -LiteralPath $root) { Remove-Item -Recurse -Force -LiteralPath $root }
+        throw
+    }
+}
+
+function New-RealGitSelfTestPacket([string]$Baseline) {
+    $packet = New-BaseSelfTestPacket
+    $packet.required_baseline_commit = $Baseline
+    $packet.allowed_paths = @(".agent/**")
+    $packet.forbidden_paths = @("crates/**", "migrations/**", "Cargo.toml", "Cargo.lock", "docs/releases/**")
+    $packet.create_files = @()
+    $packet.modify_files = @()
+    return $packet
+}
+
+function Assert-SelfTestExpected([string]$Name, [bool]$ExpectedPass, [scriptblock]$Action) {
+    $observedPass = $false
+    $failureText = ""
+    try {
+        & $Action
+        $observedPass = $true
+    }
+    catch {
+        $failureText = [string]$_.Exception.Message
+    }
+    if ($observedPass -ne $ExpectedPass) {
+        Fail "self-test case '$Name' expected $([string]$ExpectedPass) but observed $([string]$observedPass): $failureText"
+    }
+    if ($ExpectedPass) {
+        Write-Output "[PASS] Self-test: $Name"
+    }
+    else {
+        Write-Output "[PASS] Self-test: $Name :: $failureText"
+    }
+}
+
+function Invoke-RealGitScopeScenario([string]$SourceRoot, [string]$ProfilesRoot, [string]$Name, [scriptblock]$Setup, [bool]$ExpectedPass, [hashtable]$BaselineFiles = @{}) {
+    $repository = New-SelfTestGitRepository $SourceRoot $BaselineFiles
+    try {
+        $packet = New-RealGitSelfTestPacket $repository.Baseline
+        & $Setup $repository.Root $packet | Out-Null
+        Assert-SelfTestExpected $Name $ExpectedPass {
+            [void](Assert-TaskBaseline $repository.Root $packet)
+            $profiles = Assert-Profiles $ProfilesRoot
+            [void](Assert-TaskPacketObject $packet $ProfilesRoot $profiles)
+            $actual = @(Get-ActualTaskChanges $repository.Root $packet.required_baseline_commit)
+            Assert-ChangedScope $repository.Root $packet $actual
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $repository.Root) { Remove-Item -Recurse -Force -LiteralPath $repository.Root }
+    }
+}
+
+function Invoke-PacketObjectScenario([string]$SourceRoot, [string]$Name, [scriptblock]$Setup, [bool]$ExpectedPass) {
+    $packet = New-BaseSelfTestPacket
+    & $Setup $packet | Out-Null
+    Assert-SelfTestExpected $Name $ExpectedPass {
+        $profiles = Assert-Profiles $SourceRoot
+        [void](Assert-TaskPacketObject $packet $SourceRoot $profiles)
+    }
+}
+
+function Invoke-ActualImpactScenario([string]$SourceRoot, [string]$Name, [string]$ChangedPath, [string]$Content, [bool]$ExpectedPass) {
+    $repository = New-SelfTestGitRepository $SourceRoot
+    try {
+        Set-SelfTestFile $repository.Root $ChangedPath $Content
+        $packet = New-RealGitSelfTestPacket $repository.Baseline
+        Assert-SelfTestExpected $Name $ExpectedPass {
+            [void](Assert-TaskBaseline $repository.Root $packet)
+            $actual = @(Get-ActualTaskChanges $repository.Root $packet.required_baseline_commit)
+            Assert-Impacts $packet @() $actual
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $repository.Root) { Remove-Item -Recurse -Force -LiteralPath $repository.Root }
+    }
+}
+
+function Invoke-P09SelfTests([string]$Root, $Cases) {
+    $requiredNames = @(
+        "valid_complete_task_delta", "outside_allowlist_unstaged", "outside_allowlist_staged", "outside_allowlist_untracked", "outside_allowlist_committed_after_baseline", "mixed_allowed_and_forbidden_states", "baseline_commit_missing", "missing_mandatory_profile_gate", "mandatory_gate_marked_not_required", "unknown_declared_verification_gate", "intended_create_outside_allowed_paths", "intended_modify_outside_allowed_paths", "actual_dependency_change_impact_none", "actual_migration_change_impact_none", "actual_behavior_version_change_impact_none", "committed_allowed_change_after_baseline", "staged_allowed_change", "untracked_allowed_change"
+    )
+    $caseNames = @($Cases | ForEach-Object { [string]$_.name })
+    foreach ($name in $requiredNames) {
+        if ($name -notin $caseNames) { Fail "P09 self-test case is missing from eval matrix: $name" }
+    }
+
+    Invoke-RealGitScopeScenario $Root $Root "valid_complete_task_delta" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/committed.txt" "committed allowed"
+        [void](Invoke-GitCommand $repositoryRoot @("add", "--all"))
+        [void](Invoke-GitCommand $repositoryRoot @("commit", "--quiet", "-m", "allowed committed change"))
+        Set-SelfTestFile $repositoryRoot ".agent/staged.txt" "staged allowed"
+        [void](Invoke-GitCommand $repositoryRoot @("add", ".agent/staged.txt"))
+        Set-SelfTestFile $repositoryRoot ".agent/README.md" "unstaged allowed"
+        Set-SelfTestFile $repositoryRoot ".agent/untracked.txt" "untracked allowed"
+    } $true
+    Invoke-RealGitScopeScenario $Root $Root "outside_allowlist_unstaged" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot "crates/domain/src/lib.rs" "changed unstaged"
+    } $false @{"crates/domain/src/lib.rs" = "baseline tracked file"}
+    Invoke-RealGitScopeScenario $Root $Root "outside_allowlist_staged" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot "crates/domain/src/lib.rs" "changed staged"
+        [void](Invoke-GitCommand $repositoryRoot @("add", "crates/domain/src/lib.rs"))
+    } $false @{"crates/domain/src/lib.rs" = "baseline tracked file"}
+    Invoke-RealGitScopeScenario $Root $Root "outside_allowlist_untracked" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot "crates/domain/src/untracked.rs" "untracked forbidden"
+    } $false
+    Invoke-RealGitScopeScenario $Root $Root "outside_allowlist_committed_after_baseline" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot "crates/domain/src/committed.rs" "committed forbidden"
+        [void](Invoke-GitCommand $repositoryRoot @("add", "crates/domain/src/committed.rs"))
+        [void](Invoke-GitCommand $repositoryRoot @("commit", "--quiet", "-m", "forbidden committed change"))
+    } $false
+    Invoke-RealGitScopeScenario $Root $Root "mixed_allowed_and_forbidden_states" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/allowed-staged.txt" "allowed staged"
+        [void](Invoke-GitCommand $repositoryRoot @("add", ".agent/allowed-staged.txt"))
+        Set-SelfTestFile $repositoryRoot "crates/domain/src/forbidden-untracked.rs" "forbidden untracked"
+    } $false
+
+    $missingBaselineRepository = New-SelfTestGitRepository $Root
+    try {
+        $missingPacket = New-RealGitSelfTestPacket ("1111111111111111111111111111111111111111")
+        Assert-SelfTestExpected "baseline_commit_missing" $false {
+            [void](Assert-TaskBaseline $missingBaselineRepository.Root $missingPacket)
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $missingBaselineRepository.Root) { Remove-Item -Recurse -Force -LiteralPath $missingBaselineRepository.Root }
+    }
+
+    Invoke-PacketObjectScenario $Root "missing_mandatory_profile_gate" {
+        param($packet)
+        $packet.verification = @($packet.verification | Where-Object { $_.gate -ne "foundation-verify" })
+    } $false
+    Invoke-PacketObjectScenario $Root "mandatory_gate_marked_not_required" {
+        param($packet)
+        ($packet.verification | Where-Object { $_.gate -eq "foundation-verify" })[0].required = $false
+    } $false
+    Invoke-PacketObjectScenario $Root "unknown_declared_verification_gate" {
+        param($packet)
+        $packet.verification += [pscustomobject]@{gate = "unknown-gate"; command = "unknown"; required = $true}
+    } $false
+    Invoke-PacketObjectScenario $Root "intended_create_outside_allowed_paths" {
+        param($packet)
+        $packet.create_files = @("crates/domain/src/new.rs")
+    } $false
+    Invoke-PacketObjectScenario $Root "intended_modify_outside_allowed_paths" {
+        param($packet)
+        $packet.modify_files = @([pscustomobject]@{path = "crates/domain/src/lib.rs"; changes = @("outside allowlist")})
+    } $false
+
+    Invoke-ActualImpactScenario $Root "actual_dependency_change_impact_none" "Cargo.toml" "actual dependency change" $false
+    Invoke-ActualImpactScenario $Root "actual_migration_change_impact_none" "migrations/0002.sql" "actual migration change" $false
+    Invoke-ActualImpactScenario $Root "actual_behavior_version_change_impact_none" "docs/releases/p09.md" "actual behavior version change" $false
+
+    Invoke-RealGitScopeScenario $Root $Root "committed_allowed_change_after_baseline" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/committed-allowed.txt" "allowed committed"
+        [void](Invoke-GitCommand $repositoryRoot @("add", ".agent/committed-allowed.txt"))
+        [void](Invoke-GitCommand $repositoryRoot @("commit", "--quiet", "-m", "allowed committed change"))
+    } $true
+    Invoke-RealGitScopeScenario $Root $Root "staged_allowed_change" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/staged-allowed.txt" "allowed staged"
+        [void](Invoke-GitCommand $repositoryRoot @("add", ".agent/staged-allowed.txt"))
+    } $true
+    Invoke-RealGitScopeScenario $Root $Root "untracked_allowed_change" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/untracked-allowed.txt" "allowed untracked"
+    } $true
 }
 
 function Invoke-SelfTest([string]$Root) {
     $casesDocument = Load-Json (Get-RepoPath $Root ".agent/evals/context-layer-cases.json")
     $cases = @((Require-Property $casesDocument "cases" "self-test cases"))
-    if ($cases.Count -lt 12) { Fail "self-test requires at least twelve cases" }
+    if ($cases.Count -lt 30) { Fail "P09 self-test requires at least thirty cases" }
     $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("agent-context-selftest-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
     try {
@@ -311,7 +589,8 @@ function Invoke-SelfTest([string]$Root) {
             Copy-Item -Force -LiteralPath (Get-RepoPath $Root $source) -Destination $destination
         }
         $profiles = Assert-Profiles $tempRoot
-        foreach ($case in $cases) {
+        $legacyNames = @("valid_context_maintenance_packet", "missing_context_profile", "unknown_context_profile", "non_empty_decision_points", "allowed_and_forbidden_overlap", "dependency_change_declared_none", "migration_change_declared_none", "changed_file_outside_allowlist", "forbidden_runtime_file_for_acl_task", "stale_source_hash", "oversized_agents_md_fixture", "profile_references_missing_file")
+        foreach ($case in @($cases | Where-Object { $_.name -in $legacyNames })) {
             $packet = New-BaseSelfTestPacket
             $name = $case.name
             switch ($name) {
@@ -356,6 +635,7 @@ function Invoke-SelfTest([string]$Root) {
     finally {
         if (Test-Path -LiteralPath $tempRoot) { Remove-Item -Recurse -Force -LiteralPath $tempRoot }
     }
+    Invoke-P09SelfTests $Root $cases
     Write-Output "[PASS] All $($cases.Count) ACL self-test cases passed."
 }
 
@@ -370,8 +650,15 @@ try {
     if ($TaskPacket) {
         $packetPath = if ([IO.Path]::IsPathRooted($TaskPacket)) { $TaskPacket } else { Get-RepoPath $script:RepoRoot $TaskPacket }
         $packet = Load-Json $packetPath
+        $head = Assert-TaskBaseline $script:RepoRoot $packet
+        Write-Output "[PASS] Task baseline commit: $($packet.required_baseline_commit)"
         [void](Assert-TaskPacketObject $packet $script:RepoRoot $profiles)
-        Assert-ChangedScope $script:RepoRoot $packet
+        $actualTaskChanges = @(Get-ActualTaskChanges $script:RepoRoot $packet.required_baseline_commit)
+        Write-Output "[PASS] Actual task delta: $($actualTaskChanges.Count) file(s)"
+        Assert-ChangedScope $script:RepoRoot $packet $actualTaskChanges
+        $declaredGateCount = @($packet.verification | Where-Object { $_.required -eq $true }).Count
+        $requiredGateCount = @((@($profiles | Where-Object name -eq $packet.context_profile)[0]).mandatory_verification_gates).Count
+        Write-Output "[PASS] Mandatory profile gates declared: $requiredGateCount/$requiredGateCount"
         Write-Output "[PASS] Task packet validated: $($packet.task_id)"
     }
     else {

@@ -45,8 +45,18 @@
   ],
   "verification": [
     {
+      "gate": "acl-self-test",
+      "command": ".\\scripts\\verify-agent-context.ps1 -SelfTest",
+      "required": true
+    },
+    {
       "gate": "acl-integrity",
       "command": ".\\scripts\\verify-agent-context.ps1",
+      "required": true
+    },
+    {
+      "gate": "foundation-verify",
+      "command": ".\\scripts\\verify.ps1",
       "required": true
     }
   ],

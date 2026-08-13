@@ -12,6 +12,24 @@
     {"name": "forbidden_runtime_file_for_acl_task", "expected": "fail"},
     {"name": "stale_source_hash", "expected": "fail"},
     {"name": "oversized_agents_md_fixture", "expected": "fail"},
-    {"name": "profile_references_missing_file", "expected": "fail"}
+    {"name": "profile_references_missing_file", "expected": "fail"},
+    {"name": "valid_complete_task_delta", "expected": "pass"},
+    {"name": "outside_allowlist_unstaged", "expected": "fail"},
+    {"name": "outside_allowlist_staged", "expected": "fail"},
+    {"name": "outside_allowlist_untracked", "expected": "fail"},
+    {"name": "outside_allowlist_committed_after_baseline", "expected": "fail"},
+    {"name": "mixed_allowed_and_forbidden_states", "expected": "fail"},
+    {"name": "baseline_commit_missing", "expected": "fail"},
+    {"name": "missing_mandatory_profile_gate", "expected": "fail"},
+    {"name": "mandatory_gate_marked_not_required", "expected": "fail"},
+    {"name": "unknown_declared_verification_gate", "expected": "fail"},
+    {"name": "intended_create_outside_allowed_paths", "expected": "fail"},
+    {"name": "intended_modify_outside_allowed_paths", "expected": "fail"},
+    {"name": "actual_dependency_change_impact_none", "expected": "fail"},
+    {"name": "actual_migration_change_impact_none", "expected": "fail"},
+    {"name": "actual_behavior_version_change_impact_none", "expected": "fail"},
+    {"name": "committed_allowed_change_after_baseline", "expected": "pass"},
+    {"name": "staged_allowed_change", "expected": "pass"},
+    {"name": "untracked_allowed_change", "expected": "pass"}
   ]
 }
