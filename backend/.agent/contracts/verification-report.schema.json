@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/schemas/verification-report.schema.json",
+  "title": "Task Verification Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "baseline_commit", "changed_files", "checks", "scope", "impacts", "result"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "task_id": {"type": "string", "minLength": 1},
+    "baseline_commit": {"type": "string", "pattern": "^[0-9a-fA-F]{40}$"},
+    "changed_files": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "exit_code", "status", "evidence"],
+        "properties": {
+          "command": {"type": "string", "minLength": 1},
+          "exit_code": {"type": "integer"},
+          "status": {"enum": ["pass", "fail", "skipped", "blocked"]},
+          "evidence": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all_changes_allowed", "forbidden_path_changes"],
+      "properties": {
+        "all_changes_allowed": {"type": "boolean"},
+        "forbidden_path_changes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "impacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_behavior", "domain_behavior", "api", "database", "dependencies", "behavior_versions"],
+      "properties": {
+        "runtime_behavior": {"enum": ["none", "specified_change"]},
+        "domain_behavior": {"enum": ["none", "specified_change"]},
+        "api": {"enum": ["none", "specified_change"]},
+        "database": {"enum": ["none", "specified_change"]},
+        "dependencies": {"enum": ["none", "specified_change"]},
+        "behavior_versions": {"enum": ["none", "specified_change"]}
+      }
+    },
+    "result": {"enum": ["pass", "fail", "blocked"]}
+  }
+}

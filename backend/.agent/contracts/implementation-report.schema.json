@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/schemas/implementation-report.schema.json",
+  "title": "Executor Implementation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "result", "scope_summary", "changed_files", "acceptance_criteria", "verification", "impacts", "deviations", "blockers"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "task_id": {"type": "string", "minLength": 1},
+    "result": {"enum": ["pass", "fail", "blocked"]},
+    "scope_summary": {"type": "string", "minLength": 1},
+    "changed_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created", "modified", "deleted"],
+      "properties": {
+        "created": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "modified": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "deleted": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "status", "evidence"],
+        "properties": {
+          "criterion": {"type": "string", "minLength": 1},
+          "status": {"enum": ["pass", "fail", "blocked"]},
+          "evidence": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "exit_code", "status", "evidence"],
+        "properties": {
+          "command": {"type": "string", "minLength": 1},
+          "exit_code": {"type": "integer"},
+          "status": {"enum": ["pass", "fail", "skipped", "blocked"]},
+          "evidence": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "impacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime_behavior", "domain_behavior", "api", "database", "dependencies", "behavior_versions"],
+      "properties": {
+        "runtime_behavior": {"enum": ["none", "specified_change"]},
+        "domain_behavior": {"enum": ["none", "specified_change"]},
+        "api": {"enum": ["none", "specified_change"]},
+        "database": {"enum": ["none", "specified_change"]},
+        "dependencies": {"enum": ["none", "specified_change"]},
+        "behavior_versions": {"enum": ["none", "specified_change"]}
+      }
+    },
+    "deviations": {"type": "array", "items": {"type": "string"}},
+    "blockers": {"type": "array", "items": {"type": "string"}}
+  }
+}
