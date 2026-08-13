@@ -1,0 +1,164 @@
+name: Agent Task Attestation
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact target commit SHA to verify
+        required: true
+        type: string
+      task_packet_json:
+        description: Exact architect task packet JSON
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Require default branch dispatch
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"
+
+      - name: Validate target SHA
+        shell: bash
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
+
+      - name: Checkout trusted control
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: control
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout target
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: target
+          ref: ${{ inputs.target_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify checkout heads
+        shell: bash
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git -C control rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C target rev-parse HEAD)" = "$TARGET_SHA"
+
+      - name: Write immutable task packet
+        shell: pwsh
+        env:
+          TASK_PACKET_JSON: ${{ inputs.task_packet_json }}
+        run: |
+          $packetPath = Join-Path $env:RUNNER_TEMP 'agent-task-packet.json'
+          $bytes = [Text.Encoding]::UTF8.GetBytes($env:TASK_PACKET_JSON)
+          [IO.File]::WriteAllBytes($packetPath, $bytes)
+
+      - name: Install exact Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.97.1 --profile minimal
+          rustup component add rustfmt clippy --toolchain 1.97.1
+          rustup default 1.97.1
+
+      - name: Run trusted ControlRoot attestation runner
+        id: trusted_runner
+        continue-on-error: true
+        shell: bash
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          set +e
+          pwsh -NoLogo -NoProfile -File control/scripts/run-agent-verification.ps1 \
+            -TaskPacket "$RUNNER_TEMP/agent-task-packet.json" \
+            -TargetRoot "$GITHUB_WORKSPACE/target" \
+            -OutputPath "$RUNNER_TEMP/verification-report.json"
+          runner_exit=$?
+          echo "runner_exit=$runner_exit" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Create CI attestation
+        shell: pwsh
+        env:
+          TARGET_SHA: ${{ inputs.target_sha }}
+        run: |
+          $reportPath = Join-Path $env:RUNNER_TEMP 'verification-report.json'
+          $attestationPath = Join-Path $env:RUNNER_TEMP 'ci-attestation.json'
+          if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw 'trusted verification report is missing' }
+          $report = Get-Content -Raw -LiteralPath $reportPath | ConvertFrom-Json
+          $manifest = Get-Content -Raw -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'control/.agent/manifest.json') | ConvertFrom-Json
+          $attestation = [ordered]@{
+            schema_version = '1.0.0'
+            release = 'agent-ci-attestation-1.0.0'
+            task_id = [string]$report.task_id
+            target_sha = $env:TARGET_SHA
+            control_sha = [string]$report.control_plane.head_commit
+            task_packet_sha256 = [string]$report.task_packet_sha256
+            verification_report_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $reportPath).Hash.ToLowerInvariant()
+            verification_report_path = 'verification-report.json'
+            result = [string]$report.result
+            runner_release = [string]$manifest.runner_release
+            verifier_release = [string]$manifest.verifier_release
+            verification_registry_release = [string]$manifest.verification_registry_release
+            ci_release = [string]$manifest.ci_release
+          }
+          $attestation | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $attestationPath -Encoding utf8
+          if ($report.result -ne 'pass') { throw 'trusted verification result is not pass' }
+
+      - name: Upload attestation evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: agent-task-attestation-${{ inputs.target_sha }}
+          path: |
+            ${{ runner.temp }}/verification-report.json
+            ${{ runner.temp }}/ci-attestation.json
+          retention-days: 30
+
+      - name: Enforce trusted runner success
+        shell: bash
+        run: test "${{ steps.trusted_runner.outputs.runner_exit }}" = "0"
+
+  publish-status:
+    needs: attest
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish stable verification status
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ATTEST_RESULT: ${{ needs.attest.result }}
+        run: |
+          set -euo pipefail
+          state=success
+          if [ "$ATTEST_RESULT" != "success" ]; then state=failure; fi
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPOSITORY/statuses/$TARGET_SHA" \
+            --data "{\"state\":\"$state\",\"context\":\"agent-task/verified\",\"description\":\"Independent agent task attestation\",\"target_url\":\"https://github.com/$REPOSITORY/actions/runs/$RUN_ID\"}"

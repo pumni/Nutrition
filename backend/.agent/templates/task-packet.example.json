@@ -54,6 +54,10 @@
       "required": true
     },
     {
+      "gate": "agent-ci-policy",
+      "required": true
+    },
+    {
       "gate": "acl-integrity",
       "required": true
     },

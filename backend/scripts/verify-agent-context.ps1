@@ -3,6 +3,7 @@ param(
     [string]$TaskPacket,
     [string]$RepositoryRoot,
     [string]$TaskStateOutput,
+    [switch]$CiPolicy,
     [switch]$SelfTest
 )
 
@@ -136,10 +137,16 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/evals/context-layer-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
+        ".agent/contracts/ci-attestation.schema.json",
         ".agent/state/source-lock.json",
         "scripts/verify-agent-context.ps1",
         "scripts/run-agent-verification.ps1",
-        ".agent/templates/external-evidence.example.json"
+        ".agent/templates/external-evidence.example.json",
+        ".agent/templates/ci-attestation.example.json",
+        ".agent/maps/ci-policy.json",
+        ".agent/evals/ci-cases.json",
+        ".github/workflows/agent-context-integrity.yml",
+        ".github/workflows/agent-task-attest.yml"
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) {
@@ -156,15 +163,17 @@ function Assert-JsonArtifacts([string]$Root) {
 
 function Assert-Manifest([string]$Root) {
     $manifest = Load-Json (Get-RepoPath $Root ".agent/manifest.json")
-    Assert-ExactProperties $manifest @("schema_version", "context_release", "contract_release", "verifier_release", "verification_registry_release", "runner_release", "verification_report_release", "implementation_report_release", "project", "authority", "budgets", "paths") "manifest"
+    Assert-ExactProperties $manifest @("schema_version", "context_release", "contract_release", "verifier_release", "verification_registry_release", "runner_release", "verification_report_release", "implementation_report_release", "ci_release", "ci_attestation_contract_release", "project", "authority", "budgets", "paths") "manifest"
     if ((Require-Property $manifest "schema_version" "manifest") -ne "1.0.0") { Fail "manifest schema_version must be 1.0.0" }
     if ((Require-Property $manifest "context_release" "manifest") -ne "agent-context-1.0.0") { Fail "manifest context_release must be agent-context-1.0.0" }
     if ((Require-Property $manifest "contract_release" "manifest") -ne "agent-contract-1.1.0") { Fail "manifest contract_release mismatch" }
-    if ((Require-Property $manifest "verifier_release" "manifest") -ne "agent-verifier-2.1.0") { Fail "manifest verifier_release mismatch" }
-    if ((Require-Property $manifest "verification_registry_release" "manifest") -ne "agent-gates-2.1.0") { Fail "manifest verification_registry_release mismatch" }
+    if ((Require-Property $manifest "verifier_release" "manifest") -ne "agent-verifier-2.2.0") { Fail "manifest verifier_release mismatch" }
+    if ((Require-Property $manifest "verification_registry_release" "manifest") -ne "agent-gates-2.2.0") { Fail "manifest verification_registry_release mismatch" }
     if ((Require-Property $manifest "runner_release" "manifest") -ne "agent-runner-1.0.1") { Fail "manifest runner_release mismatch" }
     if ((Require-Property $manifest "verification_report_release" "manifest") -ne "agent-verification-report-2.0.0") { Fail "manifest verification_report_release mismatch" }
     if ((Require-Property $manifest "implementation_report_release" "manifest") -ne "agent-implementation-report-1.1.0") { Fail "manifest implementation_report_release mismatch" }
+    if ((Require-Property $manifest "ci_release" "manifest") -ne "agent-ci-1.0.0") { Fail "manifest ci_release mismatch" }
+    if ((Require-Property $manifest "ci_attestation_contract_release" "manifest") -ne "agent-ci-attestation-1.0.0") { Fail "manifest ci_attestation_contract_release mismatch" }
     if ((Require-Property $manifest "project" "manifest").repository -ne "pumni/Nutrition_backend") { Fail "manifest repository mismatch" }
     if ((Require-Property $manifest "project" "manifest").behavior_release -ne "foundation-0.6.0") { Fail "manifest behavior_release mismatch" }
     $paths = Require-Property $manifest "paths" "manifest"
@@ -250,15 +259,97 @@ function Assert-Template([string]$Root) {
     if ($verificationReport.schema_version -ne "2.0.0") { Fail "verification report template schema_version mismatch" }
     $evidence = Load-Json (Get-RepoPath $Root ".agent/templates/external-evidence.example.json")
     if ($evidence.schema_version -ne "1.0.0") { Fail "external evidence template schema_version mismatch" }
+    $attestation = Load-Json (Get-RepoPath $Root ".agent/templates/ci-attestation.example.json")
+    if ($attestation.schema_version -ne "1.0.0" -or $attestation.release -ne "agent-ci-attestation-1.0.0") { Fail "CI attestation template release mismatch" }
 }
 
 function Assert-ReportContracts([string]$Root) {
     $verification = Load-Json (Get-RepoPath $Root ".agent/contracts/verification-report.schema.json")
     $implementation = Load-Json (Get-RepoPath $Root ".agent/contracts/implementation-report.schema.json")
     $external = Load-Json (Get-RepoPath $Root ".agent/contracts/external-evidence.schema.json")
+    $ci = Load-Json (Get-RepoPath $Root ".agent/contracts/ci-attestation.schema.json")
     if (@($verification.properties.schema_version.const) -ne "2.0.0") { Fail "verification report contract must be 2.0.0" }
     if (@($implementation.properties.schema_version.const) -ne "1.1.0") { Fail "implementation report contract must be 1.1.0" }
     if (@($external.properties.schema_version.const) -ne "1.0.0") { Fail "external evidence contract must be 1.0.0" }
+    if (@($ci.properties.schema_version.const) -ne "1.0.0" -or @($ci.properties.release.const) -ne "agent-ci-attestation-1.0.0") { Fail "CI attestation contract must be 1.0.0" }
+}
+
+function Get-CiWorkflowSection([string]$Text, [string]$JobName) {
+    $pattern = "(?ms)^  " + [regex]::Escape($JobName) + ":.*?(?=^  \S|\z)"
+    $match = [regex]::Match($Text, $pattern)
+    if (-not $match.Success) { return "" }
+    return $match.Value
+}
+
+function Get-CiWorkflowHeader([string]$Text) {
+    $jobsIndex = $Text.IndexOf("jobs:", [StringComparison]::Ordinal)
+    if ($jobsIndex -lt 0) { return $Text }
+    return $Text.Substring(0, $jobsIndex)
+}
+
+function Assert-CiPolicy([string]$Root) {
+    $policy = Load-Json (Get-RepoPath $Root ".agent/maps/ci-policy.json")
+    Assert-ExactProperties $policy @("schema_version", "release", "actions", "workflows") "CI policy"
+    if ($policy.schema_version -ne "1.0.0" -or $policy.release -ne "agent-ci-1.0.0") { Fail "CI policy release mismatch" }
+    if ($policy.workflows.integrity.path -ne ".github/workflows/agent-context-integrity.yml" -or $policy.workflows.attestation.path -ne ".github/workflows/agent-task-attest.yml") { Fail "CI policy workflow paths mismatch" }
+    if ((@($policy.workflows.integrity.allowed_triggers) -join ",") -ne "pull_request,push" -or (@($policy.workflows.integrity.forbidden_triggers) -join ",") -ne "pull_request_target,workflow_run") { Fail "CI policy integrity triggers mismatch" }
+    if ($policy.workflows.integrity.permissions.contents -ne "read") { Fail "CI policy integrity permissions mismatch" }
+    if ((@($policy.workflows.attestation.allowed_triggers) -join ",") -ne "workflow_dispatch" -or (@($policy.workflows.attestation.forbidden_triggers) -join ",") -ne "pull_request,pull_request_target,push,workflow_run") { Fail "CI policy attestation triggers mismatch" }
+    if ($policy.workflows.attestation.default_branch_only -ne $true -or $policy.workflows.attestation.control_path -ne "control" -or $policy.workflows.attestation.target_path -ne "target" -or $policy.workflows.attestation.status_context -ne "agent-task/verified" -or [int]$policy.workflows.attestation.artifact_retention_days -ne 30 -or $policy.workflows.attestation.rust_toolchain -ne "1.97.1") { Fail "CI policy attestation controls mismatch" }
+    if ($policy.workflows.attestation.attest_permissions.contents -ne "read" -or $policy.workflows.attestation.status_permissions.statuses -ne "write") { Fail "CI policy job permissions mismatch" }
+    if ($policy.actions.checkout.repository -ne "actions/checkout" -or $policy.actions.checkout.release -ne "v7.0.1" -or $policy.actions.checkout.sha -ne "3d3c42e5aac5ba805825da76410c181273ba90b1") { Fail "CI policy checkout action pin mismatch" }
+    if ($policy.actions.upload_artifact.repository -ne "actions/upload-artifact" -or $policy.actions.upload_artifact.release -ne "v7.0.1" -or $policy.actions.upload_artifact.sha -ne "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a") { Fail "CI policy upload-artifact action pin mismatch" }
+    $integrityPath = Get-RepoPath $Root $policy.workflows.integrity.path
+    $attestationPath = Get-RepoPath $Root $policy.workflows.attestation.path
+    if (-not (Test-Path -LiteralPath $integrityPath -PathType Leaf)) { Fail "integrity workflow is missing" }
+    if (-not (Test-Path -LiteralPath $attestationPath -PathType Leaf)) { Fail "attestation workflow is missing" }
+    $integrity = Get-Content -Raw -LiteralPath $integrityPath
+    $attestation = Get-Content -Raw -LiteralPath $attestationPath
+    $attestHeader = Get-CiWorkflowHeader $attestation
+    $attestJob = Get-CiWorkflowSection $attestation "attest"
+    $statusJob = Get-CiWorkflowSection $attestation "publish-status"
+
+    if ($integrity -match '(?m)^\s{0,2}(pull_request_target|workflow_run):') { Fail "integrity workflow contains forbidden trigger" }
+    if ($integrity -notmatch '(?m)^\s{2}pull_request:\s*$' -or $integrity -notmatch '(?m)^\s{2}push:\s*$' -or $integrity -notmatch '(?m)^\s{6}- main\s*$') { Fail "integrity workflow trigger policy is invalid" }
+    if ($integrity -notmatch '(?m)^permissions:\s*\r?\n\s{2}contents:\s*read\s*$') { Fail "integrity workflow permissions must be contents: read" }
+    if ($integrity -match '(?m)statuses:\s*write') { Fail "integrity workflow must not publish status" }
+    if ($integrity -notmatch 'verify-agent-context\.ps1\s+-CiPolicy') { Fail "integrity workflow must run -CiPolicy" }
+    if ($integrity -match 'export-agent-capability-policy|capability sandbox') { Fail "P10D capability exporter is forbidden" }
+
+    if ($attestHeader -notmatch '(?m)^\s{2}workflow_dispatch:\s*$') { Fail "attestation workflow must be workflow_dispatch-only" }
+    foreach ($forbiddenTrigger in @("pull_request", "pull_request_target", "push", "workflow_run")) {
+        if ($attestHeader -match ("(?m)^\s{2}" + $forbiddenTrigger + ":\s*$")) { Fail "forbidden trigger $forbiddenTrigger" }
+    }
+    if ($attestation -notmatch 'github\.event\.repository\.default_branch' -or $attestation -notmatch 'GITHUB_REF.*refs/heads/\$DEFAULT_BRANCH') { Fail "default-branch dispatch guard is missing" }
+    if ([string]::IsNullOrWhiteSpace($statusJob) -or $statusJob -match 'actions/checkout@') { Fail "status job must not checkout" }
+    $allActions = $integrity + "`n" + $attestation
+    $checkoutRefs = @([regex]::Matches($allActions, 'actions/checkout@([^\s]+)') | ForEach-Object { $_.Groups[1].Value })
+    if ($checkoutRefs.Count -ne 3 -or @($checkoutRefs | Where-Object { $_ -ne "3d3c42e5aac5ba805825da76410c181273ba90b1" }).Count -gt 0) { Fail "checkout action pin is invalid" }
+    $uploadRefs = @([regex]::Matches($allActions, 'actions/upload-artifact@([^\s]+)') | ForEach-Object { $_.Groups[1].Value })
+    if ($uploadRefs.Count -ne 1 -or $uploadRefs[0] -ne "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a") { Fail "upload-artifact action pin is invalid" }
+    if ($attestation -notmatch '(?ms)^[ \t]+uses: actions/checkout@[^\r\n]+\r?\n[ \t]+with:\r?\n[ \t]+path: control\b') { Fail "control checkout path is invalid" }
+    if ($attestation -notmatch '(?ms)^[ \t]+uses: actions/checkout@[^\r\n]+\r?\n[ \t]+with:\r?\n[ \t]+path: control\r?\n[ \t]+ref: \$\{\{ github\.sha \}\}') { Fail "control checkout ref is invalid" }
+    if ($attestation -notmatch '(?ms)^[ \t]+uses: actions/checkout@[^\r\n]+\r?\n[ \t]+with:\r?\n[ \t]+path: target\b') { Fail "target checkout path is invalid" }
+    if ($attestation -notmatch '(?ms)^[ \t]+uses: actions/checkout@[^\r\n]+\r?\n[ \t]+with:\r?\n[ \t]+path: target\r?\n[ \t]+ref: \$\{\{ inputs\.target_sha \}\}') { Fail "target checkout ref is invalid" }
+    if ($attestation -notmatch '(?m)^\s+ref: \$\{\{ inputs\.target_sha \}\}') { Fail "target checkout ref must use input target SHA" }
+    if (@([regex]::Matches($attestation, '(?m)^\s+fetch-depth:\s+0\s*$')).Count -ne 2) { Fail "both checkouts require fetch-depth 0" }
+    if (@([regex]::Matches($attestation, '(?m)^\s+persist-credentials:\s+false\s*$')).Count -ne 2) { Fail "both checkouts require persist-credentials false" }
+    if ($attestation -notmatch '(?m)^permissions:\s*\{\}\s*$') { Fail "top-level permissions must be empty" }
+    if ([string]::IsNullOrWhiteSpace($attestJob) -or $attestJob -notmatch '(?m)^    permissions:\s*\r?\n\s{6}contents:\s*read\s*$' -or $attestJob -match '(?m)^\s{6}contents:\s*(write|none)\s*$' -or $attestJob -match '(?m)^\s{6}(statuses|checks):\s*') { Fail "attest job must have contents: read only" }
+    if ([string]::IsNullOrWhiteSpace($statusJob) -or $statusJob -match 'actions/checkout@') { Fail "status job must not checkout" }
+    if ($statusJob -notmatch '(?m)^    permissions:\s*\r?\n\s{6}statuses:\s*write\s*$' -or $statusJob -match '(?m)^\s{6}(contents|checks):\s*') { Fail "status job must have statuses: write only" }
+    if ($statusJob -notmatch '(?m)^  publish-status:\s*$' -or $statusJob -notmatch '(?m)^    needs:\s+attest\s*$') { Fail "status job must need attest" }
+    if ($attestation -notmatch '(?m)^    if:\s+always\(\)\s*$') { Fail "status job must use if: always()" }
+    if ($attestation -notmatch 'agent-task/verified') { Fail "stable status context is invalid" }
+    if ($attestation -notmatch 'control/scripts/run-agent-verification\.ps1' -or $attestation -match 'target/scripts/run-agent-verification\.ps1') { Fail "trusted runner must execute from ControlRoot" }
+    if ($attestation -notmatch 'RUNNER_TEMP[^\r\n]*agent-task-packet\.json') { Fail "packet must be outside TargetRoot" }
+    if ($attestation -notmatch 'RUNNER_TEMP[^\r\n]*verification-report\.json') { Fail "report must be outside TargetRoot" }
+    if ($attestation -match '(?i)(target[^\r\n]*agent-task-packet|agent-task-packet[^\r\n]*target)') { Fail "packet must be outside TargetRoot" }
+    if ($attestation -match '(?i)(target[^\r\n]*verification-report|verification-report[^\r\n]*target)') { Fail "report must be outside TargetRoot" }
+    if ($attestation -notmatch '(?m)^\s+retention-days:\s+30\s*$') { Fail "artifact retention must be 30 days" }
+    if ($attestation -notmatch 'rustup toolchain install 1\.97\.1' -or $attestation -notmatch 'rustup component add rustfmt clippy --toolchain 1\.97\.1') { Fail "Rust toolchain must be 1.97.1" }
+    if ($attestation -match 'export-agent-capability-policy|capability sandbox') { Fail "P10D capability exporter is forbidden" }
+    return $true
 }
 
 function Assert-Impacts($Packet, [string[]]$IntendedPaths, [string[]]$ActualPaths = @()) {
@@ -342,6 +433,8 @@ function Assert-VerificationRegistry([string]$Root) {
     }
     $runnerGate = @($gates | Where-Object { $_.name -eq "agent-runner-self-test" })
     if ($runnerGate.Count -ne 1 -or $runnerGate[0].kind -ne "control-script" -or $runnerGate[0].script -ne "scripts/run-agent-verification.ps1") { Fail "agent-runner-self-test registry gate is invalid" }
+    $ciGate = @($gates | Where-Object { $_.name -eq "agent-ci-policy" })
+    if ($ciGate.Count -ne 1 -or $ciGate[0].kind -ne "control-script" -or $ciGate[0].script -ne "scripts/verify-agent-context.ps1" -or @($ciGate[0].arguments) -notcontains "-CiPolicy") { Fail "agent-ci-policy registry gate is invalid" }
     $foundationGate = @($gates | Where-Object { $_.name -eq "foundation-verify" })
     if ($foundationGate.Count -ne 1 -or $foundationGate[0].kind -ne "target-script") { Fail "foundation-verify must be a target-script" }
     $postgresGate = @($gates | Where-Object { $_.name -eq "postgres-verify" })
@@ -634,6 +727,7 @@ function Assert-Integrity([string]$Root) {
     Assert-VerificationRegistry $Root
     Assert-ReportContracts $Root
     Assert-Template $Root
+    Assert-CiPolicy $Root
     return $profiles
 }
 
@@ -658,6 +752,7 @@ function New-BaseSelfTestPacket {
         verification = @(
             [pscustomobject]@{gate = "acl-self-test"; required = $true},
             [pscustomobject]@{gate = "agent-runner-self-test"; required = $true},
+            [pscustomobject]@{gate = "agent-ci-policy"; required = $true},
             [pscustomobject]@{gate = "acl-integrity"; required = $true},
             [pscustomobject]@{gate = "foundation-verify"; required = $true}
         )
@@ -1087,6 +1182,75 @@ function Invoke-P10SelfTests([string]$Root, $Cases) {
     Invoke-P10ManifestScenario $Root "manifest_registry_release_mismatch" "verification_registry_release" $expectedReasons["manifest_registry_release_mismatch"]
 }
 
+function Set-CiFixtureText([string]$Path, [string]$Old, [string]$New) {
+    $text = Get-Content -Raw -LiteralPath $Path
+    if (-not $text.Contains($Old)) { Fail "CI self-test fixture text is missing: $Old" }
+    $text = $text.Replace($Old, $New)
+    Set-Content -LiteralPath $Path -Value $text -NoNewline -Encoding utf8
+}
+
+function Invoke-CiPolicySelfTests([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/ci-cases.json")
+    $cases = @((Require-Property $document "cases" "CI self-test cases"))
+    if ($cases.Count -ne 36) { Fail "CI self-test requires exactly thirty-six cases" }
+    $caseNames = @($cases | ForEach-Object { [string]$_.name })
+    if (@($caseNames | Sort-Object -Unique).Count -ne $caseNames.Count) { Fail "CI self-test case names are not unique" }
+    $fixture = Join-Path ([IO.Path]::GetTempPath()) ("agent-ci-policy-selftest-" + [guid]::NewGuid().ToString("N"))
+    try {
+        foreach ($case in $cases) {
+            New-Item -ItemType Directory -Force -Path (Join-Path $fixture ".github/workflows"), (Join-Path $fixture ".agent/maps") | Out-Null
+            Copy-Item -Force -LiteralPath (Get-RepoPath $Root ".github/workflows/agent-context-integrity.yml") -Destination (Get-RepoPath $fixture ".github/workflows/agent-context-integrity.yml")
+            Copy-Item -Force -LiteralPath (Get-RepoPath $Root ".github/workflows/agent-task-attest.yml") -Destination (Get-RepoPath $fixture ".github/workflows/agent-task-attest.yml")
+            Copy-Item -Force -LiteralPath (Get-RepoPath $Root ".agent/maps/ci-policy.json") -Destination (Get-RepoPath $fixture ".agent/maps/ci-policy.json")
+            $integrityPath = Get-RepoPath $fixture ".github/workflows/agent-context-integrity.yml"
+            $attestationPath = Get-RepoPath $fixture ".github/workflows/agent-task-attest.yml"
+            $name = [string]$case.name
+            switch ($name) {
+                "integrity_workflow_missing" { Remove-Item -Force -LiteralPath $integrityPath }
+                "attestation_workflow_missing" { Remove-Item -Force -LiteralPath $attestationPath }
+                "attestation_trigger_not_dispatch_only" { Set-CiFixtureText $attestationPath "  workflow_dispatch:`n" "  pull_request:`n" }
+                "attestation_pull_request_target_present" { Set-CiFixtureText $attestationPath "  workflow_dispatch:`n" "  workflow_dispatch:`n  pull_request_target:`n" }
+                "attestation_workflow_run_present" { Set-CiFixtureText $attestationPath "  workflow_dispatch:`n" "  workflow_dispatch:`n  workflow_run:`n" }
+                "attestation_default_branch_guard_missing" { Set-CiFixtureText $attestationPath '          test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"' "          true" }
+                "checkout_floating_tag" { Set-CiFixtureText $attestationPath "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" "actions/checkout@v7.0.1" }
+                "checkout_sha_wrong" { Set-CiFixtureText $attestationPath "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" "actions/checkout@0000000000000000000000000000000000000000" }
+                "upload_artifact_floating_tag" { Set-CiFixtureText $attestationPath "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" "actions/upload-artifact@v7" }
+                "upload_artifact_sha_wrong" { Set-CiFixtureText $attestationPath "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" "actions/upload-artifact@0000000000000000000000000000000000000000" }
+                "control_persist_credentials_missing_false" { Set-CiFixtureText $attestationPath "          persist-credentials: false" "          persist-credentials: true" }
+                "target_persist_credentials_missing_false" { Set-CiFixtureText $attestationPath "          persist-credentials: false" "          persist-credentials: true" }
+                "control_fetch_depth_not_zero" { Set-CiFixtureText $attestationPath "          fetch-depth: 0" "          fetch-depth: 1" }
+                "target_fetch_depth_not_zero" { Set-CiFixtureText $attestationPath "          fetch-depth: 0" "          fetch-depth: 1" }
+                "control_checkout_path_wrong" { Set-CiFixtureText $attestationPath "          path: control" "          path: wrong-control" }
+                "target_checkout_path_wrong" { Set-CiFixtureText $attestationPath "          path: target" "          path: wrong-target" }
+                "target_ref_not_input_sha" { Set-CiFixtureText $attestationPath '          ref: ${{ inputs.target_sha }}' '          ref: ${{ github.sha }}' }
+                "attest_contents_write" { Set-CiFixtureText $attestationPath "      contents: read" "      contents: write" }
+                "attest_statuses_write" { Set-CiFixtureText $attestationPath "      contents: read" "      statuses: write" }
+                "attest_checks_write" { Set-CiFixtureText $attestationPath "      contents: read" "      contents: read`n      checks: write" }
+                "workflow_top_level_write_permission" { Set-CiFixtureText $attestationPath "permissions: {}" "permissions:`n  contents: write" }
+                "status_job_checkout_present" { Set-CiFixtureText $attestationPath "    steps:`n      - name: Publish stable verification status" "    steps:`n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1`n      - name: Publish stable verification status" }
+                "status_job_contents_write" { Set-CiFixtureText $attestationPath "      statuses: write" "      statuses: write`n      contents: write" }
+                "status_job_missing_statuses_write" { Set-CiFixtureText $attestationPath "      statuses: write" "      contents: read" }
+                "status_context_wrong" { Set-CiFixtureText $attestationPath "agent-task/verified" "agent-task/wrong" }
+                "status_job_missing_always" { Set-CiFixtureText $attestationPath "    if: always()" "    if: success()" }
+                "status_job_missing_needs_attest" { Set-CiFixtureText $attestationPath "    needs: attest" "    needs: other" }
+                "runner_path_uses_target_root" { Set-CiFixtureText $attestationPath "control/scripts/run-agent-verification.ps1" "target/scripts/run-agent-verification.ps1" }
+                "packet_written_inside_target" { Set-CiFixtureText $attestationPath 'Join-Path $env:RUNNER_TEMP ''agent-task-packet.json''' 'Join-Path $env:GITHUB_WORKSPACE ''target/agent-task-packet.json'''; Set-CiFixtureText $attestationPath '$RUNNER_TEMP/agent-task-packet.json' '$GITHUB_WORKSPACE/target/agent-task-packet.json' }
+                "report_written_inside_target" { Set-CiFixtureText $attestationPath 'Join-Path $env:RUNNER_TEMP ''verification-report.json''' 'Join-Path $env:GITHUB_WORKSPACE ''target/verification-report.json'''; Set-CiFixtureText $attestationPath '$RUNNER_TEMP/verification-report.json' '$GITHUB_WORKSPACE/target/verification-report.json' }
+                "artifact_retention_wrong" { Set-CiFixtureText $attestationPath "retention-days: 30" "retention-days: 7" }
+                "rust_toolchain_wrong" { Set-CiFixtureText $attestationPath "1.97.1" "1.96.0" }
+                "p10d_exporter_invoked" { Add-Content -LiteralPath $attestationPath -Value "`n      - run: control/scripts/export-agent-capability-policy.ps1" }
+                "integrity_workflow_status_write" { Add-Content -LiteralPath $integrityPath -Value "`npermissions:`n  statuses: write" }
+                "integrity_workflow_missing_ci_policy" { Set-CiFixtureText $integrityPath "./scripts/verify-agent-context.ps1 -CiPolicy" "./scripts/verify-agent-context.ps1" }
+            }
+            Assert-SelfTestExpected $name ([string]$case.expected -eq "pass") { [void](Assert-CiPolicy $fixture) } ([string]$case.expected_reason)
+            Remove-Item -Recurse -Force -LiteralPath $fixture
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $fixture) { Remove-Item -Recurse -Force -LiteralPath $fixture }
+    }
+}
+
 function Invoke-SelfTest([string]$Root) {
     $casesDocument = Load-Json (Get-RepoPath $Root ".agent/evals/context-layer-cases.json")
     $cases = @((Require-Property $casesDocument "cases" "self-test cases"))
@@ -1156,15 +1320,22 @@ function Invoke-SelfTest([string]$Root) {
     }
     Invoke-P09SelfTests $Root $cases
     Invoke-P10SelfTests $Root $cases
+    Invoke-CiPolicySelfTests $Root
     Write-Output "[PASS] All $($cases.Count) ACL self-test cases passed."
 }
 
 Push-Location $script:RepoRoot
 try {
-    if ($SelfTest -and ($TaskPacket -or $TaskStateOutput)) { Fail "-SelfTest cannot be combined with task validation parameters" }
+    if ($SelfTest -and ($TaskPacket -or $TaskStateOutput -or $CiPolicy)) { Fail "-SelfTest cannot be combined with task validation parameters or -CiPolicy" }
+    if ($CiPolicy -and ($SelfTest -or $TaskPacket -or $TaskStateOutput)) { Fail "-CiPolicy cannot be combined with -SelfTest, -TaskPacket, or -TaskStateOutput" }
     if ($TaskStateOutput -and -not $TaskPacket) { Fail "-TaskStateOutput requires -TaskPacket" }
     if ($SelfTest) {
         Invoke-SelfTest $script:RepoRoot
+        exit 0
+    }
+    if ($CiPolicy) {
+        [void](Assert-CiPolicy $script:RepoRoot)
+        Write-Output "[PASS] CI policy verification passed."
         exit 0
     }
     $profiles = Assert-Integrity $script:RepoRoot

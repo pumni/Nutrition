@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "release": "agent-ci-1.0.0",
+  "actions": {
+    "checkout": {
+      "repository": "actions/checkout",
+      "release": "v7.0.1",
+      "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    },
+    "upload_artifact": {
+      "repository": "actions/upload-artifact",
+      "release": "v7.0.1",
+      "sha": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    }
+  },
+  "workflows": {
+    "integrity": {
+      "path": ".github/workflows/agent-context-integrity.yml",
+      "allowed_triggers": ["pull_request", "push"],
+      "forbidden_triggers": ["pull_request_target", "workflow_run"],
+      "permissions": {"contents": "read"}
+    },
+    "attestation": {
+      "path": ".github/workflows/agent-task-attest.yml",
+      "allowed_triggers": ["workflow_dispatch"],
+      "forbidden_triggers": ["pull_request", "pull_request_target", "push", "workflow_run"],
+      "default_branch_only": true,
+      "control_path": "control",
+      "target_path": "target",
+      "status_context": "agent-task/verified",
+      "artifact_retention_days": 30,
+      "rust_toolchain": "1.97.1",
+      "attest_permissions": {"contents": "read"},
+      "status_permissions": {"statuses": "write"}
+    }
+  }
+}
