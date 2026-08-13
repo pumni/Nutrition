@@ -1,6 +1,9 @@
 {
   "schema_version": "1.0.0",
   "context_release": "agent-context-1.0.0",
+  "contract_release": "agent-contract-1.1.0",
+  "verifier_release": "agent-verifier-2.0.0",
+  "verification_registry_release": "agent-gates-2.0.0",
   "project": {
     "repository": "pumni/Nutrition_backend",
     "behavior_release": "foundation-0.6.0"

@@ -20,6 +20,6 @@ Canonical decisions remain in the repository's existing source documents, ADRs, 
 
 ## Profile and task lifecycle
 
-An architect selects the context profile and authors the task packet. The executor reads the required profile context and packet, implements only the packet's allowed paths and sequence, and runs its required verification gates. The deterministic verifier checks context integrity and scope. Changes to canonical sources require the architect-approved context summaries and source lock to be refreshed.
+An architect selects the context profile and authors the task packet. The executor reads the required profile context and packet, implements only the packet's allowed paths and sequence, and declares exact `create_files`, `modify_files`, and `delete_files`. `allowed_paths` is only the outer boundary; the deterministic verifier requires exact declared/actual change-type equality, and deletion requires `delete_files`. Gate IDs come from the canonical registry; task packets do not redefine gate commands. The deterministic verifier checks context integrity and scope. Changes to canonical sources require the architect-approved context summaries and source lock to be refreshed.
 
 This layer has no runtime integration and does not add a production dependency.

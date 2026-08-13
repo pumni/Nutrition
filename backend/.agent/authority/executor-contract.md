@@ -7,10 +7,12 @@ The coding agent is an implementation executor. It implements exactly one archit
 1. A task packet is required before any write.
 2. Read the packet's required context profile and implementation files only.
 3. Execute the packet's `implementation_sequence` in order.
-4. Change only `allowed_paths`; never change `forbidden_paths`.
-5. Do not add behavior, dependencies, infrastructure, migrations, refactors, or abstractions outside the packet.
-6. Run every required verification gate and task-scope ACL verification.
-7. Produce the packet's implementation report with evidence.
+4. Change only `allowed_paths`; never change `forbidden_paths`. `allowed_paths` is an outer boundary, not an exact change declaration.
+5. Declare exact, pairwise-disjoint `create_files`, `modify_files`, and `delete_files`; every actual change must match the corresponding declared set, and deletion requires `delete_files`.
+6. Do not add behavior, dependencies, infrastructure, migrations, refactors, or abstractions outside the packet.
+7. Use canonical gate IDs and required flags; task packets do not supply verification commands.
+8. Run every required verification gate and task-scope ACL verification.
+9. Produce the packet's implementation report with evidence.
 
 Allowed mechanical freedom is limited to semantics-preserving formatting, import ordering, local names, compiler-required annotations, and packet-authorized private local helpers.
 

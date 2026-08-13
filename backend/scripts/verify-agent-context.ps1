@@ -32,6 +32,25 @@ function Require-Property($Object, [string]$Name, [string]$Context) {
     return $Object.PSObject.Properties[$Name].Value
 }
 
+function Assert-ExactProperties($Object, [string[]]$Allowed, [string]$Context) {
+    $actual = @($Object.PSObject.Properties.Name)
+    $unknown = @($actual | Where-Object { $_ -notin $Allowed })
+    if ($unknown.Count -gt 0) { Fail "$Context contains unknown field(s): $($unknown -join ', ')" }
+}
+
+function Assert-Array($Value, [string]$Context, [bool]$NonEmpty = $false) {
+    if ($null -eq $Value -or $Value -is [string] -or $Value -isnot [System.Collections.IEnumerable]) { Fail "$Context must be an array" }
+    $items = @($Value)
+    if ($NonEmpty -and $items.Count -eq 0) { Fail "$Context must be non-empty" }
+    return $items
+}
+
+function Assert-StringArray($Value, [string]$Context, [bool]$NonEmpty = $false) {
+    $items = @(Assert-Array $Value $Context $NonEmpty)
+    if (@($items | Where-Object { $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) { Fail "$Context must contain non-empty strings" }
+    return $items
+}
+
 function Load-Json([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Fail "JSON file does not exist: $Path" }
     try {
@@ -110,8 +129,12 @@ function Assert-JsonArtifacts([string]$Root) {
 
 function Assert-Manifest([string]$Root) {
     $manifest = Load-Json (Get-RepoPath $Root ".agent/manifest.json")
+    Assert-ExactProperties $manifest @("schema_version", "context_release", "contract_release", "verifier_release", "verification_registry_release", "project", "authority", "budgets", "paths") "manifest"
     if ((Require-Property $manifest "schema_version" "manifest") -ne "1.0.0") { Fail "manifest schema_version must be 1.0.0" }
     if ((Require-Property $manifest "context_release" "manifest") -ne "agent-context-1.0.0") { Fail "manifest context_release must be agent-context-1.0.0" }
+    if ((Require-Property $manifest "contract_release" "manifest") -ne "agent-contract-1.1.0") { Fail "manifest contract_release mismatch" }
+    if ((Require-Property $manifest "verifier_release" "manifest") -ne "agent-verifier-2.0.0") { Fail "manifest verifier_release mismatch" }
+    if ((Require-Property $manifest "verification_registry_release" "manifest") -ne "agent-gates-2.0.0") { Fail "manifest verification_registry_release mismatch" }
     if ((Require-Property $manifest "project" "manifest").repository -ne "pumni/Nutrition_backend") { Fail "manifest repository mismatch" }
     if ((Require-Property $manifest "project" "manifest").behavior_release -ne "foundation-0.6.0") { Fail "manifest behavior_release mismatch" }
     $paths = Require-Property $manifest "paths" "manifest"
@@ -177,7 +200,7 @@ function Assert-SourceRegister([string]$Root) {
 function Assert-SourceLock([string]$Root) {
     $lock = Load-Json (Get-RepoPath $Root ".agent/state/source-lock.json")
     if ($lock.schema_version -ne "1.0.0" -or $lock.algorithm -ne "SHA256") { Fail "source lock schema or algorithm mismatch" }
-    $expected = @("Cargo.toml", "docs/FOUNDATION_DECISIONS.md", "docs/HOSTED_PARSER.md", "docs/RISK_REGISTER.md", "docs/SECURITY_AND_OPERATIONS.md", "nutrition_backend_blueprint_v1.0/00_README.md", "nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md", "nutrition_backend_blueprint_v1.0/13_IMPLEMENTATION_CHECKLIST.md")
+    $expected = @("Cargo.toml", "docs/FOUNDATION_DECISIONS.md", "docs/HOSTED_PARSER.md", "docs/RISK_REGISTER.md", "docs/SECURITY_AND_OPERATIONS.md", "docs/archive/nutrition_backend_blueprint_v1.0/00_README.md", "docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md", "docs/archive/nutrition_backend_blueprint_v1.0/13_IMPLEMENTATION_CHECKLIST.md")
     $sources = @($lock.sources)
     if ($sources.Count -ne $expected.Count) { Fail "source lock must contain exactly eight sources" }
     for ($index = 0; $index -lt $expected.Count; $index++) {
@@ -196,6 +219,7 @@ function Assert-Template([string]$Root) {
 
 function Assert-Impacts($Packet, [string[]]$IntendedPaths, [string[]]$ActualPaths = @()) {
     $impacts = Require-Property $Packet "impacts" "task packet"
+    Assert-ExactProperties $impacts @("runtime_behavior", "domain_behavior", "api", "database", "dependencies", "behavior_versions") "task packet impacts"
     foreach ($name in @("runtime_behavior", "domain_behavior", "api", "database", "dependencies", "behavior_versions")) {
         $value = Require-Property $impacts $name "task packet impacts"
         if ($value -notin @("none", "specified_change")) { Fail "invalid impact value for $name" }
@@ -213,19 +237,81 @@ function Assert-Impacts($Packet, [string[]]$IntendedPaths, [string[]]$ActualPath
     if ($impacts.behavior_versions -eq "none" -and @($actual | Where-Object { $_ -match '(?i)(behavior.?version|version.?vector|parser.?schema.?version|calculation.?engine.?version|docs/releases/)' }).Count -gt 0) { Fail "actual behavior-version impact mismatch: $($actual -join ', ')" }
 }
 
+function Assert-VerificationRegistry([string]$Root) {
+    $registry = Load-Json (Get-RepoPath $Root ".agent/maps/verification-map.json")
+    Assert-ExactProperties $registry @("schema_version", "gates") "verification registry"
+    if ($registry.schema_version -ne "2.0.0") { Fail "verification registry schema_version must be 2.0.0" }
+    $gates = @((Require-Property $registry "gates" "verification registry"))
+    if ($gates.Count -eq 0) { Fail "verification registry gates list is empty" }
+    $names = @()
+    $allowedKinds = @("control-script", "target-script", "native", "json-parse", "external-evidence")
+    foreach ($gate in $gates) {
+        Assert-ExactProperties $gate @("name", "kind", "script", "arguments", "program", "paths", "evidence_kind", "display_command") "verification registry gate"
+        if ($gate.name -isnot [string]) { Fail "verification registry gate name must be a string" }
+        if ($gate.kind -isnot [string]) { Fail "verification registry gate kind must be a string" }
+        $name = [string](Require-Property $gate "name" "verification registry gate")
+        $kind = [string](Require-Property $gate "kind" "verification registry gate $name")
+        if ([string]::IsNullOrWhiteSpace($name)) { Fail "verification registry gate name is blank" }
+        if ($name -in $names) { Fail "duplicate registry gate name: $name" }
+        $names += $name
+        if ($kind -notin $allowedKinds) { Fail "unknown registry gate kind: $kind" }
+        $displayCommand = Require-Property $gate "display_command" "verification registry gate $name"
+        if ($displayCommand -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$displayCommand)) { Fail "registry gate '$name' display_command must be a non-empty string" }
+        switch ($kind) {
+            "control-script" {
+                [void](Require-Property $gate "script" "registry gate $name")
+                [void](Require-Property $gate "arguments" "registry gate $name")
+                if ($gate.script -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.script)) { Fail "registry control-script '$name' script must be a non-empty string" }
+                if ($gate.arguments -is [string] -or $gate.arguments -isnot [System.Collections.IEnumerable]) { Fail "registry control-script '$name' arguments must be an array" }
+                if (@($gate.arguments | Where-Object { $_ -isnot [string] }).Count -gt 0) { Fail "registry control-script '$name' arguments must be strings" }
+                if ((Has-Property $gate "program") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind")) { Fail "registry control-script '$name' has invalid kind fields" }
+            }
+            "target-script" {
+                [void](Require-Property $gate "script" "registry gate $name")
+                [void](Require-Property $gate "arguments" "registry gate $name")
+                if ($gate.script -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.script)) { Fail "registry target-script '$name' script must be a non-empty string" }
+                if ($gate.arguments -is [string] -or $gate.arguments -isnot [System.Collections.IEnumerable]) { Fail "registry target-script '$name' arguments must be an array" }
+                if (@($gate.arguments | Where-Object { $_ -isnot [string] }).Count -gt 0) { Fail "registry target-script '$name' arguments must be strings" }
+                if ((Has-Property $gate "program") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind")) { Fail "registry target-script '$name' has invalid kind fields" }
+            }
+            "native" {
+                [void](Require-Property $gate "program" "registry gate $name")
+                [void](Require-Property $gate "arguments" "registry gate $name")
+                if ($gate.program -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.program)) { Fail "registry native '$name' program must be a non-empty string" }
+                if ($gate.arguments -is [string] -or $gate.arguments -isnot [System.Collections.IEnumerable]) { Fail "registry native '$name' arguments must be an array" }
+                if (@($gate.arguments | Where-Object { $_ -isnot [string] }).Count -gt 0) { Fail "registry native '$name' arguments must be strings" }
+                if ((Has-Property $gate "script") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind")) { Fail "registry native '$name' has invalid kind fields" }
+            }
+            "json-parse" {
+                [void](Require-Property $gate "paths" "registry gate $name")
+                if ($gate.paths -is [string] -or $gate.paths -isnot [System.Collections.IEnumerable]) { Fail "registry json-parse '$name' paths must be an array" }
+                if (@($gate.paths).Count -eq 0 -or @($gate.paths | Where-Object { $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) { Fail "registry json-parse '$name' paths must be non-empty strings" }
+                if ((Has-Property $gate "script") -or (Has-Property $gate "arguments") -or (Has-Property $gate "program") -or (Has-Property $gate "evidence_kind")) { Fail "registry json-parse '$name' has invalid kind fields" }
+            }
+            "external-evidence" {
+                [void](Require-Property $gate "evidence_kind" "registry gate $name")
+                if ($gate.evidence_kind -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.evidence_kind)) { Fail "registry external-evidence '$name' evidence_kind must be a non-empty string" }
+                if ((Has-Property $gate "script") -or (Has-Property $gate "arguments") -or (Has-Property $gate "program") -or (Has-Property $gate "paths")) { Fail "registry external-evidence '$name' has invalid kind fields" }
+            }
+        }
+    }
+    return $names
+}
+
 function Assert-VerificationGates([string]$Root, $Packet, $Profile) {
-    $verificationMap = Load-Json (Get-RepoPath $Root ".agent/maps/verification-map.json")
-    $knownGates = @($verificationMap.gates | ForEach-Object { [string]$_.name })
+    $knownGates = @(Assert-VerificationRegistry $Root)
     if ($knownGates.Count -eq 0) { Fail "verification map has no gates" }
     $entries = @($Packet.verification)
+    $declaredNames = @()
     foreach ($entry in $entries) {
+        Assert-ExactProperties $entry @("gate", "required") "task packet verification entry"
         [void](Require-Property $entry "gate" "task packet verification entry")
-        [void](Require-Property $entry "command" "task packet verification entry")
         [void](Require-Property $entry "required" "task packet verification entry")
         if ([string]::IsNullOrWhiteSpace([string]$entry.gate)) { Fail "declared verification gate name is blank" }
-        if ([string]::IsNullOrWhiteSpace([string]$entry.command)) { Fail "verification gate '$($entry.gate)' has a blank command" }
         if ($entry.required -isnot [bool]) { Fail "verification gate '$($entry.gate)' required must be boolean" }
         if ($entry.gate -notin $knownGates) { Fail "unknown declared verification gate: $($entry.gate)" }
+        if ($entry.gate -in $declaredNames) { Fail "duplicate packet gate declaration: $($entry.gate)" }
+        $declaredNames += [string]$entry.gate
     }
     $requiredGates = @($Profile.mandatory_verification_gates | ForEach-Object { [string]$_ })
     foreach ($gate in $requiredGates) {
@@ -236,12 +322,24 @@ function Assert-VerificationGates([string]$Root, $Packet, $Profile) {
 }
 
 function Assert-TaskPacketObject($Packet, [string]$Root, $Profiles) {
-    foreach ($name in @("schema_version", "task_id", "objective", "decision_authority", "executor_role", "context_profile", "required_baseline_commit", "allowed_paths", "forbidden_paths", "create_files", "modify_files", "implementation_sequence", "decision_points", "impacts", "acceptance_criteria", "verification", "escalation_conditions", "completion_report_required")) {
+    Assert-ExactProperties $Packet @("schema_version", "task_id", "objective", "decision_authority", "executor_role", "context_profile", "required_baseline_commit", "allowed_paths", "forbidden_paths", "create_files", "modify_files", "delete_files", "implementation_sequence", "decision_points", "impacts", "impact_spec", "acceptance_criteria", "verification", "escalation_conditions", "completion_report_required") "task packet"
+    foreach ($name in @("schema_version", "task_id", "objective", "decision_authority", "executor_role", "context_profile", "required_baseline_commit", "allowed_paths", "forbidden_paths", "create_files", "modify_files", "delete_files", "implementation_sequence", "decision_points", "impacts", "acceptance_criteria", "verification", "escalation_conditions", "completion_report_required")) {
         [void](Require-Property $Packet $name "task packet")
     }
-    if ($Packet.schema_version -ne "1.0.0" -or $Packet.decision_authority -ne "architect" -or $Packet.executor_role -ne "implementation_only" -or $Packet.completion_report_required -ne $true) { Fail "task packet identity fields are invalid" }
+    if ($Packet.schema_version -ne "1.1.0" -or $Packet.decision_authority -ne "architect" -or $Packet.executor_role -ne "implementation_only" -or $Packet.completion_report_required -ne $true) { Fail "task packet identity fields are invalid" }
     if ([string]::IsNullOrWhiteSpace($Packet.task_id) -or [string]::IsNullOrWhiteSpace($Packet.objective)) { Fail "task packet task_id/objective must be non-empty" }
+    if ($Packet.required_baseline_commit -isnot [string] -or $Packet.required_baseline_commit -notmatch '^[0-9a-fA-F]{40}$') { Fail "task packet required_baseline_commit must be a 40-character SHA" }
+    Assert-StringArray $Packet.allowed_paths "task packet allowed_paths" $true | Out-Null
+    Assert-StringArray $Packet.forbidden_paths "task packet forbidden_paths" | Out-Null
+    Assert-StringArray $Packet.create_files "task packet create_files" | Out-Null
+    Assert-Array $Packet.modify_files "task packet modify_files" | Out-Null
+    Assert-StringArray $Packet.delete_files "task packet delete_files" | Out-Null
+    Assert-StringArray $Packet.implementation_sequence "task packet implementation_sequence" $true | Out-Null
+    Assert-Array $Packet.decision_points "task packet decision_points" | Out-Null
     if (@($Packet.decision_points).Count -ne 0) { Fail "task packet decision_points must be empty" }
+    Assert-StringArray $Packet.acceptance_criteria "task packet acceptance_criteria" $true | Out-Null
+    Assert-StringArray $Packet.escalation_conditions "task packet escalation_conditions" $true | Out-Null
+    Assert-Array $Packet.verification "task packet verification" $true | Out-Null
     $profile = @($Profiles | Where-Object name -eq $Packet.context_profile)
     if ($profile.Count -ne 1) { Fail "unknown or ambiguous context profile: $($Packet.context_profile)" }
     $allowed = @($Packet.allowed_paths | ForEach-Object { Normalize-RepoPath $_ })
@@ -249,14 +347,36 @@ function Assert-TaskPacketObject($Packet, [string]$Root, $Profiles) {
     if ($allowed.Count -eq 0) { Fail "task packet allowed_paths must be non-empty" }
     if (@($allowed | Where-Object { $_ -in $forbidden }).Count -gt 0) { Fail "task packet allowed and forbidden paths overlap" }
     $intended = @($Packet.create_files | ForEach-Object { Normalize-RepoPath $_ })
+    $deletePaths = @($Packet.delete_files | ForEach-Object { Normalize-RepoPath $_ })
+    foreach ($path in $Packet.create_files) { if ([string]::IsNullOrWhiteSpace([string]$path)) { Fail "task packet create_files contains a blank path" } }
+    foreach ($path in $Packet.delete_files) { if ([string]::IsNullOrWhiteSpace([string]$path)) { Fail "task packet delete_files contains a blank path" } }
+    if (@($Packet.create_files | Where-Object { $_ -isnot [string] }).Count -gt 0 -or @($Packet.delete_files | Where-Object { $_ -isnot [string] }).Count -gt 0) { Fail "task packet create_files/delete_files must contain strings" }
     foreach ($modification in @($Packet.modify_files)) {
+        Assert-ExactProperties $modification @("path", "changes") "task packet modify_files item"
         [void](Require-Property $modification "path" "task packet modify_files item")
         [void](Require-Property $modification "changes" "task packet modify_files item")
+        if ($modification.path -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$modification.path)) { Fail "task packet modify_files item path must be a non-empty string" }
+        Assert-StringArray $modification.changes "task packet modify_files item changes" $true | Out-Null
         $intended += Normalize-RepoPath $modification.path
     }
-    foreach ($path in $intended) {
+    $modifyPaths = @($Packet.modify_files | ForEach-Object { Normalize-RepoPath $_.path })
+    $allDeclared = @($intended + $deletePaths)
+    foreach ($path in @($allDeclared | Where-Object { $_ -ne "" })) {
         if (@($allowed | Where-Object { Test-GlobMatch $path $_ }).Count -eq 0) { Fail "intended path outside packet allowed_paths: $path" }
         if (@($forbidden | Where-Object { Test-GlobMatch $path $_ }).Count -gt 0) { Fail "intended path matches forbidden path: $path" }
+    }
+    $declaredSets = @(
+        @{Name = "create"; Paths = @($Packet.create_files | ForEach-Object { Normalize-RepoPath $_ })},
+        @{Name = "modify"; Paths = $modifyPaths},
+        @{Name = "delete"; Paths = $deletePaths}
+    )
+    $seenDeclared = @{}
+    foreach ($set in $declaredSets) {
+        foreach ($path in $set.Paths) {
+            if ([string]::IsNullOrWhiteSpace($path)) { Fail "task packet $($set.Name)_files contains a blank path" }
+            if ($seenDeclared.ContainsKey($path)) { Fail "declared change sets overlap at path: $path" }
+            $seenDeclared[$path] = $set.Name
+        }
     }
     Assert-VerificationGates $Root $Packet $profile[0]
     Assert-Impacts $Packet $intended
@@ -272,7 +392,7 @@ function Assert-TaskPacketObject($Packet, [string]$Root, $Profiles) {
     foreach ($path in $intended) {
         if (@($forbidden | Where-Object { Test-GlobMatch $path $_ }).Count -gt 0) { Fail "intended task path matches forbidden path: $path" }
     }
-    return $intended
+    return [pscustomobject]@{ Create = @($declaredSets[0].Paths | Sort-Object -Unique); Modify = @($declaredSets[1].Paths | Sort-Object -Unique); Delete = @($declaredSets[2].Paths | Sort-Object -Unique) }
 }
 
 function Invoke-GitCommand([string]$Root, [string[]]$Arguments) {
@@ -316,6 +436,79 @@ function Get-ActualTaskChanges([string]$Root, [string]$Baseline) {
     return @($committed + $staged + $unstaged + $untracked | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
 }
 
+function Test-GitPathAtCommit([string]$Root, [string]$Commit, [string]$Path) {
+    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+        & git -C $Root cat-file -e "$($Commit):$($Path.Replace('\', '/'))" 2>$null
+        return $LASTEXITCODE -eq 0
+    }
+    finally {
+        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+    }
+}
+
+function Get-ActualTaskRecords([string]$Root, [string]$Baseline) {
+    $paths = @(Get-ActualTaskChanges $Root $Baseline)
+    $records = @()
+    foreach ($path in $paths) {
+        $baselineExists = Test-GitPathAtCommit $Root $Baseline $path
+        $currentExists = Test-Path -LiteralPath (Get-RepoPath $Root $path)
+        if (-not $baselineExists -and $currentExists) {
+            $type = "create"
+        }
+        elseif ($baselineExists -and $currentExists) {
+            $type = "modify"
+        }
+        elseif ($baselineExists -and -not $currentExists) {
+            $type = "delete"
+        }
+        else {
+            Fail "transient changed path cannot be classified: $path"
+        }
+        $records += [pscustomobject]@{ Path = $path; Type = $type; BaselineExists = $baselineExists; CurrentExists = $currentExists }
+    }
+    return $records
+}
+
+function Assert-ExactChangeSet([string]$Name, [string[]]$Actual, [string[]]$Declared) {
+    $actualSet = @($Actual | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
+    $declaredSet = @($Declared | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
+    $unexpected = @($actualSet | Where-Object { $_ -notin $declaredSet })
+    $missing = @($declaredSet | Where-Object { $_ -notin $actualSet })
+    if ($unexpected.Count -gt 0) { Fail "unexpected actual $Name path(s): $($unexpected -join ', ')" }
+    if ($missing.Count -gt 0) { Fail "missing declared $Name path(s): $($missing -join ', ')" }
+}
+
+function Assert-DeclaredChangeTypes([string]$Root, [string]$Baseline, $Declared) {
+    foreach ($path in $Declared.Create) {
+        if (Test-GitPathAtCommit $Root $Baseline $path) { Fail "declared create path exists at baseline: $path" }
+    }
+    foreach ($path in $Declared.Modify) {
+        if (-not (Test-GitPathAtCommit $Root $Baseline $path)) { Fail "declared modify path is absent at baseline: $path" }
+    }
+    foreach ($path in $Declared.Delete) {
+        if (-not (Test-GitPathAtCommit $Root $Baseline $path)) { Fail "declared delete path is absent at baseline: $path" }
+    }
+}
+
+function Assert-ExactTaskChanges([string]$Root, [string]$Baseline, $Declared, [object[]]$Records) {
+    Assert-DeclaredChangeTypes $Root $Baseline $Declared
+    $declaredByPath = @{}
+    foreach ($path in $Declared.Create) { $declaredByPath[(Normalize-RepoPath $path)] = "create" }
+    foreach ($path in $Declared.Modify) { $declaredByPath[(Normalize-RepoPath $path)] = "modify" }
+    foreach ($path in $Declared.Delete) { $declaredByPath[(Normalize-RepoPath $path)] = "delete" }
+    foreach ($record in $Records) {
+        $path = Normalize-RepoPath $record.Path
+        if ($declaredByPath.ContainsKey($path) -and $declaredByPath[$path] -ne $record.Type) {
+            Fail "wrong change type for path: $path declared $($declaredByPath[$path]) but actual $($record.Type)"
+        }
+    }
+    Assert-ExactChangeSet "create" @($Records | Where-Object Type -eq "create" | ForEach-Object Path) $Declared.Create
+    Assert-ExactChangeSet "modify" @($Records | Where-Object Type -eq "modify" | ForEach-Object Path) $Declared.Modify
+    Assert-ExactChangeSet "delete" @($Records | Where-Object Type -eq "delete" | ForEach-Object Path) $Declared.Delete
+}
+
 function Assert-ChangedScope([string]$Root, $Packet, [string[]]$ActualTaskChanges) {
     $changed = @($ActualTaskChanges | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
     $allowed = @($Packet.allowed_paths | ForEach-Object { Normalize-RepoPath $_ })
@@ -336,13 +529,14 @@ function Assert-Integrity([string]$Root) {
     $profiles = Assert-Profiles $Root
     Assert-SourceRegister $Root
     Assert-SourceLock $Root
+    Assert-VerificationRegistry $Root
     Assert-Template $Root
     return $profiles
 }
 
 function New-BaseSelfTestPacket {
     $packet = [pscustomobject][ordered]@{
-        schema_version = "1.0.0"
+        schema_version = "1.1.0"
         task_id = "ACL-SELFTEST"
         objective = "Exercise ACL verifier"
         decision_authority = "architect"
@@ -352,15 +546,16 @@ function New-BaseSelfTestPacket {
         allowed_paths = @(".agent/README.md")
         forbidden_paths = @("crates/**", "migrations/**", "Cargo.toml", "Cargo.lock")
         create_files = @()
+        delete_files = @()
         modify_files = @([pscustomobject]@{path = ".agent/README.md"; changes = @("replace exact sentence")})
         implementation_sequence = @("validate", "change", "verify")
         decision_points = @()
         impacts = [pscustomobject][ordered]@{runtime_behavior = "none"; domain_behavior = "none"; api = "none"; database = "none"; dependencies = "none"; behavior_versions = "none"}
         acceptance_criteria = @("scope remains ACL-only")
         verification = @(
-            [pscustomobject]@{gate = "acl-self-test"; command = ".\\scripts\\verify-agent-context.ps1 -SelfTest"; required = $true},
-            [pscustomobject]@{gate = "acl-integrity"; command = ".\\scripts\\verify-agent-context.ps1"; required = $true},
-            [pscustomobject]@{gate = "foundation-verify"; command = ".\\scripts\\verify.ps1"; required = $true}
+            [pscustomobject]@{gate = "acl-self-test"; required = $true},
+            [pscustomobject]@{gate = "acl-integrity"; required = $true},
+            [pscustomobject]@{gate = "foundation-verify"; required = $true}
         )
         escalation_conditions = @("outside allowlist")
         completion_report_required = $true
@@ -388,6 +583,9 @@ function New-SelfTestGitRepository([string]$SourceRoot, [hashtable]$BaselineFile
         $mapDestination = Get-RepoPath $root ".agent/maps/verification-map.json"
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $mapDestination) | Out-Null
         Copy-Item -Force -LiteralPath $mapSource -Destination $mapDestination
+        $manifestSource = Get-RepoPath $SourceRoot ".agent/manifest.json"
+        $manifestDestination = Get-RepoPath $root ".agent/manifest.json"
+        Copy-Item -Force -LiteralPath $manifestSource -Destination $manifestDestination
         foreach ($entry in $BaselineFiles.GetEnumerator()) {
             Set-SelfTestFile $root ([string]$entry.Key) ([string]$entry.Value)
         }
@@ -412,7 +610,7 @@ function New-RealGitSelfTestPacket([string]$Baseline) {
     return $packet
 }
 
-function Assert-SelfTestExpected([string]$Name, [bool]$ExpectedPass, [scriptblock]$Action) {
+function Assert-SelfTestExpected([string]$Name, [bool]$ExpectedPass, [scriptblock]$Action, [string]$ExpectedReason = "") {
     $observedPass = $false
     $failureText = ""
     try {
@@ -424,6 +622,9 @@ function Assert-SelfTestExpected([string]$Name, [bool]$ExpectedPass, [scriptbloc
     }
     if ($observedPass -ne $ExpectedPass) {
         Fail "self-test case '$Name' expected $([string]$ExpectedPass) but observed $([string]$observedPass): $failureText"
+    }
+    if (-not $ExpectedPass -and -not [string]::IsNullOrWhiteSpace($ExpectedReason) -and $failureText.IndexOf($ExpectedReason, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
+        Fail "self-test case '$Name' expected failure reason '$ExpectedReason' but observed: $failureText"
     }
     if ($ExpectedPass) {
         Write-Output "[PASS] Self-test: $Name"
@@ -574,19 +775,231 @@ function Invoke-P09SelfTests([string]$Root, $Cases) {
     } $true
 }
 
+function New-P10SelfTestPacket([string]$Baseline) {
+    $packet = New-BaseSelfTestPacket
+    $packet.required_baseline_commit = $Baseline
+    $packet.allowed_paths = @(".agent/**")
+    $packet.forbidden_paths = @("crates/**", "migrations/**", "Cargo.toml", "Cargo.lock", "docs/releases/**", "deploy/**", "schemas/**", "fixtures/**", "seeds/**", "scripts/verify.ps1", ".agent/state/source-lock.json")
+    $packet.create_files = @()
+    $packet.modify_files = @()
+    $packet.delete_files = @()
+    return $packet
+}
+
+function Invoke-P10ExactGitScenario([string]$SourceRoot, [string]$Name, [scriptblock]$Setup, [bool]$ExpectedPass, [hashtable]$BaselineFiles = @{}, [string]$ExpectedReason = "") {
+    $repository = New-SelfTestGitRepository $SourceRoot $BaselineFiles
+    try {
+        $packet = New-P10SelfTestPacket $repository.Baseline
+        & $Setup $repository.Root $packet | Out-Null
+        Assert-SelfTestExpected $Name $ExpectedPass {
+            [void](Assert-TaskBaseline $repository.Root $packet)
+            $profiles = Assert-Profiles $SourceRoot
+            $declared = Assert-TaskPacketObject $packet $repository.Root $profiles
+            $records = @(Get-ActualTaskRecords $repository.Root $packet.required_baseline_commit)
+            $actual = @($records | ForEach-Object Path)
+            Assert-ChangedScope $repository.Root $packet $actual
+            Assert-ExactTaskChanges $repository.Root $packet.required_baseline_commit $declared $records
+        } $ExpectedReason
+    }
+    finally {
+        if (Test-Path -LiteralPath $repository.Root) { Remove-Item -Recurse -Force -LiteralPath $repository.Root }
+    }
+}
+
+function Invoke-P10PacketScenario([string]$SourceRoot, [string]$Name, [scriptblock]$Setup, [bool]$ExpectedPass, [string]$ExpectedReason = "") {
+    $packet = New-P10SelfTestPacket "da04e773a214e8f8232db149d1f35f3f0bd61ce1"
+    & $Setup $packet | Out-Null
+    Assert-SelfTestExpected $Name $ExpectedPass {
+        $profiles = Assert-Profiles $SourceRoot
+        [void](Assert-TaskPacketObject $packet $SourceRoot $profiles)
+    } $ExpectedReason
+}
+
+function Invoke-P10RegistryScenario([string]$SourceRoot, [string]$Name, [scriptblock]$Setup, [string]$ExpectedReason = "") {
+    $repository = New-SelfTestGitRepository $SourceRoot
+    try {
+        $registryPath = Get-RepoPath $repository.Root ".agent/maps/verification-map.json"
+        $registry = Load-Json $registryPath
+        & $Setup $registry | Out-Null
+        $registry | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $registryPath -Encoding utf8
+        Assert-SelfTestExpected $Name $false {
+            [void](Assert-VerificationRegistry $repository.Root)
+        } $ExpectedReason
+    }
+    finally {
+        if (Test-Path -LiteralPath $repository.Root) { Remove-Item -Recurse -Force -LiteralPath $repository.Root }
+    }
+}
+
+function Invoke-P10ManifestScenario([string]$SourceRoot, [string]$Name, [string]$Property, [string]$ExpectedReason = "") {
+    $repository = New-SelfTestGitRepository $SourceRoot
+    try {
+        $manifestPath = Get-RepoPath $repository.Root ".agent/manifest.json"
+        $manifest = Load-Json $manifestPath
+        $manifest.$Property = "agent-invalid-release"
+        $manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+        Assert-SelfTestExpected $Name $false {
+            [void](Assert-Manifest $repository.Root)
+        } $ExpectedReason
+    }
+    finally {
+        if (Test-Path -LiteralPath $repository.Root) { Remove-Item -Recurse -Force -LiteralPath $repository.Root }
+    }
+}
+
+function Invoke-P10SelfTests([string]$Root, $Cases) {
+    $requiredNames = @(
+        "exact_declared_modify_pass", "exact_declared_create_pass", "exact_declared_delete_pass", "undeclared_modify_inside_allowed_glob", "undeclared_create_inside_allowed_glob", "undeclared_delete_inside_allowed_glob", "declared_modify_but_deleted", "declared_create_but_existing", "declared_modify_but_created", "declared_delete_but_modified", "declared_file_skipped", "declared_sets_overlap", "duplicate_declared_path", "rename_delete_plus_create", "rename_only_modify", "transient_committed_create_then_removed", "legacy_verification_command_rejected", "duplicate_packet_gate_rejected", "duplicate_registry_gate_rejected", "unknown_registry_kind_rejected", "registry_control_script_missing_script", "registry_native_missing_program", "registry_json_parse_missing_paths", "manifest_contract_release_mismatch", "manifest_verifier_release_mismatch", "manifest_registry_release_mismatch"
+    )
+    $caseNames = @($Cases | ForEach-Object { [string]$_.name })
+    $expectedReasons = @{}
+    foreach ($case in $Cases) {
+        if (Has-Property $case "expected_reason") { $expectedReasons[[string]$case.name] = [string]$case.expected_reason }
+    }
+    foreach ($name in $requiredNames) {
+        if ($name -notin $caseNames) { Fail "P10A self-test case is missing from eval matrix: $name" }
+    }
+
+    Invoke-P10ExactGitScenario $Root "exact_declared_modify_pass" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-modify.txt" "changed"
+        $packet.modify_files = @([pscustomobject]@{path = ".agent/p10-modify.txt"; changes = @("P10A exact modify")})
+    } $true @{".agent/p10-modify.txt" = "baseline"}
+    Invoke-P10ExactGitScenario $Root "exact_declared_create_pass" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-create.txt" "created"
+        $packet.create_files = @(".agent/p10-create.txt")
+    } $true
+    Invoke-P10ExactGitScenario $Root "exact_declared_delete_pass" {
+        param($repositoryRoot, $packet)
+        Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot ".agent/p10-delete.txt")
+        $packet.delete_files = @(".agent/p10-delete.txt")
+    } $true @{".agent/p10-delete.txt" = "deleted"}
+    Invoke-P10ExactGitScenario $Root "undeclared_modify_inside_allowed_glob" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-modify-a.txt" "changed"
+        Set-SelfTestFile $repositoryRoot ".agent/p10-modify-b.txt" "unexpected"
+        $packet.modify_files = @([pscustomobject]@{path = ".agent/p10-modify-a.txt"; changes = @("declared")})
+    } $false @{".agent/p10-modify-a.txt" = "baseline-a"; ".agent/p10-modify-b.txt" = "baseline-b"} $expectedReasons["undeclared_modify_inside_allowed_glob"]
+    Invoke-P10ExactGitScenario $Root "undeclared_create_inside_allowed_glob" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-create-a.txt" "created"
+        Set-SelfTestFile $repositoryRoot ".agent/p10-create-b.txt" "unexpected"
+        $packet.create_files = @(".agent/p10-create-a.txt")
+    } $false @{} $expectedReasons["undeclared_create_inside_allowed_glob"]
+    Invoke-P10ExactGitScenario $Root "undeclared_delete_inside_allowed_glob" {
+        param($repositoryRoot, $packet)
+        Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot ".agent/p10-delete-a.txt")
+        Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot ".agent/p10-delete-b.txt")
+        $packet.delete_files = @(".agent/p10-delete-a.txt")
+    } $false @{".agent/p10-delete-a.txt" = "baseline-a"; ".agent/p10-delete-b.txt" = "baseline-b"} $expectedReasons["undeclared_delete_inside_allowed_glob"]
+    Invoke-P10ExactGitScenario $Root "declared_modify_but_deleted" {
+        param($repositoryRoot, $packet)
+        Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot ".agent/p10-modify.txt")
+        $packet.modify_files = @([pscustomobject]@{path = ".agent/p10-modify.txt"; changes = @("declared modify")})
+    } $false @{".agent/p10-modify.txt" = "baseline"} $expectedReasons["declared_modify_but_deleted"]
+    Invoke-P10ExactGitScenario $Root "declared_create_but_existing" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-existing.txt" "changed"
+        $packet.create_files = @(".agent/p10-existing.txt")
+    } $false @{".agent/p10-existing.txt" = "baseline"} $expectedReasons["declared_create_but_existing"]
+    Invoke-P10ExactGitScenario $Root "declared_modify_but_created" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-new-modify.txt" "created"
+        $packet.modify_files = @([pscustomobject]@{path = ".agent/p10-new-modify.txt"; changes = @("declared modify")})
+    } $false @{} $expectedReasons["declared_modify_but_created"]
+    Invoke-P10ExactGitScenario $Root "declared_delete_but_modified" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-delete-modified.txt" "changed"
+        $packet.delete_files = @(".agent/p10-delete-modified.txt")
+    } $false @{".agent/p10-delete-modified.txt" = "baseline"} $expectedReasons["declared_delete_but_modified"]
+    Invoke-P10ExactGitScenario $Root "declared_file_skipped" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-changed.txt" "changed"
+        $packet.modify_files = @(
+            [pscustomobject]@{path = ".agent/p10-changed.txt"; changes = @("changed")},
+            [pscustomobject]@{path = ".agent/p10-skipped.txt"; changes = @("skipped")}
+        )
+    } $false @{".agent/p10-changed.txt" = "baseline"; ".agent/p10-skipped.txt" = "baseline"} $expectedReasons["declared_file_skipped"]
+    Invoke-P10PacketScenario $Root "declared_sets_overlap" {
+        param($packet)
+        $packet.create_files = @(".agent/p10-overlap.txt")
+        $packet.modify_files = @([pscustomobject]@{path = ".agent/p10-overlap.txt"; changes = @("overlap")})
+    } $false $expectedReasons["declared_sets_overlap"]
+    Invoke-P10PacketScenario $Root "duplicate_declared_path" {
+        param($packet)
+        $packet.create_files = @(".agent/p10-duplicate.txt", ".agent/p10-duplicate.txt")
+    } $false $expectedReasons["duplicate_declared_path"]
+    Invoke-P10ExactGitScenario $Root "rename_delete_plus_create" {
+        param($repositoryRoot, $packet)
+        Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot ".agent/p10-old.txt")
+        Set-SelfTestFile $repositoryRoot ".agent/p10-new.txt" "renamed"
+        $packet.create_files = @(".agent/p10-new.txt")
+        $packet.delete_files = @(".agent/p10-old.txt")
+    } $true @{".agent/p10-old.txt" = "old"}
+    Invoke-P10ExactGitScenario $Root "rename_only_modify" {
+        param($repositoryRoot, $packet)
+        Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot ".agent/p10-old.txt")
+        Set-SelfTestFile $repositoryRoot ".agent/p10-new.txt" "renamed"
+        $packet.modify_files = @([pscustomobject]@{path = ".agent/p10-old.txt"; changes = @("rename is not modify")})
+    } $false @{".agent/p10-old.txt" = "old"} $expectedReasons["rename_only_modify"]
+    Invoke-P10ExactGitScenario $Root "transient_committed_create_then_removed" {
+        param($repositoryRoot, $packet)
+        Set-SelfTestFile $repositoryRoot ".agent/p10-transient.txt" "created then removed"
+        [void](Invoke-GitCommand $repositoryRoot @("add", ".agent/p10-transient.txt"))
+        [void](Invoke-GitCommand $repositoryRoot @("commit", "--quiet", "-m", "transient create"))
+        Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot ".agent/p10-transient.txt")
+    } $false @{} $expectedReasons["transient_committed_create_then_removed"]
+    Invoke-P10PacketScenario $Root "legacy_verification_command_rejected" {
+        param($packet)
+        $packet.verification = @([pscustomobject]@{gate = "acl-self-test"; required = $true; command = "legacy command"})
+    } $false $expectedReasons["legacy_verification_command_rejected"]
+    Invoke-P10PacketScenario $Root "duplicate_packet_gate_rejected" {
+        param($packet)
+        $packet.verification += [pscustomobject]@{gate = "acl-self-test"; required = $true}
+    } $false $expectedReasons["duplicate_packet_gate_rejected"]
+    Invoke-P10RegistryScenario $Root "duplicate_registry_gate_rejected" {
+        param($registry)
+        $registry.gates = @($registry.gates) + @($registry.gates[0])
+    } $expectedReasons["duplicate_registry_gate_rejected"]
+    Invoke-P10RegistryScenario $Root "unknown_registry_kind_rejected" {
+        param($registry)
+        $registry.gates[0].kind = "unknown-kind"
+    } $expectedReasons["unknown_registry_kind_rejected"]
+    Invoke-P10RegistryScenario $Root "registry_control_script_missing_script" {
+        param($registry)
+        $registry.gates[0].PSObject.Properties.Remove("script")
+    } $expectedReasons["registry_control_script_missing_script"]
+    Invoke-P10RegistryScenario $Root "registry_native_missing_program" {
+        param($registry)
+        ($registry.gates | Where-Object name -eq "cargo-fmt").PSObject.Properties.Remove("program")
+    } $expectedReasons["registry_native_missing_program"]
+    Invoke-P10RegistryScenario $Root "registry_json_parse_missing_paths" {
+        param($registry)
+        ($registry.gates | Where-Object name -eq "schema-validation").PSObject.Properties.Remove("paths")
+    } $expectedReasons["registry_json_parse_missing_paths"]
+    Invoke-P10ManifestScenario $Root "manifest_contract_release_mismatch" "contract_release" $expectedReasons["manifest_contract_release_mismatch"]
+    Invoke-P10ManifestScenario $Root "manifest_verifier_release_mismatch" "verifier_release" $expectedReasons["manifest_verifier_release_mismatch"]
+    Invoke-P10ManifestScenario $Root "manifest_registry_release_mismatch" "verification_registry_release" $expectedReasons["manifest_registry_release_mismatch"]
+}
+
 function Invoke-SelfTest([string]$Root) {
     $casesDocument = Load-Json (Get-RepoPath $Root ".agent/evals/context-layer-cases.json")
     $cases = @((Require-Property $casesDocument "cases" "self-test cases"))
-    if ($cases.Count -lt 30) { Fail "P09 self-test requires at least thirty cases" }
+    if ($cases.Count -lt 56) { Fail "P10A self-test requires at least fifty-six cases" }
     $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("agent-context-selftest-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
     try {
         Copy-Item -Recurse -Force -LiteralPath (Get-RepoPath $Root ".agent") -Destination (Join-Path $tempRoot ".agent")
-        $lockSources = @("Cargo.toml", "docs/FOUNDATION_DECISIONS.md", "docs/HOSTED_PARSER.md", "docs/RISK_REGISTER.md", "docs/SECURITY_AND_OPERATIONS.md", "nutrition_backend_blueprint_v1.0/00_README.md", "nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md", "nutrition_backend_blueprint_v1.0/13_IMPLEMENTATION_CHECKLIST.md")
+        $lockSources = @("Cargo.toml", "docs/FOUNDATION_DECISIONS.md", "docs/HOSTED_PARSER.md", "docs/RISK_REGISTER.md", "docs/SECURITY_AND_OPERATIONS.md", "docs/archive/nutrition_backend_blueprint_v1.0/00_README.md", "docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md", "docs/archive/nutrition_backend_blueprint_v1.0/13_IMPLEMENTATION_CHECKLIST.md")
         foreach ($source in $lockSources) {
             $destination = Get-RepoPath $tempRoot $source
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
-            Copy-Item -Force -LiteralPath (Get-RepoPath $Root $source) -Destination $destination
+            $sourcePath = Get-RepoPath $Root $source
+            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+                Fail "self-test source fixture is missing: $source"
+            }
+            Copy-Item -Force -LiteralPath $sourcePath -Destination $destination
         }
         $profiles = Assert-Profiles $tempRoot
         $legacyNames = @("valid_context_maintenance_packet", "missing_context_profile", "unknown_context_profile", "non_empty_decision_points", "allowed_and_forbidden_overlap", "dependency_change_declared_none", "migration_change_declared_none", "changed_file_outside_allowlist", "forbidden_runtime_file_for_acl_task", "stale_source_hash", "oversized_agents_md_fixture", "profile_references_missing_file")
@@ -598,10 +1011,10 @@ function Invoke-SelfTest([string]$Root) {
                 "unknown_context_profile" { $packet.context_profile = "missing-profile" }
                 "non_empty_decision_points" { $packet.decision_points = @("choose") }
                 "allowed_and_forbidden_overlap" { $packet.forbidden_paths += ".agent/README.md" }
-                "dependency_change_declared_none" { $packet.modify_files = @(@{path = "Cargo.toml"; changes = @("change dependency")}) }
-                "migration_change_declared_none" { $packet.modify_files = @(@{path = "migrations/0002.sql"; changes = @("change schema")}); $packet.impacts.database = "none" }
-                "changed_file_outside_allowlist" { $packet.modify_files = @(@{path = "crates/domain/src/lib.rs"; changes = @("runtime change")}) }
-                "forbidden_runtime_file_for_acl_task" { $packet.allowed_paths = @(".agent/**"); $packet.modify_files = @(@{path = "crates/domain/src/lib.rs"; changes = @("runtime change")}) }
+                "dependency_change_declared_none" { $packet.modify_files = @([pscustomobject]@{path = "Cargo.toml"; changes = @("change dependency")}) }
+                "migration_change_declared_none" { $packet.modify_files = @([pscustomobject]@{path = "migrations/0002.sql"; changes = @("change schema")}); $packet.impacts.database = "none" }
+                "changed_file_outside_allowlist" { $packet.modify_files = @([pscustomobject]@{path = "crates/domain/src/lib.rs"; changes = @("runtime change")}) }
+                "forbidden_runtime_file_for_acl_task" { $packet.allowed_paths = @(".agent/**"); $packet.modify_files = @([pscustomobject]@{path = "crates/domain/src/lib.rs"; changes = @("runtime change")}) }
                 "stale_source_hash" { Add-Content -LiteralPath (Get-RepoPath $tempRoot "Cargo.toml") -Value "# stale self-test fixture" }
                 "oversized_agents_md_fixture" { Set-Content -LiteralPath (Get-RepoPath $tempRoot "AGENTS.md") -Value ("x" * 4097) }
                 "profile_references_missing_file" { Remove-Item -LiteralPath (Get-RepoPath $tempRoot ".agent/contexts/verification.md") }
@@ -636,6 +1049,7 @@ function Invoke-SelfTest([string]$Root) {
         if (Test-Path -LiteralPath $tempRoot) { Remove-Item -Recurse -Force -LiteralPath $tempRoot }
     }
     Invoke-P09SelfTests $Root $cases
+    Invoke-P10SelfTests $Root $cases
     Write-Output "[PASS] All $($cases.Count) ACL self-test cases passed."
 }
 
@@ -652,10 +1066,13 @@ try {
         $packet = Load-Json $packetPath
         $head = Assert-TaskBaseline $script:RepoRoot $packet
         Write-Output "[PASS] Task baseline commit: $($packet.required_baseline_commit)"
-        [void](Assert-TaskPacketObject $packet $script:RepoRoot $profiles)
-        $actualTaskChanges = @(Get-ActualTaskChanges $script:RepoRoot $packet.required_baseline_commit)
+        $declaredChanges = Assert-TaskPacketObject $packet $script:RepoRoot $profiles
+        $actualRecords = @(Get-ActualTaskRecords $script:RepoRoot $packet.required_baseline_commit)
+        $actualTaskChanges = @($actualRecords | ForEach-Object Path)
         Write-Output "[PASS] Actual task delta: $($actualTaskChanges.Count) file(s)"
         Assert-ChangedScope $script:RepoRoot $packet $actualTaskChanges
+        Assert-ExactTaskChanges $script:RepoRoot $packet.required_baseline_commit $declaredChanges $actualRecords
+        Write-Output "[PASS] Exact declared/actual create/modify/delete sets match."
         $declaredGateCount = @($packet.verification | Where-Object { $_.required -eq $true }).Count
         $requiredGateCount = @((@($profiles | Where-Object name -eq $packet.context_profile)[0]).mandatory_verification_gates).Count
         Write-Output "[PASS] Mandatory profile gates declared: $requiredGateCount/$requiredGateCount"

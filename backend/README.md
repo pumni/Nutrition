@@ -1,7 +1,7 @@
 # Nutrition backend
 
 Evidence-first nutrition analysis backend based on
-[`nutrition_backend_blueprint_v1.0`](nutrition_backend_blueprint_v1.0/00_README.md).
+[`nutrition_backend_blueprint_v1.0`](docs/archive/nutrition_backend_blueprint_v1.0/00_README.md).
 
 Current behavior release: `foundation-0.6.0`.
 
