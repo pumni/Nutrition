@@ -170,3 +170,20 @@ The initial governance artifacts are
 [`docs/SOURCE_REGISTER.md`](docs/SOURCE_REGISTER.md),
 [`docs/RISK_REGISTER.md`](docs/RISK_REGISTER.md), and the development-only
 [`VietnameseMealBench manifest`](fixtures/vietnamese-meal-bench/manifest.json).
+
+## AI coding context layer
+
+`AGENTS.md` is the repository entrypoint for coding agents. An architect authors the task packet;
+the coding agent is implementation-only and must not make design decisions. The ACL is repository
+governance and does not alter nutrition runtime behavior.
+
+Run the context self-test, the default ACL verification, and the full foundation verification:
+
+```powershell
+.\scripts\verify-agent-context.ps1 -SelfTest
+.\scripts\verify-agent-context.ps1
+.\scripts\verify.ps1
+```
+
+Architects can use the [task packet example](.agent/templates/task-packet.example.json) as the
+machine-readable starting point.

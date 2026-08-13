@@ -1,6 +1,9 @@
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
+Write-Output "Validating agent context layer..."
+& "$PSScriptRoot\verify-agent-context.ps1"
+
 Write-Output "Checking Rust formatting..."
 cargo fmt --all -- --check
 
