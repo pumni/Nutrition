@@ -50,6 +50,10 @@
       "required": true
     },
     {
+      "gate": "agent-runner-self-test",
+      "required": true
+    },
+    {
       "gate": "acl-integrity",
       "required": true
     },

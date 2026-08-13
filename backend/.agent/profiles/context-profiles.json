@@ -62,7 +62,7 @@
       "required_context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/contexts/verification.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json"],
       "allowed_path_patterns": ["AGENTS.md", ".agent/**", "scripts/verify-agent-context.ps1", "scripts/verify.ps1", "README.md", "scripts/run-agent-verification.ps1", "scripts/export-agent-capability-policy.ps1", ".github/workflows/agent-context-integrity.yml", ".github/workflows/agent-task-attest.yml"],
       "forbidden_path_patterns": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock", "deploy/**"],
-      "mandatory_verification_gates": ["acl-self-test", "acl-integrity", "foundation-verify"]
+      "mandatory_verification_gates": ["acl-self-test", "agent-runner-self-test", "acl-integrity", "foundation-verify"]
     }
   ]
 }

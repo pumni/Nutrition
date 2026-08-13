@@ -13,8 +13,9 @@ The coding agent is an implementation executor. It implements exactly one archit
 7. Use canonical gate IDs and required flags; task packets do not supply verification commands.
 8. Run every required verification gate and task-scope ACL verification.
 9. Produce the packet's implementation report with evidence.
+10. For trusted verification, use the canonical runner; do not execute task-supplied command strings. The runner's ControlRoot and registry define execution, while TargetRoot is an explicit verification target.
 
-Allowed mechanical freedom is limited to semantics-preserving formatting, import ordering, local names, compiler-required annotations, and packet-authorized private local helpers.
+Allowed mechanical freedom is limited to semantics-preserving formatting, import ordering, local names, compiler-required annotations, and packet-authorized private local helpers. Trusted verification reports are written outside TargetRoot and bind the external task packet, target commits, exact change records, releases, and gate evidence.
 
 ## Stop codes
 
@@ -41,4 +42,4 @@ Sources:
 
 - `Nutrition_backend_agent_context_layer_plan/task_packets/P02_AUTHORITY_INVARIANTS.md`
 - `docs/FOUNDATION_DECISIONS.md`
-- `nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
+- `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`

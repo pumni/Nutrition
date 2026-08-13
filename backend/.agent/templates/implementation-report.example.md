@@ -17,6 +17,13 @@ None.
 - Only `.agent/README.md` changed — PASS.
 - ACL verification passes — PASS.
 
+## Trusted verification report
+
+- Runner release: `agent-runner-1.0.0`
+- Result: PASS
+- SHA-256: `0000000000000000000000000000000000000000000000000000000000000000`
+- Location/reference: external report path
+
 ## Verification
 
 ```text

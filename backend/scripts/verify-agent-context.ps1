@@ -1,12 +1,21 @@
 [CmdletBinding()]
 param(
     [string]$TaskPacket,
+    [string]$RepositoryRoot,
+    [string]$TaskStateOutput,
     [switch]$SelfTest
 )
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
-$script:RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$script:ControlRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    $script:RepoRoot = $script:ControlRoot
+}
+else {
+    try { $script:RepoRoot = (Resolve-Path -LiteralPath $RepositoryRoot -ErrorAction Stop).Path }
+    catch { throw "[FAIL] RepositoryRoot does not exist: $RepositoryRoot" }
+}
 
 function Fail([string]$Message) {
     throw "[FAIL] $Message"
@@ -21,6 +30,20 @@ function Normalize-RepoPath([string]$Path) {
 
 function Get-RepoPath([string]$Root, [string]$RelativePath) {
     return (Join-Path $Root ($RelativePath.Replace("/", "\")))
+}
+
+function Get-FullPath([string]$Path) {
+    return [IO.Path]::GetFullPath($Path)
+}
+
+function Assert-PathOutsideRoot([string]$Path, [string]$Root, [string]$Label) {
+    if ([string]::IsNullOrWhiteSpace($Path)) { Fail "$Label path is empty" }
+    $fullPath = Get-FullPath $Path
+    $fullRoot = (Get-FullPath $Root).TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    if ($fullPath.Equals($fullRoot.TrimEnd([IO.Path]::DirectorySeparatorChar), [StringComparison]::OrdinalIgnoreCase) -or $fullPath.StartsWith($fullRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        Fail "$Label must be outside RepositoryRoot: $fullPath"
+    }
+    return $fullPath
 }
 
 function Has-Property($Object, [string]$Name) {
@@ -111,8 +134,12 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/templates/implementation-report.example.md",
         ".agent/evals/README.md",
         ".agent/evals/context-layer-cases.json",
+        ".agent/evals/runner-cases.json",
+        ".agent/contracts/external-evidence.schema.json",
         ".agent/state/source-lock.json",
-        "scripts/verify-agent-context.ps1"
+        "scripts/verify-agent-context.ps1",
+        "scripts/run-agent-verification.ps1",
+        ".agent/templates/external-evidence.example.json"
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) {
@@ -129,12 +156,15 @@ function Assert-JsonArtifacts([string]$Root) {
 
 function Assert-Manifest([string]$Root) {
     $manifest = Load-Json (Get-RepoPath $Root ".agent/manifest.json")
-    Assert-ExactProperties $manifest @("schema_version", "context_release", "contract_release", "verifier_release", "verification_registry_release", "project", "authority", "budgets", "paths") "manifest"
+    Assert-ExactProperties $manifest @("schema_version", "context_release", "contract_release", "verifier_release", "verification_registry_release", "runner_release", "verification_report_release", "implementation_report_release", "project", "authority", "budgets", "paths") "manifest"
     if ((Require-Property $manifest "schema_version" "manifest") -ne "1.0.0") { Fail "manifest schema_version must be 1.0.0" }
     if ((Require-Property $manifest "context_release" "manifest") -ne "agent-context-1.0.0") { Fail "manifest context_release must be agent-context-1.0.0" }
     if ((Require-Property $manifest "contract_release" "manifest") -ne "agent-contract-1.1.0") { Fail "manifest contract_release mismatch" }
-    if ((Require-Property $manifest "verifier_release" "manifest") -ne "agent-verifier-2.0.0") { Fail "manifest verifier_release mismatch" }
-    if ((Require-Property $manifest "verification_registry_release" "manifest") -ne "agent-gates-2.0.0") { Fail "manifest verification_registry_release mismatch" }
+    if ((Require-Property $manifest "verifier_release" "manifest") -ne "agent-verifier-2.1.0") { Fail "manifest verifier_release mismatch" }
+    if ((Require-Property $manifest "verification_registry_release" "manifest") -ne "agent-gates-2.1.0") { Fail "manifest verification_registry_release mismatch" }
+    if ((Require-Property $manifest "runner_release" "manifest") -ne "agent-runner-1.0.0") { Fail "manifest runner_release mismatch" }
+    if ((Require-Property $manifest "verification_report_release" "manifest") -ne "agent-verification-report-2.0.0") { Fail "manifest verification_report_release mismatch" }
+    if ((Require-Property $manifest "implementation_report_release" "manifest") -ne "agent-implementation-report-1.1.0") { Fail "manifest implementation_report_release mismatch" }
     if ((Require-Property $manifest "project" "manifest").repository -ne "pumni/Nutrition_backend") { Fail "manifest repository mismatch" }
     if ((Require-Property $manifest "project" "manifest").behavior_release -ne "foundation-0.6.0") { Fail "manifest behavior_release mismatch" }
     $paths = Require-Property $manifest "paths" "manifest"
@@ -215,6 +245,20 @@ function Assert-SourceLock([string]$Root) {
 function Assert-Template([string]$Root) {
     $template = Load-Json (Get-RepoPath $Root ".agent/templates/task-packet.example.json")
     if (@($template.decision_points).Count -ne 0) { Fail "task packet template decision_points must be empty" }
+    if (@($template.verification | Where-Object gate -eq "agent-runner-self-test").Count -ne 1) { Fail "task packet template must declare agent-runner-self-test" }
+    $verificationReport = Load-Json (Get-RepoPath $Root ".agent/templates/verification-report.example.json")
+    if ($verificationReport.schema_version -ne "2.0.0") { Fail "verification report template schema_version mismatch" }
+    $evidence = Load-Json (Get-RepoPath $Root ".agent/templates/external-evidence.example.json")
+    if ($evidence.schema_version -ne "1.0.0") { Fail "external evidence template schema_version mismatch" }
+}
+
+function Assert-ReportContracts([string]$Root) {
+    $verification = Load-Json (Get-RepoPath $Root ".agent/contracts/verification-report.schema.json")
+    $implementation = Load-Json (Get-RepoPath $Root ".agent/contracts/implementation-report.schema.json")
+    $external = Load-Json (Get-RepoPath $Root ".agent/contracts/external-evidence.schema.json")
+    if (@($verification.properties.schema_version.const) -ne "2.0.0") { Fail "verification report contract must be 2.0.0" }
+    if (@($implementation.properties.schema_version.const) -ne "1.1.0") { Fail "implementation report contract must be 1.1.0" }
+    if (@($external.properties.schema_version.const) -ne "1.0.0") { Fail "external evidence contract must be 1.0.0" }
 }
 
 function Assert-Impacts($Packet, [string[]]$IntendedPaths, [string[]]$ActualPaths = @()) {
@@ -240,13 +284,13 @@ function Assert-Impacts($Packet, [string[]]$IntendedPaths, [string[]]$ActualPath
 function Assert-VerificationRegistry([string]$Root) {
     $registry = Load-Json (Get-RepoPath $Root ".agent/maps/verification-map.json")
     Assert-ExactProperties $registry @("schema_version", "gates") "verification registry"
-    if ($registry.schema_version -ne "2.0.0") { Fail "verification registry schema_version must be 2.0.0" }
+    if ($registry.schema_version -ne "2.1.0") { Fail "verification registry schema_version must be 2.1.0" }
     $gates = @((Require-Property $registry "gates" "verification registry"))
     if ($gates.Count -eq 0) { Fail "verification registry gates list is empty" }
     $names = @()
     $allowedKinds = @("control-script", "target-script", "native", "json-parse", "external-evidence")
     foreach ($gate in $gates) {
-        Assert-ExactProperties $gate @("name", "kind", "script", "arguments", "program", "paths", "evidence_kind", "display_command") "verification registry gate"
+        Assert-ExactProperties $gate @("name", "kind", "script", "arguments", "program", "paths", "evidence_kind", "display_command", "target_root_argument") "verification registry gate"
         if ($gate.name -isnot [string]) { Fail "verification registry gate name must be a string" }
         if ($gate.kind -isnot [string]) { Fail "verification registry gate kind must be a string" }
         $name = [string](Require-Property $gate "name" "verification registry gate")
@@ -265,6 +309,7 @@ function Assert-VerificationRegistry([string]$Root) {
                 if ($gate.arguments -is [string] -or $gate.arguments -isnot [System.Collections.IEnumerable]) { Fail "registry control-script '$name' arguments must be an array" }
                 if (@($gate.arguments | Where-Object { $_ -isnot [string] }).Count -gt 0) { Fail "registry control-script '$name' arguments must be strings" }
                 if ((Has-Property $gate "program") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind")) { Fail "registry control-script '$name' has invalid kind fields" }
+                if ((Has-Property $gate "target_root_argument") -and ($gate.target_root_argument -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.target_root_argument))) { Fail "registry control-script '$name' target_root_argument must be a non-empty string" }
             }
             "target-script" {
                 [void](Require-Property $gate "script" "registry gate $name")
@@ -272,7 +317,7 @@ function Assert-VerificationRegistry([string]$Root) {
                 if ($gate.script -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.script)) { Fail "registry target-script '$name' script must be a non-empty string" }
                 if ($gate.arguments -is [string] -or $gate.arguments -isnot [System.Collections.IEnumerable]) { Fail "registry target-script '$name' arguments must be an array" }
                 if (@($gate.arguments | Where-Object { $_ -isnot [string] }).Count -gt 0) { Fail "registry target-script '$name' arguments must be strings" }
-                if ((Has-Property $gate "program") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind")) { Fail "registry target-script '$name' has invalid kind fields" }
+                if ((Has-Property $gate "program") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind") -or (Has-Property $gate "target_root_argument")) { Fail "registry target-script '$name' has invalid kind fields" }
             }
             "native" {
                 [void](Require-Property $gate "program" "registry gate $name")
@@ -280,21 +325,27 @@ function Assert-VerificationRegistry([string]$Root) {
                 if ($gate.program -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.program)) { Fail "registry native '$name' program must be a non-empty string" }
                 if ($gate.arguments -is [string] -or $gate.arguments -isnot [System.Collections.IEnumerable]) { Fail "registry native '$name' arguments must be an array" }
                 if (@($gate.arguments | Where-Object { $_ -isnot [string] }).Count -gt 0) { Fail "registry native '$name' arguments must be strings" }
-                if ((Has-Property $gate "script") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind")) { Fail "registry native '$name' has invalid kind fields" }
+                if ((Has-Property $gate "script") -or (Has-Property $gate "paths") -or (Has-Property $gate "evidence_kind") -or (Has-Property $gate "target_root_argument")) { Fail "registry native '$name' has invalid kind fields" }
             }
             "json-parse" {
                 [void](Require-Property $gate "paths" "registry gate $name")
                 if ($gate.paths -is [string] -or $gate.paths -isnot [System.Collections.IEnumerable]) { Fail "registry json-parse '$name' paths must be an array" }
                 if (@($gate.paths).Count -eq 0 -or @($gate.paths | Where-Object { $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) { Fail "registry json-parse '$name' paths must be non-empty strings" }
-                if ((Has-Property $gate "script") -or (Has-Property $gate "arguments") -or (Has-Property $gate "program") -or (Has-Property $gate "evidence_kind")) { Fail "registry json-parse '$name' has invalid kind fields" }
+                if ((Has-Property $gate "script") -or (Has-Property $gate "arguments") -or (Has-Property $gate "program") -or (Has-Property $gate "evidence_kind") -or (Has-Property $gate "target_root_argument")) { Fail "registry json-parse '$name' has invalid kind fields" }
             }
             "external-evidence" {
                 [void](Require-Property $gate "evidence_kind" "registry gate $name")
                 if ($gate.evidence_kind -isnot [string] -or [string]::IsNullOrWhiteSpace([string]$gate.evidence_kind)) { Fail "registry external-evidence '$name' evidence_kind must be a non-empty string" }
-                if ((Has-Property $gate "script") -or (Has-Property $gate "arguments") -or (Has-Property $gate "program") -or (Has-Property $gate "paths")) { Fail "registry external-evidence '$name' has invalid kind fields" }
+                if ((Has-Property $gate "script") -or (Has-Property $gate "arguments") -or (Has-Property $gate "program") -or (Has-Property $gate "paths") -or (Has-Property $gate "target_root_argument")) { Fail "registry external-evidence '$name' has invalid kind fields" }
             }
         }
     }
+    $runnerGate = @($gates | Where-Object { $_.name -eq "agent-runner-self-test" })
+    if ($runnerGate.Count -ne 1 -or $runnerGate[0].kind -ne "control-script" -or $runnerGate[0].script -ne "scripts/run-agent-verification.ps1") { Fail "agent-runner-self-test registry gate is invalid" }
+    $foundationGate = @($gates | Where-Object { $_.name -eq "foundation-verify" })
+    if ($foundationGate.Count -ne 1 -or $foundationGate[0].kind -ne "target-script") { Fail "foundation-verify must be a target-script" }
+    $postgresGate = @($gates | Where-Object { $_.name -eq "postgres-verify" })
+    if ($postgresGate.Count -ne 1 -or $postgresGate[0].kind -ne "target-script") { Fail "postgres-verify must be a target-script" }
     return $names
 }
 
@@ -429,11 +480,27 @@ function Assert-TaskBaseline([string]$Root, $Packet) {
 }
 
 function Get-ActualTaskChanges([string]$Root, [string]$Baseline) {
-    $committed = @(Invoke-GitCommand $Root @("diff", "--name-only", "--no-renames", "$Baseline..HEAD"))
-    $staged = @(Invoke-GitCommand $Root @("diff", "--cached", "--name-only", "--no-renames"))
-    $unstaged = @(Invoke-GitCommand $Root @("diff", "--name-only", "--no-renames"))
-    $untracked = @(Invoke-GitCommand $Root @("ls-files", "--others", "--exclude-standard", "--full-name"))
-    return @($committed + $staged + $unstaged + $untracked | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
+    $provenance = Get-ActualTaskProvenance $Root $Baseline
+    return @($provenance.Keys | Sort-Object)
+}
+
+function Get-ActualTaskProvenance([string]$Root, [string]$Baseline) {
+    $sources = [ordered]@{
+        committed = @(Invoke-GitCommand $Root @("diff", "--name-only", "--no-renames", "$Baseline..HEAD"))
+        staged = @(Invoke-GitCommand $Root @("diff", "--cached", "--name-only", "--no-renames"))
+        unstaged = @(Invoke-GitCommand $Root @("diff", "--name-only", "--no-renames"))
+        untracked = @(Invoke-GitCommand $Root @("ls-files", "--others", "--exclude-standard", "--full-name"))
+    }
+    $byPath = @{}
+    foreach ($source in $sources.Keys) {
+        foreach ($rawPath in $sources[$source]) {
+            $path = Normalize-RepoPath ([string]$rawPath)
+            if ([string]::IsNullOrWhiteSpace($path)) { continue }
+            if (-not $byPath.ContainsKey($path)) { $byPath[$path] = @() }
+            if ($source -notin $byPath[$path]) { $byPath[$path] += $source }
+        }
+    }
+    return $byPath
 }
 
 function Test-GitPathAtCommit([string]$Root, [string]$Commit, [string]$Path) {
@@ -450,6 +517,7 @@ function Test-GitPathAtCommit([string]$Root, [string]$Commit, [string]$Path) {
 
 function Get-ActualTaskRecords([string]$Root, [string]$Baseline) {
     $paths = @(Get-ActualTaskChanges $Root $Baseline)
+    $provenance = Get-ActualTaskProvenance $Root $Baseline
     $records = @()
     foreach ($path in $paths) {
         $baselineExists = Test-GitPathAtCommit $Root $Baseline $path
@@ -466,7 +534,7 @@ function Get-ActualTaskRecords([string]$Root, [string]$Baseline) {
         else {
             Fail "transient changed path cannot be classified: $path"
         }
-        $records += [pscustomobject]@{ Path = $path; Type = $type; BaselineExists = $baselineExists; CurrentExists = $currentExists }
+        $records += [pscustomobject]@{ Path = $path; Type = $type; Provenance = @($provenance[$path] | Sort-Object); BaselineExists = $baselineExists; CurrentExists = $currentExists }
     }
     return $records
 }
@@ -509,6 +577,40 @@ function Assert-ExactTaskChanges([string]$Root, [string]$Baseline, $Declared, [o
     Assert-ExactChangeSet "delete" @($Records | Where-Object Type -eq "delete" | ForEach-Object Path) $Declared.Delete
 }
 
+function Write-TaskStateSnapshot([string]$Path, $Packet, [string]$Head, [object[]]$Records) {
+    $state = [ordered]@{
+        task_id = [string]$Packet.task_id
+        context_profile = [string]$Packet.context_profile
+        baseline_commit = [string]$Packet.required_baseline_commit
+        head_commit = [string]$Head
+        change_records = @($Records | ForEach-Object {
+            [ordered]@{path = [string]$_.Path; type = [string]$_.Type; provenance = @($_.Provenance); baseline_exists = [bool]$_.BaselineExists; current_exists = [bool]$_.CurrentExists}
+        })
+        packet_gates = @($Packet.verification | ForEach-Object {
+            [ordered]@{gate = [string]$_.gate; required = [bool]$_.required}
+        })
+        impacts = [ordered]@{
+            runtime_behavior = [string]$Packet.impacts.runtime_behavior
+            domain_behavior = [string]$Packet.impacts.domain_behavior
+            api = [string]$Packet.impacts.api
+            database = [string]$Packet.impacts.database
+            dependencies = [string]$Packet.impacts.dependencies
+            behavior_versions = [string]$Packet.impacts.behavior_versions
+        }
+    }
+    $parent = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    $temporary = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
+    try {
+        $state | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $temporary -Encoding utf8
+        Move-Item -Force -LiteralPath $temporary -Destination $Path
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -Force -LiteralPath $temporary }
+    }
+    return $Path
+}
+
 function Assert-ChangedScope([string]$Root, $Packet, [string[]]$ActualTaskChanges) {
     $changed = @($ActualTaskChanges | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
     $allowed = @($Packet.allowed_paths | ForEach-Object { Normalize-RepoPath $_ })
@@ -530,6 +632,7 @@ function Assert-Integrity([string]$Root) {
     Assert-SourceRegister $Root
     Assert-SourceLock $Root
     Assert-VerificationRegistry $Root
+    Assert-ReportContracts $Root
     Assert-Template $Root
     return $profiles
 }
@@ -554,6 +657,7 @@ function New-BaseSelfTestPacket {
         acceptance_criteria = @("scope remains ACL-only")
         verification = @(
             [pscustomobject]@{gate = "acl-self-test"; required = $true},
+            [pscustomobject]@{gate = "agent-runner-self-test"; required = $true},
             [pscustomobject]@{gate = "acl-integrity"; required = $true},
             [pscustomobject]@{gate = "foundation-verify"; required = $true}
         )
@@ -1022,6 +1126,7 @@ function Invoke-SelfTest([string]$Root) {
             $taskPath = Get-RepoPath $tempRoot ("case-" + $name + ".json")
             $packet | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $taskPath -Encoding utf8
             $observedPass = $false
+            $failureText = ""
             try {
                 if ($name -eq "stale_source_hash") {
                     Assert-SourceLock $tempRoot
@@ -1039,9 +1144,10 @@ function Invoke-SelfTest([string]$Root) {
             }
             catch {
                 $observedPass = $false
+                $failureText = [string]$_.Exception.Message
             }
             $expectedPass = $case.expected -eq "pass"
-            if ($observedPass -ne $expectedPass) { Fail "self-test case '$name' expected $($case.expected) but observed $([string]$observedPass)" }
+            if ($observedPass -ne $expectedPass) { Fail "self-test case '$name' expected $($case.expected) but observed $([string]$observedPass): $failureText" }
             Write-Output "[PASS] Self-test: $name"
         }
     }
@@ -1055,7 +1161,8 @@ function Invoke-SelfTest([string]$Root) {
 
 Push-Location $script:RepoRoot
 try {
-    if ($SelfTest -and $TaskPacket) { Fail "-SelfTest and -TaskPacket cannot be used together" }
+    if ($SelfTest -and ($TaskPacket -or $TaskStateOutput)) { Fail "-SelfTest cannot be combined with task validation parameters" }
+    if ($TaskStateOutput -and -not $TaskPacket) { Fail "-TaskStateOutput requires -TaskPacket" }
     if ($SelfTest) {
         Invoke-SelfTest $script:RepoRoot
         exit 0
@@ -1077,6 +1184,11 @@ try {
         $requiredGateCount = @((@($profiles | Where-Object name -eq $packet.context_profile)[0]).mandatory_verification_gates).Count
         Write-Output "[PASS] Mandatory profile gates declared: $requiredGateCount/$requiredGateCount"
         Write-Output "[PASS] Task packet validated: $($packet.task_id)"
+        if ($TaskStateOutput) {
+            $statePath = Assert-PathOutsideRoot $TaskStateOutput $script:RepoRoot "TaskStateOutput"
+            [void](Write-TaskStateSnapshot $statePath $packet $head $actualRecords)
+            Write-Output "[PASS] Task state written: $statePath"
+        }
     }
     else {
         Write-Output "[PASS] Agent context verification passed."

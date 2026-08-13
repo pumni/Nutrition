@@ -1,14 +1,15 @@
 {
-  "schema_version": "2.0.0",
+  "schema_version": "2.1.0",
   "gates": [
-    {"name": "acl-self-test", "kind": "control-script", "script": "scripts/verify-agent-context.ps1", "arguments": ["-SelfTest"], "display_command": ".\\scripts\\verify-agent-context.ps1 -SelfTest"},
-    {"name": "acl-integrity", "kind": "control-script", "script": "scripts/verify-agent-context.ps1", "arguments": [], "display_command": ".\\scripts\\verify-agent-context.ps1"},
+    {"name": "acl-self-test", "kind": "control-script", "script": "scripts/verify-agent-context.ps1", "arguments": ["-SelfTest"], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-context.ps1 -SelfTest -RepositoryRoot <TargetRoot>"},
+    {"name": "agent-runner-self-test", "kind": "control-script", "script": "scripts/run-agent-verification.ps1", "arguments": ["-SelfTest"], "display_command": ".\\scripts\\run-agent-verification.ps1 -SelfTest"},
+    {"name": "acl-integrity", "kind": "control-script", "script": "scripts/verify-agent-context.ps1", "arguments": [], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-context.ps1 -RepositoryRoot <TargetRoot>"},
     {"name": "cargo-fmt", "kind": "native", "program": "cargo", "arguments": ["fmt", "--all", "--", "--check"], "display_command": "cargo fmt --all -- --check"},
     {"name": "cargo-clippy", "kind": "native", "program": "cargo", "arguments": ["clippy", "--workspace", "--all-targets", "--", "-D", "warnings"], "display_command": "cargo clippy --workspace --all-targets -- -D warnings"},
     {"name": "cargo-test", "kind": "native", "program": "cargo", "arguments": ["test", "--workspace"], "display_command": "cargo test --workspace"},
     {"name": "schema-validation", "kind": "json-parse", "paths": ["schemas/parsed-meal-0.1.0.json"], "display_command": "ConvertFrom-Json schemas/parsed-meal-0.1.0.json"},
-    {"name": "foundation-verify", "kind": "control-script", "script": "scripts/verify.ps1", "arguments": [], "display_command": ".\\scripts\\verify.ps1"},
-    {"name": "postgres-verify", "kind": "control-script", "script": "scripts/verify-postgres.ps1", "arguments": [], "display_command": ".\\scripts\\verify-postgres.ps1"},
+    {"name": "foundation-verify", "kind": "target-script", "script": "scripts/verify.ps1", "arguments": [], "display_command": ".\\scripts\\verify.ps1"},
+    {"name": "postgres-verify", "kind": "target-script", "script": "scripts/verify-postgres.ps1", "arguments": [], "display_command": ".\\scripts\\verify-postgres.ps1"},
     {"name": "benchmark-external", "kind": "external-evidence", "evidence_kind": "vietnamese-meal-benchmark", "display_command": "external VietnameseMealBench release gate"}
   ]
 }
