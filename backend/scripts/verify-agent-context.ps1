@@ -1511,6 +1511,8 @@ function New-SourceLockSelfTestRepository([string]$SourceRoot) {
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
             Copy-Item -Force -LiteralPath $sourcePath -Destination $destination
         }
+        $lockPath = Get-RepoPath $root ".agent/state/source-lock.json"
+        (New-SourceLock $root) | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $lockPath -Encoding utf8
         return $root
     }
     catch {

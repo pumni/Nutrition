@@ -313,7 +313,7 @@
     },
     {
       "path": "scripts/verify-agent-context.ps1",
-      "sha256": "6a6995e7e32d23bea9eba61cdb1c771f474099132c72a4489c035ccac510414b"
+      "sha256": "92b438ca2fc772f27f0881f9cd65fc1a49bea716731d0d6e8cc8b55f0234ed86"
     },
     {
       "path": "scripts/verify-agent-facts.ps1",
@@ -923,7 +923,7 @@
       },
       {
         "path": "scripts/verify-agent-context.ps1",
-        "sha256": "6a6995e7e32d23bea9eba61cdb1c771f474099132c72a4489c035ccac510414b",
+        "sha256": "92b438ca2fc772f27f0881f9cd65fc1a49bea716731d0d6e8cc8b55f0234ed86",
         "consumers": [
           ".agent/contexts/verification.md",
           ".agent/maps/ci-policy.json"
