@@ -9,7 +9,8 @@
   "risk_level": "normal_internal",
   "scope_envelope": {
     "include": [".agent/**"],
-    "exclude": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock"]
+    "exclude": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock"],
+    "approved_protected_paths": []
   },
   "protected_boundaries": [
     "No product, domain, API, database, dependency, security, privacy, provider, or release decision changes."

@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$TaskPacket,
+    [string]$TaskSpec,
     [string]$RepositoryRoot,
     [string]$TaskStateOutput,
     [switch]$CiPolicy,
@@ -147,6 +148,7 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/evals/agent-plan-state-cases.json",
         ".agent/evals/risk-policy-cases.json",
         ".agent/evals/context-routing-cases.json",
+        ".agent/evals/scope-envelope-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
         ".agent/contracts/ci-attestation.schema.json",
@@ -157,6 +159,7 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/templates/ci-attestation.example.json",
         ".agent/maps/ci-policy.json",
         ".agent/verification/risk-policy.json",
+        ".agent/verification/scope-policy.json",
         ".agent/evals/ci-cases.json",
         ".github/workflows/agent-context-integrity.yml",
         ".github/workflows/agent-task-attest.yml"
@@ -517,6 +520,77 @@ function Assert-ContextRouting([string]$Root) {
     Assert-ContextRoutingFixtures $Root $router
 }
 
+function Assert-ScopePolicyObject([string]$Root, $Policy) {
+    $required = @("schema_version", "protected_path_patterns", "approval_source", "exact_file_mode_risks")
+    foreach ($property in $required) { if (-not (Has-Property $Policy $property)) { Fail "scope policy is missing required field: $property" } }
+    Assert-ExactProperties $Policy $required "scope policy"
+    if ($Policy.schema_version -ne "1.0.0" -or $Policy.approval_source -ne "task_spec.scope_envelope.approved_protected_paths") { Fail "scope policy identity is invalid" }
+    [void](Assert-StringArray $Policy.protected_path_patterns "scope policy protected_path_patterns" $true)
+    [void](Assert-StringArray $Policy.exact_file_mode_risks "scope policy exact_file_mode_risks")
+    $riskPolicy = Load-Json (Get-RepoPath $Root ".agent/verification/risk-policy.json")
+    $knownRisk = @($riskPolicy.risk_levels | ForEach-Object { [string]$_.id })
+    foreach ($risk in @($Policy.exact_file_mode_risks)) { if ($risk -notin $knownRisk) { Fail "scope policy references unknown risk: $risk" } }
+}
+
+function Assert-ModernScopePaths([string]$Root, $Spec, [string[]]$ActualPaths) {
+    $scope = $Spec.scope_envelope
+    $include = @(Assert-StringArray $scope.include "modern scope include" $true)
+    $exclude = @(Assert-StringArray $scope.exclude "modern scope exclude")
+    $approved = @()
+    if (Has-Property $scope "approved_protected_paths") { $approved = @(Assert-StringArray $scope.approved_protected_paths "modern scope approved_protected_paths") }
+    $policy = Load-Json (Get-RepoPath $Root ".agent/verification/scope-policy.json")
+    Assert-ScopePolicyObject $Root $policy
+    foreach ($approvedPath in $approved) {
+        if (@($policy.protected_path_patterns | Where-Object { Test-GlobMatch $approvedPath $_ }).Count -eq 0) { Fail "approved protected path is not protected by policy: $approvedPath" }
+        if (@($include | Where-Object { Test-GlobMatch $approvedPath $_ }).Count -eq 0) { Fail "approved protected path is outside scope include: $approvedPath" }
+    }
+    $normalized = @($ActualPaths | ForEach-Object { Normalize-RepoPath $_ } | Where-Object { $_ -ne "" } | Sort-Object -Unique)
+    foreach ($path in $normalized) {
+        if (@($include | Where-Object { Test-GlobMatch $path $_ }).Count -eq 0) { Fail "modern scope path is outside approved include: $path" }
+        if (@($exclude | Where-Object { Test-GlobMatch $path $_ }).Count -gt 0) { Fail "modern scope path is explicitly excluded: $path" }
+        $protected = @($policy.protected_path_patterns | Where-Object { Test-GlobMatch $path $_ })
+        if ($protected.Count -gt 0 -and @($approved | Where-Object { Test-GlobMatch $path $_ }).Count -eq 0) { Fail "protected path lacks explicit task-spec approval: $path" }
+    }
+    return $normalized
+}
+
+function Assert-ModernScopeRecords([string]$Root, $Spec, $Records) {
+    $records = @($Records)
+    $paths = @($records | ForEach-Object { [string]$_.Path })
+    $normalized = @(Assert-ModernScopePaths $Root $Spec $paths)
+    foreach ($record in $records) {
+        if ([string]$record.Type -notin @("create", "modify", "delete")) { Fail "modern scope record type is invalid: $($record.Type)" }
+        if ((Normalize-RepoPath ([string]$record.Path)) -notin $normalized) { Fail "modern scope record path was not validated: $($record.Path)" }
+    }
+    return @($records | ForEach-Object { [pscustomobject]@{path=(Normalize-RepoPath ([string]$_.Path)); type=[string]$_.Type} })
+}
+
+function Assert-ScopeEnvelopeFixtures([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/scope-envelope-cases.json")
+    $cases = @((Require-Property $document "cases" "scope envelope fixtures"))
+    if ($cases.Count -lt 6) { Fail "scope envelope fixtures require at least six cases" }
+    foreach ($case in $cases) {
+        $observedPass = $false
+        $failureText = ""
+        try {
+            Assert-TaskSpecV2Object $Root $case.spec
+            if (Has-Property $case "actual_records") {
+                [void](Assert-ModernScopeRecords $Root $case.spec $case.actual_records)
+            }
+            else {
+                [void](Assert-ModernScopePaths $Root $case.spec @($case.actual_paths))
+            }
+            $observedPass = $true
+        }
+        catch {
+            $failureText = [string]$_.Exception.Message
+        }
+        $expectedPass = [string]$case.expected -eq "pass"
+        if ($observedPass -ne $expectedPass) { Fail "scope envelope fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
+        Write-Output "[PASS] Scope envelope fixture: $($case.name)"
+    }
+}
+
 function Assert-TaskSpecV2Object([string]$Root, $Spec) {
     $required = @("schema_version", "task_id", "objective", "acceptance_criteria", "risk_level", "scope_envelope", "protected_boundaries", "required_policy_modules", "required_verification_gates", "approved_protected_decisions", "baseline")
     foreach ($property in $required) { if (-not (Has-Property $Spec $property)) { Fail "task spec v2 is missing required field: $property" } }
@@ -528,8 +602,9 @@ function Assert-TaskSpecV2Object([string]$Root, $Spec) {
     if ($Spec.risk_level -notin $knownRiskLevels) { Fail "task spec risk_level is invalid" }
     if (@($Spec.acceptance_criteria).Count -eq 0) { Fail "task spec acceptance_criteria is empty" }
     $scope = $Spec.scope_envelope
-    Assert-ExactProperties $scope @("include", "exclude") "task spec scope_envelope"
+    Assert-ExactProperties $scope @("include", "exclude", "approved_protected_paths") "task spec scope_envelope"
     if (@($scope.include).Count -eq 0) { Fail "task spec scope_envelope.include is empty" }
+    if (Has-Property $scope "approved_protected_paths") { [void](Assert-StringArray $scope.approved_protected_paths "task spec scope_envelope.approved_protected_paths") }
     if (@($Spec.protected_boundaries).Count -eq 0) { Fail "task spec protected_boundaries is empty" }
     if (@($Spec.required_policy_modules).Count -eq 0) { Fail "task spec required_policy_modules is empty" }
     $declaredGates = @($Spec.required_verification_gates)
@@ -1173,6 +1248,7 @@ function Assert-Integrity([string]$Root) {
     Assert-Budgets $Root $manifest
     $profiles = Assert-Profiles $Root
     Assert-ContextRouting $Root
+    Assert-ScopeEnvelopeFixtures $Root
     Assert-SourceRegister $Root
     Assert-SourceLock $Root
     Assert-VerificationRegistry $Root
@@ -1859,8 +1935,10 @@ function Invoke-SelfTest([string]$Root) {
 
 Push-Location $script:RepoRoot
 try {
-    if ($SelfTest -and ($TaskPacket -or $TaskStateOutput -or $CiPolicy)) { Fail "-SelfTest cannot be combined with task validation parameters or -CiPolicy" }
-    if ($CiPolicy -and ($SelfTest -or $TaskPacket -or $TaskStateOutput)) { Fail "-CiPolicy cannot be combined with -SelfTest, -TaskPacket, or -TaskStateOutput" }
+    if ($SelfTest -and ($TaskPacket -or $TaskSpec -or $TaskStateOutput -or $CiPolicy)) { Fail "-SelfTest cannot be combined with task validation parameters or -CiPolicy" }
+    if ($CiPolicy -and ($SelfTest -or $TaskPacket -or $TaskSpec -or $TaskStateOutput)) { Fail "-CiPolicy cannot be combined with -SelfTest or task validation parameters" }
+    if ($TaskPacket -and $TaskSpec) { Fail "-TaskPacket and -TaskSpec are mutually exclusive" }
+    if ($TaskSpec -and $TaskStateOutput) { Fail "-TaskStateOutput is only supported for legacy -TaskPacket validation" }
     if ($TaskStateOutput -and -not $TaskPacket) { Fail "-TaskStateOutput requires -TaskPacket" }
     if ($SelfTest) {
         Invoke-SelfTest $script:RepoRoot
@@ -1872,7 +1950,22 @@ try {
         exit 0
     }
     $profiles = Assert-Integrity $script:RepoRoot
-    if ($TaskPacket) {
+    if ($TaskSpec) {
+        $specPath = if ([IO.Path]::IsPathRooted($TaskSpec)) { $TaskSpec } else { Get-RepoPath $script:RepoRoot $TaskSpec }
+        $spec = Load-Json $specPath
+        Assert-TaskSpecV2Object $script:RepoRoot $spec
+        $baselinePacket = [pscustomobject]@{required_baseline_commit = [string]$spec.baseline.commit}
+        $head = Assert-TaskBaseline $script:RepoRoot $baselinePacket
+        Write-Output "[PASS] Modern task baseline commit: $($spec.baseline.commit)"
+        $actualRecords = @(Get-ActualTaskRecords $script:RepoRoot $spec.baseline.commit)
+        $validatedRecords = @(Assert-ModernScopeRecords $script:RepoRoot $spec $actualRecords)
+        Write-Output "[PASS] Modern scope envelope: $($validatedRecords.Count) changed file(s)"
+        $typeSummary = @($validatedRecords | Group-Object type | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join ", "
+        if ([string]::IsNullOrWhiteSpace($typeSummary)) { $typeSummary = "none" }
+        Write-Output "[PASS] Modern change records: $typeSummary"
+        Write-Output "[PASS] Modern task spec validated: $($spec.task_id)"
+    }
+    elseif ($TaskPacket) {
         $packetPath = if ([IO.Path]::IsPathRooted($TaskPacket)) { $TaskPacket } else { Get-RepoPath $script:RepoRoot $TaskPacket }
         $packet = Load-Json $packetPath
         $head = Assert-TaskBaseline $script:RepoRoot $packet
