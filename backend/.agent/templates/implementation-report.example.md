@@ -1,4 +1,4 @@
-# Implementation Report — ACL-EXAMPLE-001
+# Implementation Report v1.2 — ACL-EXAMPLE-001
 
 ## Result
 
@@ -26,10 +26,11 @@ None.
 
 ## Verification
 
-```text
-.\scripts\verify-agent-context.ps1
-exit: 0
-```
+- Gate: `acl-integrity` — PASS — evidence: trusted verification report gate result.
+- Gate: `foundation-verify` — PASS — evidence: trusted verification report gate result.
+
+Implementation reports reference canonical gate results and evidence identity.
+They do not define executable commands or exit-code truth.
 
 ## Impact declaration
 

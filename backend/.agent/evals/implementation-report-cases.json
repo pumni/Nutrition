@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0.0",
+  "cases": [
+    {
+      "name": "modern_gate_reference",
+      "expected": "pass",
+      "report": {
+        "schema_version": "1.2.0",
+        "task_id": "REPORT-CASE-MODERN",
+        "result": "pass",
+        "scope_summary": "ACL-only verification report reference",
+        "changed_files": {"created": [], "modified": [".agent/README.md"], "deleted": []},
+        "acceptance_criteria": [{"criterion": "Canonical gate result is referenced", "status": "pass", "evidence": "verification report gate result"}],
+        "verification": [{"gate": "acl-integrity", "required": true, "status": "pass", "evidence": "verification-report.gate_results[acl-integrity]"}],
+        "verification_report": {"runner_release": "agent-runner-1.0.1", "result": "pass", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "location_reference": "external verification report"},
+        "impacts": {"runtime_behavior": "none", "domain_behavior": "none", "api": "none", "database": "none", "dependencies": "none", "behavior_versions": "none"},
+        "deviations": [],
+        "blockers": []
+      }
+    },
+    {
+      "name": "legacy_command_compatibility",
+      "expected": "pass",
+      "report": {
+        "schema_version": "1.1.0",
+        "task_id": "REPORT-CASE-LEGACY",
+        "result": "pass",
+        "scope_summary": "Legacy report retained during compatibility window",
+        "changed_files": {"created": [], "modified": [".agent/README.md"], "deleted": []},
+        "acceptance_criteria": [{"criterion": "Legacy report remains parseable", "status": "pass", "evidence": "legacy compatibility fixture"}],
+        "verification": [{"command": "legacy command supplied by executor", "exit_code": 0, "status": "pass", "evidence": "legacy compatibility fixture"}],
+        "verification_report": {"runner_release": "agent-runner-1.0.1", "result": "pass", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "location_reference": "external verification report"},
+        "impacts": {"runtime_behavior": "none", "domain_behavior": "none", "api": "none", "database": "none", "dependencies": "none", "behavior_versions": "none"},
+        "deviations": [],
+        "blockers": []
+      }
+    },
+    {
+      "name": "modern_command_truth_rejected",
+      "expected": "fail",
+      "report": {
+        "schema_version": "1.2.0",
+        "task_id": "REPORT-CASE-MODERN-COMMAND",
+        "result": "pass",
+        "scope_summary": "Modern report with executor command truth",
+        "changed_files": {"created": [], "modified": [".agent/README.md"], "deleted": []},
+        "acceptance_criteria": [{"criterion": "Modern report rejects command truth", "status": "pass", "evidence": "negative fixture"}],
+        "verification": [{"command": "untrusted command", "exit_code": 0, "status": "pass", "evidence": "negative fixture"}],
+        "verification_report": {"runner_release": "agent-runner-1.0.1", "result": "pass", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "location_reference": "external verification report"},
+        "impacts": {"runtime_behavior": "none", "domain_behavior": "none", "api": "none", "database": "none", "dependencies": "none", "behavior_versions": "none"},
+        "deviations": [],
+        "blockers": []
+      }
+    },
+    {
+      "name": "modern_unknown_gate_rejected",
+      "expected": "fail",
+      "report": {
+        "schema_version": "1.2.0",
+        "task_id": "REPORT-CASE-UNKNOWN-GATE",
+        "result": "pass",
+        "scope_summary": "Modern report with non-canonical gate identity",
+        "changed_files": {"created": [], "modified": [".agent/README.md"], "deleted": []},
+        "acceptance_criteria": [{"criterion": "Modern report requires canonical gate identity", "status": "pass", "evidence": "negative fixture"}],
+        "verification": [{"gate": "executor-invented-gate", "required": true, "status": "pass", "evidence": "negative fixture"}],
+        "verification_report": {"runner_release": "agent-runner-1.0.1", "result": "pass", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "location_reference": "external verification report"},
+        "impacts": {"runtime_behavior": "none", "domain_behavior": "none", "api": "none", "database": "none", "dependencies": "none", "behavior_versions": "none"},
+        "deviations": [],
+        "blockers": []
+      }
+    }
+  ]
+}

@@ -301,9 +301,61 @@ function Assert-ReportContracts([string]$Root) {
     $external = Load-Json (Get-RepoPath $Root ".agent/contracts/external-evidence.schema.json")
     $ci = Load-Json (Get-RepoPath $Root ".agent/contracts/ci-attestation.schema.json")
     if (@($verification.properties.schema_version.const) -ne "2.0.0") { Fail "verification report contract must be 2.0.0" }
-    if (@($implementation.properties.schema_version.const) -ne "1.1.0") { Fail "implementation report contract must be 1.1.0" }
+    $implementationVersions = @($implementation.properties.schema_version.enum)
+    if ($implementationVersions -notcontains "1.1.0" -or $implementationVersions -notcontains "1.2.0") { Fail "implementation report contract must support 1.1.0 and 1.2.0" }
+    $verificationBranches = @($implementation.properties.verification.items.oneOf)
+    if (@($verificationBranches | Where-Object { @($_.required) -contains "gate" }).Count -ne 1) { Fail "implementation report contract is missing canonical gate verification shape" }
+    if (@($verificationBranches | Where-Object { @($_.required) -contains "command" }).Count -ne 1) { Fail "implementation report contract is missing legacy verification compatibility shape" }
     if (@($external.properties.schema_version.const) -ne "1.0.0") { Fail "external evidence contract must be 1.0.0" }
     if (@($ci.properties.schema_version.const) -ne "1.0.0" -or @($ci.properties.release.const) -ne "agent-ci-attestation-1.0.0") { Fail "CI attestation contract must be 1.0.0" }
+}
+
+function Assert-ImplementationReportObject([string]$Root, $Report) {
+    $required = @("schema_version", "task_id", "result", "scope_summary", "changed_files", "acceptance_criteria", "verification", "verification_report", "impacts", "deviations", "blockers")
+    foreach ($property in $required) { if (-not (Has-Property $Report $property)) { Fail "implementation report is missing required field: $property" } }
+    Assert-ExactProperties $Report $required "implementation report"
+    $version = [string]$Report.schema_version
+    if ($version -notin @("1.1.0", "1.2.0")) { Fail "implementation report schema_version is unsupported: $version" }
+    if ($Report.result -notin @("pass", "fail", "blocked")) { Fail "implementation report result is invalid" }
+    $verificationEntries = @($Report.verification)
+    if ($verificationEntries.Count -eq 0) { Fail "implementation report verification is empty" }
+    $knownGates = @(Assert-VerificationRegistry $Root | ForEach-Object { [string]$_ })
+    foreach ($entry in $verificationEntries) {
+        if ($version -eq "1.2.0") {
+            Assert-ExactProperties $entry @("gate", "required", "status", "evidence") "modern implementation report verification entry"
+            if ([string]$entry.gate -notin $knownGates) { Fail "implementation report references unknown canonical gate: $($entry.gate)" }
+            if ($entry.required -isnot [bool]) { Fail "implementation report gate required must be boolean: $($entry.gate)" }
+        }
+        else {
+            Assert-ExactProperties $entry @("command", "exit_code", "status", "evidence") "legacy implementation report verification entry"
+        }
+        if ($entry.status -notin @("pass", "fail", "skipped", "blocked")) { Fail "implementation report verification status is invalid" }
+        if ([string]::IsNullOrWhiteSpace([string]$entry.evidence)) { Fail "implementation report verification evidence is empty" }
+    }
+    $verificationReport = $Report.verification_report
+    Assert-ExactProperties $verificationReport @("runner_release", "result", "sha256", "location_reference") "implementation report trusted verification reference"
+    if ($verificationReport.result -notin @("pass", "fail", "blocked")) { Fail "implementation report trusted verification result is invalid" }
+    if ([string]$verificationReport.sha256 -notmatch "^[0-9a-fA-F]{64}$") { Fail "implementation report trusted verification hash is invalid" }
+}
+
+function Assert-ImplementationReportFixtures([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/implementation-report-cases.json")
+    $cases = @((Require-Property $document "cases" "implementation report fixtures"))
+    if ($cases.Count -lt 4) { Fail "implementation report fixtures require at least four cases" }
+    foreach ($case in $cases) {
+        $observedPass = $false
+        $failureText = ""
+        try {
+            Assert-ImplementationReportObject $Root $case.report
+            $observedPass = $true
+        }
+        catch {
+            $failureText = [string]$_.Exception.Message
+        }
+        $expectedPass = [string]$case.expected -eq "pass"
+        if ($observedPass -ne $expectedPass) { Fail "implementation report fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
+        Write-Output "[PASS] Implementation report fixture: $($case.name)"
+    }
 }
 
 function Get-CiWorkflowSection([string]$Text, [string]$JobName) {
@@ -758,6 +810,7 @@ function Assert-Integrity([string]$Root) {
     Assert-SourceLock $Root
     Assert-VerificationRegistry $Root
     Assert-ReportContracts $Root
+    Assert-ImplementationReportFixtures $Root
     Assert-Template $Root
     Assert-CiPolicy $Root
     return $profiles
