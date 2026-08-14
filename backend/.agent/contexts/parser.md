@@ -1,4 +1,4 @@
-Context release: agent-context-1.0.0
+Context release: agent-context-2.0.0
 Derived from: `crates/adapters/src/fixture.rs`, `crates/adapters/src/hosted_parser.rs`, `docs/HOSTED_PARSER.md`, `docs/FOUNDATION_DECISIONS.md`, `docs/RISK_REGISTER.md`, `docs/archive/nutrition_backend_blueprint_v1.0/06_FOOD_RESOLUTION_AND_LLM_SPEC.md`, `docs/archive/nutrition_backend_blueprint_v1.0/16_VIETNAMESE_MEAL_BENCH_SPEC.md`, `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
 Use when: changing the hosted parser adapter, parser schema, or explicitly included parser telemetry.
 Do not infer: provider-specific tools, nutrition facts from model output, IDs or gram estimates from the model, raw-text telemetry, redirects, or fixture fallback.

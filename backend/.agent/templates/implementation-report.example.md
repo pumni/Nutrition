@@ -27,7 +27,7 @@ None.
 ## Verification
 
 - `gate_id`: `acl-integrity`; `status`: `pass`; `evidence_ref`: trusted verification report gate result.
-- `gate_id`: `foundation-verify`; `status`: `pass`; `evidence_ref`: trusted verification report gate result.
+- `gate_id`: `cargo-test`; `status`: `pass`; `evidence_ref`: trusted verification report gate result.
 
 Implementation reports reference canonical gate results and evidence identity.
 They do not define executable commands or exit-code truth.

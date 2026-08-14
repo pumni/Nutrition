@@ -40,6 +40,19 @@
       }
     },
     "protected_decision_blockers": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "risk_escalations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk_level", "reason", "evidence_refs"],
+        "properties": {
+          "risk_level": {"enum": ["low", "medium", "high", "critical"]},
+          "reason": {"type": "string", "minLength": 1},
+          "evidence_refs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
     "status": {"enum": ["not_started", "in_progress", "blocked", "complete"]}
   }
 }

@@ -1,0 +1,14 @@
+{
+  "task_id": "INTENT-EXAMPLE-001",
+  "objective": "Record a bounded internal context-layer change.",
+  "acceptance_criteria": [
+    "The approved outcome is implemented without changing unrelated runtime behavior."
+  ],
+  "non_negotiables": [
+    "Do not change product, API, database, dependency, security/privacy, provider, or release semantics."
+  ],
+  "scope_hints": [".agent/**"],
+  "scope_exclusions": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock"],
+  "risk_floor": "low",
+  "approved_protected_decisions": []
+}

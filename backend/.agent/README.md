@@ -4,7 +4,7 @@ This directory is the machine-readable operating model for policy-bounded implem
 
 - `authority/` defines human decision ownership, implementation autonomy, and escalation classifications.
 - `invariants/` and `policies/` define protected product, security, architecture, and change-impact constraints.
-- `context/` is the progressive router and preset/module index. The router is the only active context-routing authority.
+- `context/` is the progressive router and module index. The router is the only active context-routing authority.
 - `generated/` contains repository facts regenerated from declared sources.
 - `contracts/` contains the Task Spec, plan, state, report, and evidence schemas.
 - `verification/` and `maps/` define risk, scope, source, and canonical gate identities.

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/schemas/task-intent.schema.json",
+  "title": "Human Task Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "objective", "acceptance_criteria", "non_negotiables", "approved_protected_decisions"],
+  "properties": {
+    "task_id": {"type": "string", "minLength": 1},
+    "objective": {"type": "string", "minLength": 1},
+    "acceptance_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "non_negotiables": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "scope_hints": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "scope_exclusions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "risk_floor": {"enum": ["low", "medium", "high", "critical"]},
+    "approved_protected_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["domain", "decision_id", "approval_ref", "scope"],
+        "properties": {
+          "domain": {"enum": ["product_domain_behavior", "architectural_boundary", "public_api_contract", "database_migration_intent", "security_privacy_policy", "llm_provider_boundary", "behavior_version_semantics", "production_provider_infrastructure", "canonical_publication", "release_policy", "architecturally_significant_dependency_changes"]},
+          "decision_id": {"type": "string", "minLength": 1},
+          "approval_ref": {"type": "string", "minLength": 1},
+          "scope": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    }
+  }
+}

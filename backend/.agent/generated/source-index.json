@@ -5,7 +5,7 @@
   "generated_from": [
     {
       "path": ".agent/authority/decision-policy.md",
-      "sha256": "c72930d98dc254a9ebd4382a64e9e7adae41822c63127650eef0436813d20008"
+      "sha256": "669e527173beeaeef354ea5b78e3a29aa1eb878767963711d11d4550454c530f"
     },
     {
       "path": ".agent/authority/escalation-policy.md",
@@ -16,12 +16,12 @@
       "sha256": "13a275d9766925c13c75eb96d94b30dc43b1b160635979eea06a3aec0c77ce22"
     },
     {
-      "path": ".agent/context/presets.json",
-      "sha256": "c99a6d7f729fcd6882a137fbf7daa82d77546e0e6602c13bf24e947defab8a71"
+      "path": ".agent/context/modules.json",
+      "sha256": "bcfda4e96a8d1bbba77c6c582daad470d3df1edcb8f790f8ca398c19fe378d2d"
     },
     {
       "path": ".agent/context/router.json",
-      "sha256": "ecdc0039d9a7e8c07d489b954f5127e4ce4447259ba22381ac78df27de50af36"
+      "sha256": "c65202ad2e59b89d0ec3a158e9a2496a7a2613fbe4445b044e82cb319104838d"
     },
     {
       "path": ".agent/contracts/agent-plan.schema.json",
@@ -29,11 +29,11 @@
     },
     {
       "path": ".agent/contracts/ci-attestation.schema.json",
-      "sha256": "5cef701d0fdb5feccb678792e67c7ed2a0936075d16f042e06ea2f8008df63f4"
+      "sha256": "5462125ab48f5c92f6ae0ff1572f52556b98e5d077228b7171a757c3918bc4ed"
     },
     {
       "path": ".agent/contracts/execution-state.schema.json",
-      "sha256": "b16c89f6aea5753e03d42d24174f490fe05277fbe28ede7e61d8ecff481b9557"
+      "sha256": "ac43ef7764c2a8da9460569cf4b6e1f408445e74f4ac9ae6a2cdc6ca9ed7e904"
     },
     {
       "path": ".agent/contracts/external-evidence.schema.json",
@@ -44,16 +44,20 @@
       "sha256": "d2b980f20ee78593d9ee4b9581bc8711b489a6a77406e83a913e0f77dffa92c0"
     },
     {
+      "path": ".agent/contracts/task-intent.schema.json",
+      "sha256": "5fa944185245a2a4eccbf5556bf54885dc1b545322c0d00789fd34e1b65ae92e"
+    },
+    {
       "path": ".agent/contracts/task-spec.schema.json",
-      "sha256": "afeae2f634e132a75415fd1f154da264a61d47fb38042a19618e8cf1812e018d"
+      "sha256": "7cf667d756fd1a5919e7f0328e177d145c62f335887dc5d3fe462f2e4e00b4f0"
     },
     {
       "path": ".agent/contracts/verification-report.schema.json",
-      "sha256": "85c8826b6134ccc5828a9ba6e33c5fd87adfacdf1a38f4ecc11ffd3f2360188a"
+      "sha256": "5092072f4e309a29a4529f561ed1aec263f345af20408c317f6b2d29891f264b"
     },
     {
       "path": ".agent/evals/behavioral-cases.json",
-      "sha256": "1453032f146204288481c44103102ebba6e996696f5e07cbefda1c63d1ebab7c"
+      "sha256": "5e7b7c209dedb00060b1035ae0517cb4ff95ef39aa4bf8067f56fb644803893a"
     },
     {
       "path": ".agent/evals/ci-cases.json",
@@ -61,7 +65,7 @@
     },
     {
       "path": ".agent/evals/graders/README.md",
-      "sha256": "61f019c8b4d16adf9fd4187050a39f9686f5706818b68e5d10edea4e168b5908"
+      "sha256": "a56334c6b5bcfd243b4303a7feecada41032b97b95e46ca522da6915ef743fe8"
     },
     {
       "path": ".agent/evals/implementation-report-cases.json",
@@ -69,47 +73,51 @@
     },
     {
       "path": ".agent/evals/tasks/README.md",
-      "sha256": "2c8d2bafe8141e3b9969abc7be303f5ae3a3eb5889b94abaa412a6e626851a9e"
+      "sha256": "d80b6f84aa214f2d53b02e50a56d40b95fbdd2688226025c3ec01fb839839e13"
     },
     {
       "path": ".agent/maps/ci-policy.json",
-      "sha256": "8f7109c3892d7db41293f4f9c119fa304f0c97d6d4df859d944d0ddb6ac6e9f3"
+      "sha256": "a5ee8435c04b1f58fff0488b5c39ccbfbecc52fed8d6139a8ae7c0ea652b079b"
     },
     {
       "path": ".agent/maps/source-register.json",
-      "sha256": "95f8cb0c18912bcabc3319f04466d42493498a7352533ba8eb30c6af4b969e16"
+      "sha256": "9d8c013264561a0fd14d458c7cc78ee7db6cefbab20c06903a3c28972e53b7c9"
     },
     {
       "path": ".agent/maps/verification-map.json",
-      "sha256": "9a971855a523cdd987e92ffd60e83863a6de9c529b68d32732210e374bfecf89"
+      "sha256": "168617e378f504f7ee8b59fb1bdc3a4586689bc10da4a3f2e766bb4b274ea7cc"
     },
     {
       "path": ".agent/policies/change-impact-policy.json",
-      "sha256": "df003c95748ea2895a8d8cb65d94450bed5cfb01ceca7d8200ef49294751f7be"
+      "sha256": "ff02829a9d8aa6f40cf8b913795dc1d43da96dec7f5373619a6c07f7d2e41395"
     },
     {
       "path": ".agent/policies/crate-boundaries.json",
-      "sha256": "937f142edd73fe00261ec2f146b382768ac0461bdea785ea34c382fb577554ca"
+      "sha256": "e773f780f0ad3848575cca8fe29d4930a839531eb79f313ed5ce8e2a9200df50"
     },
     {
       "path": ".agent/templates/agent-plan.example.json",
-      "sha256": "37e4f5094991b1fbb49fd830f20a15f4c3b9a0d047c21d6031c3db911bb95dbd"
+      "sha256": "76ee30ea6f60995b5766999c8cdf9233c2d5f39c9fbc169112185d6d0aec9731"
     },
     {
       "path": ".agent/templates/execution-state.example.json",
-      "sha256": "86b684dd0ac29d1b4bb596dc3c4f3eae23432bb39516cd745a460049a186ef15"
+      "sha256": "b424860aec0a3c77e8c87c37b71ae7c48c966712f00beee993d1aa7327763997"
+    },
+    {
+      "path": ".agent/templates/task-intent.example.json",
+      "sha256": "b74abcbde4f78be064e2c8fae1b6f0e052aa2fbf4b7a88de30755fd9f3a3331d"
     },
     {
       "path": ".agent/templates/task-spec.example.json",
-      "sha256": "c8cf7207ebc7630e589aed7f6012980c53b1645447afb37d5037c89f1d149f2b"
+      "sha256": "e7269d7ee84d06f8d7ee8a245e1a46210c105bb8d8d9210d952595d7895b7f30"
     },
     {
       "path": ".agent/verification/risk-policy.json",
-      "sha256": "c8ccbdc51197bd3c7d800655ae8f087cccbbf2c36a3f273e25942e8b2eefa894"
+      "sha256": "925233407ed0414bcb08cac25f3203ce31eb6066f80bc3eb7ed2bc45ea8589de"
     },
     {
       "path": ".agent/verification/scope-policy.json",
-      "sha256": "ebf87d6191cae32d07241062ef439768381a329b667f8a4b3de49921ed02e8ae"
+      "sha256": "d3815e6b585f938ed1827383bc150a0eb8c74bcb605fde38164b676ba8f1afe2"
     },
     {
       "path": ".github/workflows/agent-context-integrity.yml",
@@ -117,11 +125,11 @@
     },
     {
       "path": ".github/workflows/agent-task-attest.yml",
-      "sha256": "1f7d5b48f3bae0c7b64852ef7e953b393228c23c7ab2bfaa75ea28d751ba4add"
+      "sha256": "ea7349e372ed81e57891bec37f7f74164349de8e0d31a808c6aa1123e44ce8d3"
     },
     {
       "path": "AGENTS.md",
-      "sha256": "34cd11f8f526dc60cc5eb4dc859a9af86cf3460c205ba989d1d2ad620906cf59"
+      "sha256": "5f705c5954fa2509d780198b0ff459a73e5df9db86b178056596e5fbf9ffc184"
     },
     {
       "path": "crates/adapters/src/fixture.rs",
@@ -189,7 +197,7 @@
     },
     {
       "path": "docs/AGENT_ENGINEERING.md",
-      "sha256": "ad30bab618de593ebfe99ce8f6b28bd37ee45ecf00921a9b3a3016f85cfec88a"
+      "sha256": "23f26136ea88272a54779eb9b3014b637cfe6c6ea047128124a45dff05404383"
     },
     {
       "path": "docs/archive/nutrition_backend_blueprint_v1.0/00_README.md",
@@ -264,36 +272,40 @@
       "sha256": "fe9dd5cec1d2c9ebac0f0409722aced68d48d9b3df93219c15cd6c3c7f71c7a0"
     },
     {
+      "path": "scripts/compile-agent-task-spec.ps1",
+      "sha256": "840955317e75f633e0dc6e27f70c85c0d7e4dfccdf732bdd37c3c199178e5769"
+    },
+    {
       "path": "scripts/generate-agent-facts.ps1",
-      "sha256": "266ca9904588d50ba598f02269cea8a450b5a6fd9311866cddffda096212c3a8"
+      "sha256": "653bd963f305da0b38f84df061e490da16ccf2737814daaf071a791ca5a1b977"
     },
     {
       "path": "scripts/grade-agent-behavior.ps1",
-      "sha256": "b31473d0937690121982713bc943f9344d9b3db212a0d6a82f72d33e57cf7761"
+      "sha256": "761b6ea1183ba1068f9dc7d1cfa05f424a72b01d1750881e9b74fff0242a5de2"
     },
     {
       "path": "scripts/run-agent-behavior.ps1",
-      "sha256": "07e702610577c73e92ada4f831f919b153a56bcc2dec41494ddb60439758b59c"
+      "sha256": "d8943b20233944f84b5b6cb9142deeb0590317afadb07c589a18476f5cfb2fa8"
     },
     {
       "path": "scripts/run-agent-verification.ps1",
-      "sha256": "6b0e443c51361d3476eedf8f6985c3525d4877fad02e245a077310162e2f4843"
+      "sha256": "c7335b18732b8c8e17371f1f5db7516ba99df685fd71900043d2a3286ba1ab2d"
     },
     {
       "path": "scripts/run-codex-behavior-adapter.ps1",
-      "sha256": "a432014324fda4b2ba7b950abd04ffa5eabe141e46d016fbf6fbbbcd7b5145ce"
+      "sha256": "d5536ce9b80d58336fa78a2a6ff214d4e7ed6a21b1a5c92433aace16ceeccb15"
     },
     {
       "path": "scripts/verify-agent-behavior.ps1",
-      "sha256": "ead393007614db3055690ddb3245ff089aa16234ae058707a5f05873195ff27a"
+      "sha256": "ec5929c938544fa3c7897547fb0913172861485e76f1bfc8d7e98530c3467666"
     },
     {
       "path": "scripts/verify-agent-context.ps1",
-      "sha256": "a0eef3e9812aab0e7a9d18c1063baaabf786c706ed40574bd2c14a470418e152"
+      "sha256": "4fa134f1f58a1740ec6f9fa0dcd442a1f616245bdf6bec9b92bd4c3b2d50aff4"
     },
     {
       "path": "scripts/verify-agent-facts.ps1",
-      "sha256": "e1a65b33dec59a18470b118e7a93c0cf2b0a061e5c0f07ed1ab133eb542e74c2"
+      "sha256": "d7af604c1953a66cfe1f45e8e7a236e84c2e43397bf5652a1702f6e8fa890d4d"
     },
     {
       "path": "scripts/verify-postgres.ps1",
@@ -310,17 +322,16 @@
   ],
   "refresh_attestation": {
     "algorithm": "SHA256",
-    "input_count": 76,
-    "signature": "977e535af18b5949ea0b496172030c0ba6990d71a25ea59b237a6b571bdc2020",
+    "input_count": 79,
+    "signature": "cedad08c4d72cedbc158592b066da87ef52d2b4e3bdbb07aead6947cb79d3fa3",
     "consumer_refresh": "required"
   },
   "facts": {
     "source_register": ".agent/maps/source-register.json",
-    "derived_artifacts_excluded": ".agent/generated/**",
     "sources": [
       {
         "path": ".agent/authority/decision-policy.md",
-        "sha256": "c72930d98dc254a9ebd4382a64e9e7adae41822c63127650eef0436813d20008",
+        "sha256": "669e527173beeaeef354ea5b78e3a29aa1eb878767963711d11d4550454c530f",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -340,15 +351,15 @@
         ]
       },
       {
-        "path": ".agent/context/presets.json",
-        "sha256": "c99a6d7f729fcd6882a137fbf7daa82d77546e0e6602c13bf24e947defab8a71",
+        "path": ".agent/context/modules.json",
+        "sha256": "bcfda4e96a8d1bbba77c6c582daad470d3df1edcb8f790f8ca398c19fe378d2d",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/context/router.json",
-        "sha256": "ecdc0039d9a7e8c07d489b954f5127e4ce4447259ba22381ac78df27de50af36",
+        "sha256": "c65202ad2e59b89d0ec3a158e9a2496a7a2613fbe4445b044e82cb319104838d",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -362,7 +373,7 @@
       },
       {
         "path": ".agent/contracts/ci-attestation.schema.json",
-        "sha256": "5cef701d0fdb5feccb678792e67c7ed2a0936075d16f042e06ea2f8008df63f4",
+        "sha256": "5462125ab48f5c92f6ae0ff1572f52556b98e5d077228b7171a757c3918bc4ed",
         "consumers": [
           ".agent/contexts/verification.md",
           ".agent/maps/ci-policy.json"
@@ -370,7 +381,7 @@
       },
       {
         "path": ".agent/contracts/execution-state.schema.json",
-        "sha256": "b16c89f6aea5753e03d42d24174f490fe05277fbe28ede7e61d8ecff481b9557",
+        "sha256": "ac43ef7764c2a8da9460569cf4b6e1f408445e74f4ac9ae6a2cdc6ca9ed7e904",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -390,22 +401,29 @@
         ]
       },
       {
+        "path": ".agent/contracts/task-intent.schema.json",
+        "sha256": "5fa944185245a2a4eccbf5556bf54885dc1b545322c0d00789fd34e1b65ae92e",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
         "path": ".agent/contracts/task-spec.schema.json",
-        "sha256": "afeae2f634e132a75415fd1f154da264a61d47fb38042a19618e8cf1812e018d",
+        "sha256": "7cf667d756fd1a5919e7f0328e177d145c62f335887dc5d3fe462f2e4e00b4f0",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/contracts/verification-report.schema.json",
-        "sha256": "85c8826b6134ccc5828a9ba6e33c5fd87adfacdf1a38f4ecc11ffd3f2360188a",
+        "sha256": "5092072f4e309a29a4529f561ed1aec263f345af20408c317f6b2d29891f264b",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/evals/behavioral-cases.json",
-        "sha256": "1453032f146204288481c44103102ebba6e996696f5e07cbefda1c63d1ebab7c",
+        "sha256": "5e7b7c209dedb00060b1035ae0517cb4ff95ef39aa4bf8067f56fb644803893a",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -420,7 +438,7 @@
       },
       {
         "path": ".agent/evals/graders/README.md",
-        "sha256": "61f019c8b4d16adf9fd4187050a39f9686f5706818b68e5d10edea4e168b5908",
+        "sha256": "a56334c6b5bcfd243b4303a7feecada41032b97b95e46ca522da6915ef743fe8",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -434,77 +452,84 @@
       },
       {
         "path": ".agent/evals/tasks/README.md",
-        "sha256": "2c8d2bafe8141e3b9969abc7be303f5ae3a3eb5889b94abaa412a6e626851a9e",
+        "sha256": "d80b6f84aa214f2d53b02e50a56d40b95fbdd2688226025c3ec01fb839839e13",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/maps/ci-policy.json",
-        "sha256": "8f7109c3892d7db41293f4f9c119fa304f0c97d6d4df859d944d0ddb6ac6e9f3",
+        "sha256": "a5ee8435c04b1f58fff0488b5c39ccbfbecc52fed8d6139a8ae7c0ea652b079b",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/maps/source-register.json",
-        "sha256": "95f8cb0c18912bcabc3319f04466d42493498a7352533ba8eb30c6af4b969e16",
+        "sha256": "9d8c013264561a0fd14d458c7cc78ee7db6cefbab20c06903a3c28972e53b7c9",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/maps/verification-map.json",
-        "sha256": "9a971855a523cdd987e92ffd60e83863a6de9c529b68d32732210e374bfecf89",
+        "sha256": "168617e378f504f7ee8b59fb1bdc3a4586689bc10da4a3f2e766bb4b274ea7cc",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/policies/change-impact-policy.json",
-        "sha256": "df003c95748ea2895a8d8cb65d94450bed5cfb01ceca7d8200ef49294751f7be",
+        "sha256": "ff02829a9d8aa6f40cf8b913795dc1d43da96dec7f5373619a6c07f7d2e41395",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/policies/crate-boundaries.json",
-        "sha256": "937f142edd73fe00261ec2f146b382768ac0461bdea785ea34c382fb577554ca",
+        "sha256": "e773f780f0ad3848575cca8fe29d4930a839531eb79f313ed5ce8e2a9200df50",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/templates/agent-plan.example.json",
-        "sha256": "37e4f5094991b1fbb49fd830f20a15f4c3b9a0d047c21d6031c3db911bb95dbd",
+        "sha256": "76ee30ea6f60995b5766999c8cdf9233c2d5f39c9fbc169112185d6d0aec9731",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/templates/execution-state.example.json",
-        "sha256": "86b684dd0ac29d1b4bb596dc3c4f3eae23432bb39516cd745a460049a186ef15",
+        "sha256": "b424860aec0a3c77e8c87c37b71ae7c48c966712f00beee993d1aa7327763997",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/templates/task-intent.example.json",
+        "sha256": "b74abcbde4f78be064e2c8fae1b6f0e052aa2fbf4b7a88de30755fd9f3a3331d",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/templates/task-spec.example.json",
-        "sha256": "c8cf7207ebc7630e589aed7f6012980c53b1645447afb37d5037c89f1d149f2b",
+        "sha256": "e7269d7ee84d06f8d7ee8a245e1a46210c105bb8d8d9210d952595d7895b7f30",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/verification/risk-policy.json",
-        "sha256": "c8ccbdc51197bd3c7d800655ae8f087cccbbf2c36a3f273e25942e8b2eefa894",
+        "sha256": "925233407ed0414bcb08cac25f3203ce31eb6066f80bc3eb7ed2bc45ea8589de",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": ".agent/verification/scope-policy.json",
-        "sha256": "ebf87d6191cae32d07241062ef439768381a329b667f8a4b3de49921ed02e8ae",
+        "sha256": "d3815e6b585f938ed1827383bc150a0eb8c74bcb605fde38164b676ba8f1afe2",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -519,7 +544,7 @@
       },
       {
         "path": ".github/workflows/agent-task-attest.yml",
-        "sha256": "1f7d5b48f3bae0c7b64852ef7e953b393228c23c7ab2bfaa75ea28d751ba4add",
+        "sha256": "ea7349e372ed81e57891bec37f7f74164349de8e0d31a808c6aa1123e44ce8d3",
         "consumers": [
           ".agent/contexts/verification.md",
           ".agent/maps/ci-policy.json"
@@ -527,7 +552,7 @@
       },
       {
         "path": "AGENTS.md",
-        "sha256": "34cd11f8f526dc60cc5eb4dc859a9af86cf3460c205ba989d1d2ad620906cf59",
+        "sha256": "5f705c5954fa2509d780198b0ff459a73e5df9db86b178056596e5fbf9ffc184",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -647,7 +672,7 @@
       },
       {
         "path": "docs/AGENT_ENGINEERING.md",
-        "sha256": "ad30bab618de593ebfe99ce8f6b28bd37ee45ecf00921a9b3a3016f85cfec88a",
+        "sha256": "23f26136ea88272a54779eb9b3014b637cfe6c6ea047128124a45dff05404383",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -814,50 +839,57 @@
         ]
       },
       {
+        "path": "scripts/compile-agent-task-spec.ps1",
+        "sha256": "840955317e75f633e0dc6e27f70c85c0d7e4dfccdf732bdd37c3c199178e5769",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
         "path": "scripts/generate-agent-facts.ps1",
-        "sha256": "266ca9904588d50ba598f02269cea8a450b5a6fd9311866cddffda096212c3a8",
+        "sha256": "653bd963f305da0b38f84df061e490da16ccf2737814daaf071a791ca5a1b977",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": "scripts/grade-agent-behavior.ps1",
-        "sha256": "b31473d0937690121982713bc943f9344d9b3db212a0d6a82f72d33e57cf7761",
+        "sha256": "761b6ea1183ba1068f9dc7d1cfa05f424a72b01d1750881e9b74fff0242a5de2",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": "scripts/run-agent-behavior.ps1",
-        "sha256": "07e702610577c73e92ada4f831f919b153a56bcc2dec41494ddb60439758b59c",
+        "sha256": "d8943b20233944f84b5b6cb9142deeb0590317afadb07c589a18476f5cfb2fa8",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": "scripts/run-agent-verification.ps1",
-        "sha256": "6b0e443c51361d3476eedf8f6985c3525d4877fad02e245a077310162e2f4843",
+        "sha256": "c7335b18732b8c8e17371f1f5db7516ba99df685fd71900043d2a3286ba1ab2d",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": "scripts/run-codex-behavior-adapter.ps1",
-        "sha256": "a432014324fda4b2ba7b950abd04ffa5eabe141e46d016fbf6fbbbcd7b5145ce",
+        "sha256": "d5536ce9b80d58336fa78a2a6ff214d4e7ed6a21b1a5c92433aace16ceeccb15",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": "scripts/verify-agent-behavior.ps1",
-        "sha256": "ead393007614db3055690ddb3245ff089aa16234ae058707a5f05873195ff27a",
+        "sha256": "ec5929c938544fa3c7897547fb0913172861485e76f1bfc8d7e98530c3467666",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
       },
       {
         "path": "scripts/verify-agent-context.ps1",
-        "sha256": "a0eef3e9812aab0e7a9d18c1063baaabf786c706ed40574bd2c14a470418e152",
+        "sha256": "4fa134f1f58a1740ec6f9fa0dcd442a1f616245bdf6bec9b92bd4c3b2d50aff4",
         "consumers": [
           ".agent/contexts/verification.md",
           ".agent/maps/ci-policy.json"
@@ -865,7 +897,7 @@
       },
       {
         "path": "scripts/verify-agent-facts.ps1",
-        "sha256": "e1a65b33dec59a18470b118e7a93c0cf2b0a061e5c0f07ed1ab133eb542e74c2",
+        "sha256": "d7af604c1953a66cfe1f45e8e7a236e84c2e43397bf5652a1702f6e8fa890d4d",
         "consumers": [
           ".agent/contexts/verification.md"
         ]

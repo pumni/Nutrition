@@ -22,13 +22,14 @@
   },
   "budgets": {
     "agents_md_max_bytes": 4096,
+    "initial_guidance_max_bytes": 16384,
     "authority_file_max_bytes": 12288,
     "invariant_file_max_bytes": 12288,
     "context_file_max_bytes": 16384
   },
   "paths": {
     "context_router": ".agent/context/router.json",
-    "context_presets": ".agent/context/presets.json",
+    "context_modules": ".agent/context/modules.json",
     "source_register": ".agent/maps/source-register.json",
     "source_lock": ".agent/state/source-lock.json",
     "verification_map": ".agent/maps/verification-map.json"

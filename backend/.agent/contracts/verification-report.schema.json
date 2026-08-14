@@ -4,7 +4,7 @@
   "title": "Task Spec Verification Report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "task_spec_sha256", "releases", "control_plane", "target", "change_records", "gate_results", "scope", "impacts", "result"],
+  "required": ["schema_version", "task_id", "task_spec_sha256", "releases", "control_plane", "target", "change_records", "gate_results", "risk", "scope", "result"],
   "properties": {
     "schema_version": {"const": "2.0.0"},
     "task_id": {"type": "string", "minLength": 1},
@@ -57,7 +57,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["gate", "kind", "required", "status", "exit_code", "output_byte_count", "output_sha256", "summary"],
+        "required": ["gate_id", "kind", "required", "status", "exit_code", "output_byte_count", "output_sha256", "summary"],
         "properties": {
           "gate_id": {"type": "string", "minLength": 1},
           "kind": {"type": "string", "minLength": 1},
@@ -70,28 +70,27 @@
         }
       }
     },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested", "effective", "escalated", "evidence_refs"],
+      "properties": {
+        "requested": {"enum": ["low", "medium", "high", "critical"]},
+        "effective": {"enum": ["low", "medium", "high", "critical"]},
+        "escalated": {"type": "boolean"},
+        "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
     "scope": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["result", "create", "modify", "delete"],
+      "required": ["result", "create", "modify", "delete", "violations"],
       "properties": {
         "result": {"enum": ["pass", "fail"]},
         "create": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "modify": {"type": "array", "items": {"type": "string", "minLength": 1}},
-        "delete": {"type": "array", "items": {"type": "string", "minLength": 1}}
-      }
-    },
-    "impacts": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["runtime_behavior", "domain_behavior", "api", "database", "dependencies", "behavior_versions"],
-      "properties": {
-        "runtime_behavior": {"enum": ["none", "specified_change"]},
-        "domain_behavior": {"enum": ["none", "specified_change"]},
-        "api": {"enum": ["none", "specified_change"]},
-        "database": {"enum": ["none", "specified_change"]},
-        "dependencies": {"enum": ["none", "specified_change"]},
-        "behavior_versions": {"enum": ["none", "specified_change"]}
+        "delete": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "violations": {"type": "array", "items": {"type": "string", "minLength": 1}}
       }
     },
     "result": {"enum": ["pass", "fail", "blocked"]}

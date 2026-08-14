@@ -16,5 +16,6 @@
     {"gate_id": "acl-integrity", "status": "pass", "evidence_ref": "local:acl-integrity"}
   ],
   "protected_decision_blockers": [],
+  "risk_escalations": [],
   "status": "in_progress"
 }

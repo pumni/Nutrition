@@ -7,8 +7,8 @@ on:
         description: Exact target commit SHA to verify
         required: true
         type: string
-      task_packet_json:
-        description: Exact architect task packet JSON
+      task_intent_json:
+        description: Human task intent JSON compiled by the trusted runner
         required: true
         type: string
 
@@ -62,14 +62,14 @@ jobs:
           test "$(git -C control rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git -C target rev-parse HEAD)" = "$TARGET_SHA"
 
-      - name: Write immutable task packet
+      - name: Write immutable task intent
         shell: pwsh
         env:
-          TASK_PACKET_JSON: ${{ inputs.task_packet_json }}
+          TASK_INTENT_JSON: ${{ inputs.task_intent_json }}
         run: |
-          $packetPath = Join-Path $env:RUNNER_TEMP 'agent-task-packet.json'
-          $bytes = [Text.Encoding]::UTF8.GetBytes($env:TASK_PACKET_JSON)
-          [IO.File]::WriteAllBytes($packetPath, $bytes)
+          $specPath = Join-Path $env:RUNNER_TEMP 'agent-task-intent.json'
+          $bytes = [Text.Encoding]::UTF8.GetBytes($env:TASK_INTENT_JSON)
+          [IO.File]::WriteAllBytes($specPath, $bytes)
 
       - name: Install exact Rust toolchain
         shell: bash
@@ -88,7 +88,7 @@ jobs:
         run: |
           set +e
           pwsh -NoLogo -NoProfile -File control/scripts/run-agent-verification.ps1 \
-            -TaskPacket "$RUNNER_TEMP/agent-task-packet.json" \
+            -TaskSpec "$RUNNER_TEMP/agent-task-intent.json" \
             -TargetRoot "$GITHUB_WORKSPACE/target" \
             -OutputPath "$RUNNER_TEMP/verification-report.json"
           runner_exit=$?
@@ -106,12 +106,12 @@ jobs:
           $report = Get-Content -Raw -LiteralPath $reportPath | ConvertFrom-Json
           $manifest = Get-Content -Raw -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'control/.agent/manifest.json') | ConvertFrom-Json
           $attestation = [ordered]@{
-            schema_version = '1.0.0'
-            release = 'agent-ci-attestation-1.0.0'
+            schema_version = '2.0.0'
+            release = 'agent-ci-attestation-2.0.0'
             task_id = [string]$report.task_id
             target_sha = $env:TARGET_SHA
             control_sha = [string]$report.control_plane.head_commit
-            task_packet_sha256 = [string]$report.task_packet_sha256
+            task_spec_sha256 = [string]$report.task_spec_sha256
             verification_report_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $reportPath).Hash.ToLowerInvariant()
             verification_report_path = 'verification-report.json'
             result = [string]$report.result

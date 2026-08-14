@@ -8,7 +8,7 @@
   },
   "observations": [
     "The approved task scope names the agent context verification subsystem.",
-    "The canonical gate registry contains acl-integrity and foundation-verify."
+    "The canonical gate registry contains atomic checks for the affected paths."
   ],
   "hypothesis": "The smallest correct implementation is a policy-local change within the approved agent context envelope.",
   "planned_changes": [
@@ -21,7 +21,7 @@
     "Apply the smallest implementation change.",
     "Run canonical verification and revise this plan if evidence requires it."
   ],
-  "verification_strategy": ["acl-integrity", "foundation-verify"],
+  "verification_strategy": ["acl-integrity"],
   "risks": ["A stale source lock would make the context layer unverifiable."],
   "protected_decisions_required": [],
   "status": "in_progress"

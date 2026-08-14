@@ -36,7 +36,7 @@ function Test-GlobMatch([string]$Path, [string]$Pattern) { $escaped = [regex]::E
 function Get-RelativeFiles([string]$Root, [string]$RelativeDirectory) { $directory = Get-RepoPath $Root $RelativeDirectory; if (-not (Test-Path -LiteralPath $directory -PathType Container)) { return @() }; return @(Get-ChildItem -LiteralPath $directory -Recurse -File | ForEach-Object { Normalize-RepoPath $_.FullName.Substring($Root.Length + 1) }) }
 
 function Get-CanonicalGates([string]$Root) { $map = Load-Json (Get-RepoPath $Root '.agent/maps/verification-map.json'); return @($map.gates | ForEach-Object { [string]$_.name }) }
-function Get-ContextModules([string]$Root) { $presets = Load-Json (Get-RepoPath $Root '.agent/context/presets.json'); return @($presets.modules | ForEach-Object { [string]$_.name }) }
+function Get-ContextModules([string]$Root) { $modules = Load-Json (Get-RepoPath $Root '.agent/context/modules.json'); return @($modules.modules | ForEach-Object { [string]$_.name }) }
 
 function Assert-RequiredFiles([string]$Root) {
     $required = @(
@@ -46,22 +46,19 @@ function Assert-RequiredFiles([string]$Root) {
         '.agent/invariants/llm-boundary.md', '.agent/invariants/security-privacy.md',
         '.agent/contexts/domain.md', '.agent/contexts/application.md', '.agent/contexts/parser.md', '.agent/contexts/persistence.md',
         '.agent/contexts/api.md', '.agent/contexts/worker.md', '.agent/contexts/data-governance.md', '.agent/contexts/verification.md',
-        '.agent/context/presets.json', '.agent/context/router.json', '.agent/policies/crate-boundaries.json', '.agent/policies/change-impact-policy.json',
-        '.agent/generated/crate-graph.json', '.agent/generated/source-index.json', '.agent/generated/test-map.json', '.agent/generated/change-impact-map.json',
+        '.agent/context/modules.json', '.agent/context/router.json', '.agent/policies/crate-boundaries.json', '.agent/policies/change-impact-policy.json',
+        '.agent/generated/source-index.json',
         '.agent/maps/verification-map.json', '.agent/maps/source-register.json', '.agent/verification/risk-policy.json', '.agent/verification/scope-policy.json',
-        '.agent/contracts/task-spec.schema.json', '.agent/contracts/agent-plan.schema.json', '.agent/contracts/execution-state.schema.json',
+        '.agent/contracts/task-intent.schema.json', '.agent/contracts/task-spec.schema.json', '.agent/contracts/agent-plan.schema.json', '.agent/contracts/execution-state.schema.json',
         '.agent/contracts/verification-report.schema.json', '.agent/contracts/implementation-report.schema.json', '.agent/contracts/external-evidence.schema.json', '.agent/contracts/ci-attestation.schema.json',
-        '.agent/templates/task-spec.example.json', '.agent/templates/agent-plan.example.json', '.agent/templates/execution-state.example.json',
+        '.agent/templates/task-intent.example.json', '.agent/templates/task-spec.example.json', '.agent/templates/agent-plan.example.json', '.agent/templates/execution-state.example.json',
         '.agent/templates/verification-report.example.json', '.agent/templates/implementation-report.example.md', '.agent/templates/external-evidence.example.json', '.agent/templates/ci-attestation.example.json',
         '.agent/evals/README.md', '.agent/evals/behavioral-cases.json', '.agent/evals/implementation-report-cases.json', '.agent/evals/ci-cases.json',
         '.agent/evals/tasks/README.md', '.agent/evals/graders/README.md', '.agent/state/source-lock.json',
-        'scripts/verify-agent-context.ps1', 'scripts/run-agent-verification.ps1', 'scripts/verify-agent-behavior.ps1', 'scripts/generate-agent-facts.ps1', 'scripts/verify-agent-facts.ps1',
+        'scripts/compile-agent-task-spec.ps1', 'scripts/verify-agent-context.ps1', 'scripts/run-agent-verification.ps1', 'scripts/verify-agent-behavior.ps1', 'scripts/generate-agent-facts.ps1', 'scripts/verify-agent-facts.ps1',
         '.github/workflows/agent-context-integrity.yml', '.github/workflows/agent-task-attest.yml'
     )
     foreach ($path in $required) { if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) { Fail "required active file is missing: $path" } }
-    if (Test-Path -LiteralPath (Get-RepoPath $Root '.agent/profiles')) { Fail 'retired context directory remains active' }
-    if (Test-Path -LiteralPath (Get-RepoPath $Root ('.agent/contracts/' + 'legacy-' + 'task-packet.schema.json'))) { Fail 'retired contract remains active' }
-    if (Test-Path -LiteralPath (Get-RepoPath $Root ('.agent/templates/' + 'legacy-' + 'task-packet.example.json'))) { Fail 'retired template remains active' }
 }
 
 function Assert-Manifest([string]$Root) {
@@ -76,7 +73,7 @@ function Assert-Manifest([string]$Root) {
     $authority = $manifest.authority
     Assert-ExactProperties $authority @('architect_decides','implementation_autonomous_within_policy','protected_decisions_fail_closed','task_spec_required','context_routing_required') 'manifest authority'
     if ($authority.architect_decides -ne $true -or $authority.implementation_autonomous_within_policy -ne $true -or $authority.protected_decisions_fail_closed -ne $true -or $authority.task_spec_required -ne $true -or $authority.context_routing_required -ne $true) { Fail 'manifest authority model is invalid' }
-    Assert-ExactProperties $manifest.paths @('context_router','context_presets','source_register','source_lock','verification_map') 'manifest paths'
+    Assert-ExactProperties $manifest.paths @('context_router','context_modules','source_register','source_lock','verification_map') 'manifest paths'
     return $manifest
 }
 
@@ -84,12 +81,13 @@ function Assert-Budgets([string]$Root, $Manifest) {
     if ((Get-Item -LiteralPath (Get-RepoPath $Root 'AGENTS.md')).Length -gt [int]$Manifest.budgets.agents_md_max_bytes) { Fail 'AGENTS.md exceeds budget' }
     if ((Get-Item -LiteralPath (Get-RepoPath $Root '.agent/README.md')).Length -gt 8192) { Fail '.agent/README.md exceeds budget' }
     foreach ($pair in @(@('.agent/authority', $Manifest.budgets.authority_file_max_bytes), @('.agent/invariants', $Manifest.budgets.invariant_file_max_bytes), @('.agent/contexts', $Manifest.budgets.context_file_max_bytes))) { foreach ($file in Get-ChildItem -LiteralPath (Get-RepoPath $Root $pair[0]) -File) { if ($file.Length -gt [int64]$pair[1]) { Fail "$($file.FullName) exceeds context budget" } } }
+    $modules=Load-Json (Get-RepoPath $Root '.agent/context/modules.json'); $router=Load-Json (Get-RepoPath $Root '.agent/context/router.json'); $default=@($router.default_modules); $initial=@(Get-RepoPath $Root 'AGENTS.md'); foreach ($name in $default) { $module=@($modules.modules | Where-Object name -eq $name)[0]; $initial += @($module.context_files | ForEach-Object { Get-RepoPath $Root $_ }) }; $initialBytes=(@($initial | Select-Object -Unique | ForEach-Object { (Get-Item -LiteralPath $_).Length } | Measure-Object -Sum).Sum); if ([int64]$initialBytes -gt [int64]$Manifest.budgets.initial_guidance_max_bytes) { Fail "initial routed guidance exceeds $($Manifest.budgets.initial_guidance_max_bytes) bytes: $initialBytes" }
 }
 
 function Assert-Entrypoint([string]$Root) {
     $text = Get-Content -Raw (Get-RepoPath $Root 'AGENTS.md')
-    foreach ($required in @('.agent/manifest.json','docs/AGENT_ENGINEERING.md','Task Spec','minimal relevant preset','scope envelope','canonical gate IDs','protected-decision report')) { if ($text -notmatch [regex]::Escape($required)) { Fail "AGENTS.md is missing guidance: $required" } }
-    foreach ($forbidden in @('Transitional v1','legacy task','profile names remain')) { if ($text -match [regex]::Escape($forbidden)) { Fail "AGENTS.md retains stale guidance: $forbidden" } }
+    foreach ($required in @('.agent/manifest.json','docs/AGENT_ENGINEERING.md','Task Spec','minimal modules','scope envelope','canonical gate IDs','protected-decision report')) { if ($text -notmatch [regex]::Escape($required)) { Fail "AGENTS.md is missing guidance: $required" } }
+    foreach ($forbidden in @('Transitional executor model','obsolete profile selection')) { if ($text -match [regex]::Escape($forbidden)) { Fail "AGENTS.md retains stale guidance: $forbidden" } }
 }
 
 function Assert-SourceRegister([string]$Root) {
@@ -117,32 +115,33 @@ function Assert-VerificationMap([string]$Root) {
 }
 
 function Assert-ContextRouting([string]$Root, [string[]]$KnownGates) {
-    $presets = Load-Json (Get-RepoPath $Root '.agent/context/presets.json'); Assert-ExactProperties $presets @('schema_version','budget_policy','modules','presets') 'context presets'; if ($presets.schema_version -ne '2.0.0') { Fail 'context preset schema mismatch' }
-    $modules=@(); foreach ($module in @($presets.modules)) { Assert-ExactProperties $module @('name','context_files','mandatory_gates','risk_tags') 'context module'; if ($module.name -in $modules) { Fail "duplicate context module: $($module.name)" }; $modules += [string]$module.name; foreach ($path in @(Assert-StringArray $module.context_files "context files $($module.name)" $true)) { if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) { Fail "context module path missing: $path" } }; foreach ($gate in @($module.mandatory_gates)) { if ($gate -notin $KnownGates) { Fail "context module has unknown gate: $gate" } } }
-    foreach ($preset in @($presets.presets)) { foreach ($module in @($preset.modules)) { if ($module -notin $modules) { Fail "preset has unknown module: $module" } } }
-    $router = Load-Json (Get-RepoPath $Root '.agent/context/router.json'); Assert-ExactProperties $router @('schema_version','presets_ref','base_modules','path_routes','risk_routes','expansion_policy') 'context router'; if ($router.schema_version -ne '2.0.0' -or $router.presets_ref -ne '.agent/context/presets.json') { Fail 'context router identity mismatch' }
-    foreach ($module in @($router.base_modules)) { if ($module -notin $modules) { Fail "router base module is unknown: $module" } }
+    $modulesDocument = Load-Json (Get-RepoPath $Root '.agent/context/modules.json'); Assert-ExactProperties $modulesDocument @('schema_version','modules') 'context modules'; if ($modulesDocument.schema_version -ne '3.0.0') { Fail 'context modules schema mismatch' }
+    $modules=@(); foreach ($module in @($modulesDocument.modules)) { Assert-ExactProperties $module @('name','context_files','risk_tags') 'context module'; if ($module.name -in $modules) { Fail "duplicate context module: $($module.name)" }; $modules += [string]$module.name; foreach ($path in @(Assert-StringArray $module.context_files "context files $($module.name)" $true)) { if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) { Fail "context module path missing: $path" } } }
+    $router = Load-Json (Get-RepoPath $Root '.agent/context/router.json'); Assert-ExactProperties $router @('schema_version','modules_ref','default_modules','path_routes','expansion_policy') 'context router'; if ($router.schema_version -ne '3.0.0' -or $router.modules_ref -ne '.agent/context/modules.json') { Fail 'context router identity mismatch' }
+    foreach ($module in @($router.default_modules)) { if ($module -notin $modules) { Fail "router default module is unknown: $module" } }
     foreach ($route in @($router.path_routes)) { foreach ($module in @($route.modules)) { if ($module -notin $modules) { Fail "router path route module is unknown: $module" } }; foreach ($gate in @($route.mandatory_gates)) { if ($gate -notin $KnownGates) { Fail "router path route gate is unknown: $gate" } } }
-    foreach ($route in @($router.risk_routes)) { if ([string]$route.risk_level -notin $script:RiskLevels) { Fail "router risk level is invalid: $($route.risk_level)" }; foreach ($module in @($route.modules)) { if ($module -notin $modules) { Fail "router risk module is unknown: $module" } } }
     return $modules
 }
 
 function Assert-RiskPolicy([string]$Root) {
-    $policy = Load-Json (Get-RepoPath $Root '.agent/verification/risk-policy.json'); Assert-ExactProperties $policy @('schema_version','classification_authority','agent_artifacts_may_reclassify','risk_levels','authorization_states','protected_decision_domains','rules','domain_defaults') 'risk policy'; if ($policy.schema_version -ne '2.0.0') { Fail 'risk policy schema mismatch' }
+    $policy = Load-Json (Get-RepoPath $Root '.agent/verification/risk-policy.json'); Assert-ExactProperties $policy @('schema_version','classification_authority','agent_artifacts_may_reclassify','risk_levels','authorization_states','protected_decision_domains','rules','escalation_policy','domain_defaults') 'risk policy'; if ($policy.schema_version -ne '2.0.0' -or $policy.classification_authority -ne 'task_spec_floor' -or $policy.agent_artifacts_may_reclassify -ne $true) { Fail 'risk policy classification model is invalid' }
     foreach ($level in @($policy.risk_levels)) { if ($level.id -notin $script:RiskLevels) { Fail "unknown risk level: $($level.id)" } }
     foreach ($state in @($policy.authorization_states)) { if ($state -notin $script:AuthorizationStates) { Fail "unknown authorization state: $state" } }
     foreach ($domain in @($policy.protected_decision_domains)) { if ($domain -notin $script:ProtectedDomains) { Fail "unknown protected domain: $domain" } }
     foreach ($property in $policy.domain_defaults.PSObject.Properties) { if ($property.Name -notin $script:ProtectedDomains) { Fail "risk policy default has unknown domain: $($property.Name)" }; if ($property.Value.risk_level -notin $script:RiskLevels -or $property.Value.authorization -notin $script:AuthorizationStates) { Fail "risk policy default is invalid: $($property.Name)" } }
 }
+function Assert-ScopePolicy([string]$Root) {
+    $policy=Load-Json (Get-RepoPath $Root '.agent/verification/scope-policy.json'); if ($policy.schema_version -ne '2.0.0' -or $policy.approval_source -ne 'task_spec.scope_envelope.approved_protected_paths' -or $policy.protected_scope_requires_approval -ne $true) { Fail 'scope policy is invalid' }; if ($policy.PSObject.Properties.Name -contains ('exact_'+'file_mode_risks')) { Fail 'scope policy contains removed exact-file abstraction' }
+}
 
 function Assert-TaskSpecV2([string]$Root, $Spec) {
-    $allowed=@('schema_version','task_id','objective','acceptance_criteria','risk_level','scope_envelope','protected_boundaries','required_policy_modules','required_verification_gates','approved_protected_decisions','baseline'); Assert-ExactProperties $Spec $allowed 'Task Spec'; if ($Spec.schema_version -ne '2.0.0') { Fail 'Task Spec schema_version must be 2.0.0' }; if ([string]::IsNullOrWhiteSpace([string]$Spec.task_id) -or [string]::IsNullOrWhiteSpace([string]$Spec.objective)) { Fail 'Task Spec identity/objective is empty' }; [void](Assert-StringArray $Spec.acceptance_criteria 'Task Spec acceptance_criteria' $true); if ($Spec.risk_level -notin $script:RiskLevels) { Fail 'Task Spec risk_level is invalid' }
+    $allowed=@('schema_version','task_id','objective','acceptance_criteria','non_negotiables','risk_level','scope_envelope','protected_boundaries','required_policy_modules','required_verification_gates','approved_protected_decisions','baseline'); Assert-ExactProperties $Spec $allowed 'Task Spec'; if ($Spec.schema_version -ne '2.0.0') { Fail 'Task Spec schema_version must be 2.0.0' }; if ([string]::IsNullOrWhiteSpace([string]$Spec.task_id) -or [string]::IsNullOrWhiteSpace([string]$Spec.objective)) { Fail 'Task Spec identity/objective is empty' }; [void](Assert-StringArray $Spec.acceptance_criteria 'Task Spec acceptance_criteria' $true); [void](Assert-StringArray $Spec.non_negotiables 'Task Spec non_negotiables'); if ($Spec.risk_level -and $Spec.risk_level -notin $script:RiskLevels) { Fail 'Task Spec risk_level is invalid' }
     Assert-ExactProperties $Spec.scope_envelope @('include','exclude','approved_protected_paths') 'Task Spec scope_envelope'; [void](Assert-StringArray $Spec.scope_envelope.include 'Task Spec scope include' $true); [void](Assert-StringArray $Spec.scope_envelope.exclude 'Task Spec scope exclude'); [void](Assert-StringArray $Spec.scope_envelope.approved_protected_paths 'Task Spec approved protected paths')
-    foreach ($domain in @(Assert-StringArray $Spec.protected_boundaries 'Task Spec protected_boundaries')) { if ($domain -notin $script:ProtectedDomains) { Fail "Task Spec protected domain is not canonical: $domain" } }
-    $modules=Assert-StringArray $Spec.required_policy_modules 'Task Spec required_policy_modules' $true; $knownModules=Get-ContextModules $Root; foreach ($module in $modules) { if ($module -notin $knownModules) { Fail "Task Spec required policy module is not routed: $module" } }
-    $knownGates=Assert-VerificationMap $Root; foreach ($gate in (Assert-StringArray $Spec.required_verification_gates 'Task Spec required_verification_gates' $true)) { if ($gate -notin $knownGates) { Fail "Task Spec required gate is unknown: $gate" } }
+    if ($Spec.PSObject.Properties.Name -contains 'protected_boundaries') { foreach ($domain in @(Assert-StringArray $Spec.protected_boundaries 'Task Spec protected_boundaries')) { if ($domain -notin $script:ProtectedDomains) { Fail "Task Spec protected domain is not canonical: $domain" } } }
+    if ($Spec.required_policy_modules) { $modules=Assert-StringArray $Spec.required_policy_modules 'Task Spec required_policy_modules' $true; $knownModules=Get-ContextModules $Root; foreach ($module in $modules) { if ($module -notin $knownModules) { Fail "Task Spec required policy module is not routed: $module" } } }
+    if ($Spec.required_verification_gates) { $knownGates=Assert-VerificationMap $Root; foreach ($gate in (Assert-StringArray $Spec.required_verification_gates 'Task Spec required_verification_gates' $true)) { if ($gate -notin $knownGates) { Fail "Task Spec required gate is unknown: $gate" } } }
     foreach ($approval in @(Assert-Array $Spec.approved_protected_decisions 'Task Spec approvals')) { Assert-ExactProperties $approval @('domain','decision_id','approval_ref','scope') 'Task Spec protected approval'; if ($approval.domain -notin $script:ProtectedDomains) { Fail "Task Spec approval domain is invalid: $($approval.domain)" }; foreach ($field in @('decision_id','approval_ref')) { if ([string]::IsNullOrWhiteSpace([string]$approval.$field)) { Fail "Task Spec approval $field is empty" } }; [void](Assert-StringArray $approval.scope 'Task Spec approval scope' $true) }
-    Assert-ExactProperties $Spec.baseline @('commit','source') 'Task Spec baseline'; if ([string]$Spec.baseline.commit -notmatch '^[0-9a-fA-F]{40}$' -or $Spec.baseline.source -ne 'git') { Fail 'Task Spec baseline is invalid' }
+    if ($Spec.baseline) { Assert-ExactProperties $Spec.baseline @('commit','source') 'Task Spec baseline'; if ([string]$Spec.baseline.commit -notmatch '^[0-9a-fA-F]{40}$' -or $Spec.baseline.source -ne 'git') { Fail 'Task Spec baseline is invalid' } }
 }
 
 function Assert-Contracts([string]$Root, [string[]]$KnownGates) {
@@ -150,6 +149,7 @@ function Assert-Contracts([string]$Root, [string[]]$KnownGates) {
     $reportSchema=Load-Json (Get-RepoPath $Root '.agent/contracts/implementation-report.schema.json'); if ($reportSchema.properties.schema_version.const -ne '2.0.0') { Fail 'implementation report schema release mismatch' }; $verification=$reportSchema.properties.verification.items; if (@($verification.required) -join ',' -ne 'gate_id,status,evidence_ref') { Fail 'implementation report verification shape is not strict v2' }; if ($reportSchema | ConvertTo-Json -Depth 20 | Select-String -Pattern 'command|oneOf') { Fail 'implementation report contract contains command truth or dual mode' }
     foreach ($pair in @(@('.agent/contracts/agent-plan.schema.json','2.0.0'),@('.agent/contracts/execution-state.schema.json','2.0.0'),@('.agent/contracts/verification-report.schema.json','2.0.0'))) { $schema=Load-Json (Get-RepoPath $Root $pair[0]); if ($schema.properties.schema_version.const -ne $pair[1]) { Fail "contract release mismatch: $($pair[0])" } }
     $task=Load-Json (Get-RepoPath $Root '.agent/templates/task-spec.example.json'); Assert-TaskSpecV2 $Root $task
+    $intent=Load-Json (Get-RepoPath $Root '.agent/templates/task-intent.example.json'); Assert-ExactProperties $intent @('task_id','objective','acceptance_criteria','non_negotiables','scope_hints','scope_exclusions','risk_floor','approved_protected_decisions') 'Task intent'; [void](Assert-StringArray $intent.acceptance_criteria 'Task intent acceptance_criteria' $true); if ($intent.risk_floor -and $intent.risk_floor -notin $script:RiskLevels) { Fail 'Task intent risk_floor is invalid' }
     $plan=Load-Json (Get-RepoPath $Root '.agent/templates/agent-plan.example.json'); if ($plan.schema_version -ne '2.0.0') { Fail 'agent plan template release mismatch' }
     $state=Load-Json (Get-RepoPath $Root '.agent/templates/execution-state.example.json'); if ($state.schema_version -ne '2.0.0' -or @($state.verification_references | Where-Object { -not (Has-Property $_ 'gate_id') }).Count -gt 0) { Fail 'execution state template is invalid' }
     $reportCases=Load-Json (Get-RepoPath $Root '.agent/evals/implementation-report-cases.json'); if ($reportCases.schema_version -ne '2.0.0') { Fail 'implementation report eval schema mismatch' }; foreach ($case in @($reportCases.cases)) { $json=$case.report | ConvertTo-Json -Depth 30; $hasCommand=$json -match '"command"'; if (($case.expected -eq 'pass') -and $hasCommand) { Fail "positive report fixture contains command: $($case.name)" }; if (($case.expected -eq 'fail') -and -not $hasCommand) { Fail "negative report fixture lost command rejection: $($case.name)" } }
@@ -161,6 +161,8 @@ function Assert-ContextText([string]$Root) {
 }
 
 function Assert-CiPolicy([string]$Root) {
+    $ciPolicy=Load-Json (Get-RepoPath $Root '.agent/maps/ci-policy.json'); if ($ciPolicy.schema_version -ne '2.0.0' -or $ciPolicy.release -ne 'agent-ci-2.0.0') { Fail 'CI policy release mismatch' }
+    $attestation=Load-Json (Get-RepoPath $Root '.agent/contracts/ci-attestation.schema.json'); if ($attestation.properties.schema_version.const -ne '2.0.0' -or $attestation.properties.release.const -ne 'agent-ci-attestation-2.0.0' -or $attestation.properties.runner_release.const -ne 'agent-runner-2.0.0' -or $attestation.properties.verifier_release.const -ne 'agent-verifier-3.0.0') { Fail 'CI attestation contract release mismatch' }
     $integrity=Get-RepoPath $Root '.github/workflows/agent-context-integrity.yml'; $attest=Get-RepoPath $Root '.github/workflows/agent-task-attest.yml'; foreach ($path in @($integrity,$attest)) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail "CI workflow missing: $path" } }
     $text=Get-Content -Raw $integrity; foreach ($required in @('verify-agent-context.ps1 -SelfTest','run-agent-verification.ps1 -SelfTest','verify-agent-context.ps1 -CiPolicy','verify-agent-facts.ps1 -Check')) { if ($text -notmatch [regex]::Escape($required)) { Fail "integrity workflow missing check: $required" } }; if ($text -match '(?m)contents:\s*write') { Fail 'integrity workflow grants contents write' }
     $attestText=Get-Content -Raw $attest; if ($attestText -notmatch 'workflow_dispatch') { Fail 'attestation workflow is not dispatch-only' }; if ($attestText -match '(?m)pull_request_target|workflow_run') { Fail 'attestation workflow has an unsafe trigger' }
@@ -171,10 +173,17 @@ function Invoke-Git([string]$Root, [string[]]$Arguments) { $output=& git -C $Roo
 function Get-ActualChangeRecords([string]$Root, [string]$Baseline) {
     $records=@(); $status=(Invoke-Git $Root @('diff','--name-status','--no-renames',$Baseline,'--')) -split "`r?`n" | Where-Object { $_ }; foreach ($line in $status) { $parts=$line -split "`t"; $type=if($parts[0] -match 'A'){ 'create' } elseif($parts[0] -match 'D'){ 'delete' } else { 'modify' }; $records += [pscustomobject]@{path=(Normalize-RepoPath $parts[-1]);type=$type} }; $untracked=(Invoke-Git $Root @('ls-files','--others','--exclude-standard')) -split "`r?`n" | Where-Object { $_ }; foreach ($path in $untracked) { $records += [pscustomobject]@{path=(Normalize-RepoPath $path);type='create'} }; return @($records | Sort-Object path -Unique)
 }
-function Assert-Scope([string]$Root, $Spec) { $records=Get-ActualChangeRecords $Root ([string]$Spec.baseline.commit); foreach ($record in $records) { $inside=@($Spec.scope_envelope.include | Where-Object { Test-GlobMatch $record.path $_ }).Count -gt 0; $excluded=@($Spec.scope_envelope.exclude | Where-Object { Test-GlobMatch $record.path $_ }).Count -gt 0; if (-not $inside -or $excluded) { Fail "SCOPE_VIOLATION: $($record.path)" } }; return $records }
+function Assert-Scope([string]$Root, $Spec) {
+    $records=Get-ActualChangeRecords $Root ([string]$Spec.baseline.commit); $policy=Load-Json (Get-RepoPath $Root '.agent/verification/scope-policy.json'); $approved=@($Spec.scope_envelope.approved_protected_paths) + @($Spec.approved_protected_decisions | ForEach-Object { $_.scope })
+    foreach ($record in $records) {
+        $inside=@($Spec.scope_envelope.include | Where-Object { Test-GlobMatch $record.path $_ }).Count -gt 0; $excluded=@($Spec.scope_envelope.exclude | Where-Object { Test-GlobMatch $record.path $_ }).Count -gt 0; if (-not $inside -or $excluded) { Fail "SCOPE_VIOLATION: $($record.path)" }
+        $protected=@($policy.protected_path_patterns | Where-Object { Test-GlobMatch $record.path $_ }).Count -gt 0; if ($protected -and @($approved | Where-Object { Test-GlobMatch $record.path $_ }).Count -eq 0) { Fail "PROTECTED_DECISION_REQUIRED: $($record.path)" }
+    }
+    return $records
+}
 
 function Assert-Integrity([string]$Root) {
-    Assert-RequiredFiles $Root; $manifest=Assert-Manifest $Root; Assert-Budgets $Root $manifest; Assert-Entrypoint $Root; Assert-ContextText $Root; Assert-SourceRegister $Root; Assert-SourceLock $Root; $knownGates=@(Assert-VerificationMap $Root); [void](Assert-ContextRouting $Root $knownGates); Assert-RiskPolicy $Root; Assert-Contracts $Root $knownGates; Assert-CiPolicy $Root; Write-Output '[PASS] Active agent context integrity verified.'
+    Assert-RequiredFiles $Root; $manifest=Assert-Manifest $Root; Assert-Budgets $Root $manifest; Assert-Entrypoint $Root; Assert-ContextText $Root; Assert-SourceRegister $Root; Assert-SourceLock $Root; $knownGates=@(Assert-VerificationMap $Root); [void](Assert-ContextRouting $Root $knownGates); Assert-RiskPolicy $Root; Assert-ScopePolicy $Root; Assert-Contracts $Root $knownGates; Assert-CiPolicy $Root; Write-Output '[PASS] Active agent context integrity verified.'
 }
 
 function Assert-SelfTestExpected([string]$Name, [bool]$ExpectedPass, [scriptblock]$Action) { $passed=$false; try { & $Action; $passed=$true } catch { $passed=$false }; if ($passed -ne $ExpectedPass) { Fail "self-test case failed: $Name" }; Write-Output "[PASS] Self-test: $Name" }

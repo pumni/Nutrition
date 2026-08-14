@@ -1,11 +1,11 @@
 param(
     [string]$RepositoryRoot,
     [string]$CasesPath,
-    [Parameter(Mandatory = $true)][ValidateSet('legacy', 'modern')][string]$Mode,
     [Parameter(Mandatory = $true)][string]$AdapterScript,
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
     [string]$BaselineCommit,
-    [string[]]$CaseIds
+    [string[]]$CaseIds,
+    [int]$AdapterTimeoutSeconds = 600
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,18 +33,17 @@ function Invoke-Git([string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { Fail "git command failed: git $($Arguments -join ' ')`n$output" }
     return $output.Trim()
 }
-function Normalize([string]$Path) { $value=$Path.Replace('\', '/'); if ($value.StartsWith('./')) { $value=$value.Substring(2) }; return $value }
 
 $casesDocument = Load-Json $CasesPath
 $cases = @($casesDocument.cases)
 if ($CaseIds -and $CaseIds.Count -gt 0) { $cases = @($cases | Where-Object { [string]$_.id -in $CaseIds }) }
 if ($cases.Count -eq 0) { Fail 'no behavioral cases selected' }
-if (-not $CaseIds -and $cases.Count -lt 15) { Fail 'behavioral case inventory is incomplete' }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-$runId = '{0}-{1}-{2}' -f $Mode, (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ'), ([guid]::NewGuid().ToString('N').Substring(0, 8))
+$runId = 'behavior-{0}-{1}' -f (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ'), ([guid]::NewGuid().ToString('N').Substring(0, 8))
 $evidenceRoot = Join-Path $OutputDirectory $runId
 New-Item -ItemType Directory -Force -Path $evidenceRoot | Out-Null
 $adapterModel = if ([string]::IsNullOrWhiteSpace($env:CODEX_MODEL)) { 'codex-cli-default' } else { [string]$env:CODEX_MODEL }
+$startedAt = (Get-Date).ToUniversalTime().ToString('o')
 $caseResults = @()
 $worktreeRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('nutrition-agent-eval-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $worktreeRoot | Out-Null
@@ -55,42 +54,43 @@ try {
         $caseEvidence = Join-Path $evidenceRoot $caseId
         New-Item -ItemType Directory -Force -Path $caseEvidence | Out-Null
         $worktree = Join-Path $worktreeRoot $caseId
-        $taskSpecPath = Join-Path $worktreeRoot ("{0}-task-spec.json" -f $caseId)
+        $taskPath = Join-Path $worktreeRoot ("{0}-task.json" -f $caseId)
         $adapterResultPath = Join-Path $caseEvidence 'adapter-result.json'
         $adapterInvocationLog = Join-Path $caseEvidence 'adapter-invocation.log'
-        $taskSpec = [ordered]@{
-            schema_version = '2.0.0'
+        $task = [ordered]@{
+            schema_version = '3.0.0'
             task_id = $caseId
-            mode = $Mode
             objective = [string]$case.task.objective
             acceptance_criteria = @($case.task.acceptance_criteria)
             scope_include = @($case.task.scope_include)
             scope_exclude = @($case.task.scope_exclude)
-            required_context_paths = @($case.task.required_context_paths)
-            required_gates = @($case.task.required_gates)
-            protected_domains = @($case.task.protected_domains)
         }
-        Write-Json $taskSpecPath $taskSpec
+        Write-Json $taskPath $task
         $created = $false
         try {
             Invoke-Git @('worktree', 'add', '--detach', $worktree, $BaselineCommit) | Out-Null
             $created = $true
+            if ($case.task.seed_unrelated_file) {
+                $seedPath = Join-Path $worktree ([string]$case.task.seed_unrelated_file)
+                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $seedPath) | Out-Null
+                Set-Content -LiteralPath $seedPath -Value 'evaluation artifact; remove before completion' -Encoding utf8
+            }
             $adapterArgs = @{
                 RepositoryRoot = $worktree
-                TaskSpecPath = $taskSpecPath
-                CasePath = $CasesPath
-                Mode = $Mode
+                TaskPath = $taskPath
                 EvidencePath = $caseEvidence
                 Model = $adapterModel
+                TimeoutSeconds = $AdapterTimeoutSeconds
             }
-            & $AdapterScript @adapterArgs *> $adapterInvocationLog
+            $nativePreference = $PSNativeCommandUseErrorActionPreference
+            $PSNativeCommandUseErrorActionPreference = $false
+            try { & $AdapterScript @adapterArgs *> $adapterInvocationLog } finally { $PSNativeCommandUseErrorActionPreference = $nativePreference }
             $adapterExit = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
             if (-not (Test-Path -LiteralPath $adapterResultPath -PathType Leaf)) {
                 Write-Json $adapterResultPath ([ordered]@{
                     schema_version = '1.0.0'
                     adapter = 'unknown'
                     model = $adapterModel
-                    mode = $Mode
                     task_id = $caseId
                     exit_code = $adapterExit
                     task_success = $false
@@ -98,21 +98,17 @@ try {
                 })
             }
             $gradeScript = Join-Path $RepositoryRoot 'scripts/grade-agent-behavior.ps1'
-            & $gradeScript -RepositoryRoot $worktree -CasePath $CasesPath -BaselineCommit $BaselineCommit -AdapterResultPath $adapterResultPath -EvidenceDirectory $caseEvidence -Mode $Mode *> (Join-Path $caseEvidence 'grader.log')
+            & $gradeScript -RepositoryRoot $worktree -CasePath $CasesPath -BaselineCommit $BaselineCommit -AdapterResultPath $adapterResultPath -EvidenceDirectory $caseEvidence *> (Join-Path $caseEvidence 'grader.log')
             $gradeExit = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
             $resultPath = Join-Path $caseEvidence 'result.json'
-            if ($gradeExit -ne 0 -or -not (Test-Path -LiteralPath $resultPath -PathType Leaf)) {
-                Fail "grader failed for $caseId; inspect $(Join-Path $caseEvidence 'grader.log')"
-            }
+            if ($gradeExit -ne 0 -or -not (Test-Path -LiteralPath $resultPath -PathType Leaf)) { Fail "grader failed for $caseId; inspect $(Join-Path $caseEvidence 'grader.log')" }
             $result = Load-Json $resultPath
             $caseResults += $result
             Copy-Item -LiteralPath $resultPath -Destination (Join-Path $OutputDirectory ("{0}.json" -f $caseId)) -Force
         }
         finally {
-            if ($created) {
-                try { Invoke-Git @('worktree', 'remove', '--force', $worktree) | Out-Null } catch { $_ | Out-String | Set-Content -LiteralPath (Join-Path $caseEvidence 'worktree-cleanup-error.log') -Encoding utf8 }
-            }
-            if (Test-Path -LiteralPath $taskSpecPath) { Remove-Item -LiteralPath $taskSpecPath -Force }
+            if ($created) { try { Invoke-Git @('worktree', 'remove', '--force', $worktree) | Out-Null } catch { $_ | Out-String | Set-Content -LiteralPath (Join-Path $caseEvidence 'worktree-cleanup-error.log') -Encoding utf8 } }
+            if (Test-Path -LiteralPath $taskPath) { Remove-Item -LiteralPath $taskPath -Force }
         }
     }
 }
@@ -121,20 +117,18 @@ finally {
 }
 
 $aggregate = [ordered]@{
-    schema_version = '2.0.0'
+    schema_version = '3.0.0'
     harness = [ordered]@{
         name = 'agent-behavior-eval-harness'
-        version = '2.0.0'
+        version = '3.0.0'
         adapter = 'codex-cli'
         model = $adapterModel
-        mode = $Mode
         trial_count = $caseResults.Count
         run_id = $runId
-        started_at = (Get-Date).ToUniversalTime().ToString('o')
+        started_at = $startedAt
+        completed_at = (Get-Date).ToUniversalTime().ToString('o')
     }
-    mode = $Mode
     baseline_commit = $BaselineCommit
-    subject_commit = $BaselineCommit
     evidence_root = (Resolve-Path -LiteralPath $evidenceRoot).Path
     cases = @($caseResults)
 }

@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0.0",
-  "release": "agent-ci-1.0.0",
+  "schema_version": "2.0.0",
+  "release": "agent-ci-2.0.0",
   "actions": {
     "checkout": {
       "repository": "actions/checkout",

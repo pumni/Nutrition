@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0.0",
-  "classification_authority": "task_spec",
-  "agent_artifacts_may_reclassify": false,
+  "classification_authority": "task_spec_floor",
+  "agent_artifacts_may_reclassify": true,
   "risk_levels": [
     {"id": "low", "ordinal": 0, "mode": "read_only_or_internal", "blast_radius": "low"},
     {"id": "medium", "ordinal": 1, "mode": "implementation_within_scope", "blast_radius": "bounded"},
@@ -30,7 +30,15 @@
     "fail_closed_on_unknown_risk": true,
     "prevent_risk_downgrade": true,
     "protected_change_requires_explicit_authorization": true,
-    "human_decision_required_without_approval": true
+    "human_decision_required_without_approval": true,
+    "risk_escalation_requires_repository_evidence": true
+  },
+  "escalation_policy": {
+    "database_migration_intent": "critical",
+    "public_api_contract": "critical",
+    "security_privacy_policy": "critical",
+    "llm_provider_boundary": "critical",
+    "architectural_boundary": "high"
   },
   "domain_defaults": {
     "product_domain_behavior": {"risk_level": "critical", "authorization": "requires_human_decision"},

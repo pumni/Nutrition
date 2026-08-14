@@ -1,15 +1,15 @@
 {
-  "schema_version": "1.0.0",
-  "release": "agent-ci-attestation-1.0.0",
+  "schema_version": "2.0.0",
+  "release": "agent-ci-attestation-2.0.0",
   "task_id": "ACL-EXAMPLE-001",
   "target_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "control_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "task_packet_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "task_spec_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "verification_report_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
   "verification_report_path": "verification-report.json",
   "result": "pass",
-  "runner_release": "agent-runner-1.0.1",
-  "verifier_release": "agent-verifier-2.2.0",
-  "verification_registry_release": "agent-gates-2.2.0",
-  "ci_release": "agent-ci-1.0.0"
+  "runner_release": "agent-runner-2.0.0",
+  "verifier_release": "agent-verifier-3.0.0",
+  "verification_registry_release": "agent-gates-3.0.0",
+  "ci_release": "agent-ci-2.0.0"
 }

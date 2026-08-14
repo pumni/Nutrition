@@ -1,15 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pumni.example/schemas/task-spec.schema.json",
-  "title": "Modern Human-Authored Task Spec",
+  "title": "Compiled Task Spec",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "objective", "acceptance_criteria", "risk_level", "scope_envelope", "protected_boundaries", "required_policy_modules", "required_verification_gates", "approved_protected_decisions", "baseline"],
+  "required": ["schema_version", "task_id", "objective", "acceptance_criteria", "non_negotiables", "scope_envelope", "approved_protected_decisions"],
   "properties": {
     "schema_version": {"const": "2.0.0"},
     "task_id": {"type": "string", "minLength": 1},
     "objective": {"type": "string", "minLength": 1},
     "acceptance_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "non_negotiables": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "risk_level": {"enum": ["low", "medium", "high", "critical"]},
     "scope_envelope": {
       "type": "object",
@@ -22,7 +23,7 @@
       }
     },
     "protected_boundaries": {"type": "array", "items": {"enum": ["product_domain_behavior", "architectural_boundary", "public_api_contract", "database_migration_intent", "security_privacy_policy", "llm_provider_boundary", "behavior_version_semantics", "production_provider_infrastructure", "canonical_publication", "release_policy", "architecturally_significant_dependency_changes"]}},
-    "required_policy_modules": {"type": "array", "minItems": 1, "items": {"enum": ["base-policy", "verification", "domain", "application", "parser", "persistence", "api", "worker", "data-governance", "agent-context-maintenance"]}},
+    "required_policy_modules": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "required_verification_gates": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "approved_protected_decisions": {
       "type": "array",

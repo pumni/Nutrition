@@ -8,11 +8,11 @@ Human owners decide product and nutrition-domain semantics, architecture boundar
 
 ## Agent autonomy
 
-The agent reads the minimal context selected by `.agent/context/router.json`, investigates the repository, forms and revises a durable plan, chooses implementation files and order, implements within the scope envelope, runs canonical gates, and self-corrects fixable failures. The agent does not invent protected decisions or task commands.
+The agent reads the minimal modules selected by `.agent/context/router.json`, investigates the repository, forms and revises a durable plan, chooses implementation files and order, implements within the scope envelope, runs canonical gates, and self-corrects fixable failures. Machine policies, gate registries, source locks, and generated indexes are queried when needed; they are not default prompt context.
 
 ## Task, scope, and risk
 
-Task Spec v2 contains typed risk, canonical protected domains, required policy modules, required gate IDs, an explicit scope envelope, and structured approval references. Risk describes blast radius. Authorization is separate: `unprotected`, `approved_protected_change`, or `requires_human_decision`.
+Human intent contains the objective, acceptance criteria, non-negotiables, scope hints, and explicit protected approvals. The trusted compiler derives Task Spec v2 baseline, routed modules, atomic gates, scope authorization, and the risk floor. Risk describes blast radius; authorization is separate: `unprotected`, `approved_protected_change`, or `requires_human_decision`. Agent execution state may raise risk with repository evidence but never lower the compiled floor.
 
 ## Verification and evidence
 

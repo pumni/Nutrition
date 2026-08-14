@@ -7,10 +7,12 @@
     "deploy/**",
     ".github/workflows/**",
     ".agent/authority/**",
-    ".agent/invariants/**"
+    ".agent/invariants/**",
+    "crates/api-http/src/main.rs",
+    "schemas/**"
   ],
   "approval_source": "task_spec.scope_envelope.approved_protected_paths",
   "risk_levels": ["low", "medium", "high", "critical"],
   "authorization_states": ["unprotected", "approved_protected_change", "requires_human_decision"],
-  "exact_file_mode_risks": ["critical"]
+  "protected_scope_requires_approval": true
 }
