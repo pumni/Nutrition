@@ -2,6 +2,9 @@
   "schema_version": "2.0.0",
   "algorithm": "SHA256",
   "sources": [
+    {"path": ".agent/authority/decision-policy.md", "sha256": "9e36d75676b7a67b0093002328e388a4980f01416a28011746d6a68a33a51da8"},
+    {"path": ".agent/authority/escalation-protocol.md", "sha256": "7208eb1191b56657a577f36f1b507bef95af130754e7ea44c9d52cef0480d178"},
+    {"path": ".agent/authority/executor-contract.md", "sha256": "9bfde587b6dcdfd630191ce3e684b7e1a638d0612e2addc58230b692b9f83d3f"},
     {"path": ".agent/context/presets.json", "sha256": "e7869e0c4a6d9f513e361763c4ee0b8018d06030ba5c63cfb27a317d4be0d81c"},
     {"path": ".agent/context/router.json", "sha256": "e83c9c08f8e0c5db9819421c9fd48396a6e63a08ce7766f24b2a484dd82a42ea"},
     {"path": ".agent/contracts/agent-plan.schema.json", "sha256": "d3e4cee6e6bd31d53ac6530fda663bb41ee47f1bf6c32efdf9eab2ca71bb925f"},
@@ -13,6 +16,7 @@
     {"path": ".agent/contracts/task-spec.schema.json", "sha256": "52704de705627eff111b0ea05c37d6bfe4008c4f8bd71405ad7bc8578f6a2644"},
     {"path": ".agent/contracts/verification-report.schema.json", "sha256": "57663c8cc9f3d8d00ae95a05d75b71229486bc623ede336456d21c29950c08a5"},
     {"path": ".agent/evals/agent-plan-state-cases.json", "sha256": "6078dada2fb12c59c6beb61bb93143b5b746ea55d6e1f1235fd438bcc11c4ead"},
+    {"path": ".agent/evals/authority-v2-cases.json", "sha256": "d8e23783a5220cf0cfe839fccd80fdd315ec0f69ed5f6b7561aae58f32e8ee1e"},
     {"path": ".agent/evals/behavioral-cases.json", "sha256": "2d663ef8dfbc13046e5976ff6d83bf4ec1496e683aaec3dccc5bb9d44b58d53f"},
     {"path": ".agent/evals/ci-cases.json", "sha256": "f33a646b42f846a70bc8e07dbf76373da9e70cdc9a055dc8b20c8dd14bd6b297"},
     {"path": ".agent/evals/context-routing-cases.json", "sha256": "8f82cc754d9e00ddfa799ff595141bd68f58da6500974b82b6d2c6dfb154f04a"},
@@ -69,7 +73,7 @@
     {"path": "schemas/parsed-meal-0.1.0.json", "sha256": "97038755c8e8ebac4212ceca828e4687f8ef9f47fbd160ad6e04cc8d502b3d21"},
     {"path": "scripts/run-agent-verification.ps1", "sha256": "3f6bcc876c56cba032d30d1b405a3756a3ae5baaae8899a0188a219d8cef1a41"},
     {"path": "scripts/verify-agent-behavior.ps1", "sha256": "6f7032e4d2f280e149bfa7a909ec86857b910ee9fffbe7b26c3354fa686a8e30"},
-    {"path": "scripts/verify-agent-context.ps1", "sha256": "b9b12f57a11786c4bbd73a498869dcaa718cfc7821b1cd3368baceef81e1cba1"},
+    {"path": "scripts/verify-agent-context.ps1", "sha256": "e7c7523549969da43791f406fae0d1dcdc28a8b3f8469f303ef6b1d8793b678b"},
     {"path": "scripts/verify-postgres.ps1", "sha256": "601e07b9cd7d54486f834c7cad984a3f9f495b911302dafe527d7bbb170bd603"},
     {"path": "scripts/verify.ps1", "sha256": "c6790821493f2cc9e3d46c4e58e28451d9ba4d947101320a129cf8afbc705a43"},
     {"path": "seeds/0001_foundation_fixture.sql", "sha256": "457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84"}

@@ -1,21 +1,21 @@
-# Executor Contract
+# Agent Execution Contract
 
-The coding agent is an implementation executor. It implements exactly one architect-authored task packet and has no authority over product, domain, architecture, database, dependency, security, privacy, API, provider, or release decisions.
+The coding agent is an implementation engineer operating inside architect-approved policy (`implementation_autonomous_within_policy`). It may investigate, plan, implement, test, debug, and self-correct inside the approved task scope. It has no authority over product, domain, architecture, database, dependency, security, privacy, API, provider, or release decisions.
 
 ## Required protocol
 
-1. A task packet is required before any write.
-2. Read the packet's required context profile and implementation files only.
-3. Execute the packet's `implementation_sequence` in order.
-4. Change only `allowed_paths`; never change `forbidden_paths`. `allowed_paths` is an outer boundary, not an exact change declaration.
-5. Declare exact, pairwise-disjoint `create_files`, `modify_files`, and `delete_files`; every actual change must match the corresponding declared set, and deletion requires `delete_files`.
-6. Do not add behavior, dependencies, infrastructure, migrations, refactors, or abstractions outside the packet.
-7. Use canonical gate IDs and required flags; task packets do not supply verification commands.
-8. Run every required verification gate and task-scope ACL verification.
-9. Produce the packet's implementation report with evidence.
+1. An architect-authored Task Spec or transitional task packet is required before any write.
+2. Start with the minimal relevant context preset and expand context only when repository evidence establishes relevance.
+3. Form and revise an agent-owned plan; modern Task Specs do not require an architect-authored implementation sequence.
+4. For modern tasks, change only paths inside the approved scope envelope and respect protected-path approval. Transitional v1 packets retain exact declared change checks.
+5. Choose relevant implementation files, private decomposition, tests, and debugging order inside the approved policy boundary.
+6. Do not add behavior, dependencies, infrastructure, migrations, refactors, or abstractions that create an unapproved protected decision.
+7. Use canonical gate IDs and required flags; task artifacts do not supply verification commands.
+8. Run every required verification gate and scope/policy verification.
+9. Produce the required implementation report with observable evidence, deviations, and blockers.
 10. For trusted verification, use the canonical runner; do not execute task-supplied command strings. The runner's ControlRoot and registry define execution, while TargetRoot is an explicit verification target.
 
-Allowed mechanical freedom is limited to semantics-preserving formatting, import ordering, local names, compiler-required annotations, and packet-authorized private local helpers. Trusted verification reports are written outside TargetRoot and bind the external task packet, target commits, exact change records, releases, and gate evidence.
+Implementation autonomy is bounded by the Task Spec, canonical policies, protected paths/contracts, source freshness, and required gates. Trusted verification reports are written outside TargetRoot and bind the task artifact, target commits, change records, releases, and gate evidence.
 
 ## Stop codes
 
@@ -36,7 +36,7 @@ A block report records the observed fact, the conflicting or missing requirement
 
 ## Completion
 
-Completion requires exact packet scope, passing required checks, passing changed-path verification, and an evidence-based report. Failed checks are not self-approved.
+Completion requires approved-scope verification, passing required checks, passing policy checks, and an evidence-based report. Failed checks are not self-approved; fixable implementation failures should trigger inspection, plan revision, correction, and rerun before escalation.
 
 Sources:
 

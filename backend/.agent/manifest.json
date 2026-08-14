@@ -15,7 +15,9 @@
   },
   "authority": {
     "architect_decides": true,
-    "executor_implementation_only": true,
+    "executor_implementation_only": false,
+    "implementation_autonomous_within_policy": true,
+    "protected_decisions_fail_closed": true,
     "task_packet_required": true,
     "context_profile_required": true
   },

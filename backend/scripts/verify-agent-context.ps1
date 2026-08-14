@@ -151,6 +151,7 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/evals/scope-envelope-cases.json",
         ".agent/evals/behavioral-cases.json",
         ".agent/evals/sequence-ablation-cases.json",
+        ".agent/evals/authority-v2-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
         ".agent/contracts/ci-attestation.schema.json",
@@ -195,6 +196,8 @@ function Assert-Manifest([string]$Root) {
     if ((Require-Property $manifest "ci_attestation_contract_release" "manifest") -ne "agent-ci-attestation-1.0.0") { Fail "manifest ci_attestation_contract_release mismatch" }
     if ((Require-Property $manifest "project" "manifest").repository -ne "pumni/Nutrition_backend") { Fail "manifest repository mismatch" }
     if ((Require-Property $manifest "project" "manifest").behavior_release -ne "foundation-0.6.0") { Fail "manifest behavior_release mismatch" }
+    $authority = Require-Property $manifest "authority" "manifest"
+    if ($authority.executor_implementation_only -ne $false -or $authority.implementation_autonomous_within_policy -ne $true -or $authority.protected_decisions_fail_closed -ne $true) { Fail "manifest authority model is not policy-bounded autonomy" }
     $paths = Require-Property $manifest "paths" "manifest"
     foreach ($name in @("profile_index", "source_register", "source_lock", "verification_map")) {
         [void](Require-Property $paths $name "manifest.paths")
@@ -639,6 +642,31 @@ function Assert-SequenceAblationFixtures([string]$Root) {
         if ($observedPass -ne $expectedPass) { Fail "sequence ablation fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
         Write-Output "[PASS] Sequence ablation fixture: $($case.name)"
     }
+}
+
+function Assert-AuthorityV2([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/authority-v2-cases.json")
+    Assert-ExactProperties $document @("schema_version", "cases") "authority v2 fixtures"
+    if ($document.schema_version -ne "1.0.0") { Fail "authority v2 fixture schema_version must be 1.0.0" }
+    $cases = @($document.cases)
+    if ($cases.Count -lt 4) { Fail "authority v2 fixtures require at least four cases" }
+    foreach ($case in $cases) {
+        Assert-ExactProperties $case @("id", "kind", "expected", "observable") "authority v2 fixture"
+        if ($case.expected -ne "pass") { Fail "authority v2 fixtures must describe accepted policy behavior" }
+        [void](Assert-StringArray $case.observable "authority v2 observable fields" $true)
+    }
+    $executor = Get-Content -Raw (Get-RepoPath $Root ".agent/authority/executor-contract.md")
+    $decision = Get-Content -Raw (Get-RepoPath $Root ".agent/authority/decision-policy.md")
+    $escalation = Get-Content -Raw (Get-RepoPath $Root ".agent/authority/escalation-protocol.md")
+    $readme = Get-Content -Raw (Get-RepoPath $Root ".agent/README.md")
+    foreach ($requiredText in @("implementation_autonomous_within_policy", "mutable implementation plan", "protected decision", "canonical gate IDs")) {
+        if ($executor -notmatch [regex]::Escape($requiredText) -and $decision -notmatch [regex]::Escape($requiredText) -and $readme -notmatch [regex]::Escape($requiredText)) { Fail "authority v2 documentation is missing: $requiredText" }
+    }
+    foreach ($requiredText in @("classification", "observed fact", "evidence", "smallest architect decision")) { if ($escalation -notmatch [regex]::Escape($requiredText)) { Fail "authority blocker protocol is missing: $requiredText" } }
+    foreach ($forbiddenText in @("The coding agent is an implementation executor", "It implements exactly one architect-authored task packet", "Allowed mechanical freedom is limited")) {
+        if ($executor -match [regex]::Escape($forbiddenText) -or $readme -match [regex]::Escape($forbiddenText)) { Fail "obsolete mechanical authority wording remains: $forbiddenText" }
+    }
+    foreach ($case in $cases) { Write-Output "[PASS] Authority v2 fixture: $($case.id)" }
 }
 
 function Assert-TaskSpecV2Object([string]$Root, $Spec) {
@@ -1300,6 +1328,7 @@ function Assert-Integrity([string]$Root) {
     Assert-ContextRouting $Root
     Assert-ScopeEnvelopeFixtures $Root
     Assert-SequenceAblationFixtures $Root
+    Assert-AuthorityV2 $Root
     Assert-SourceRegister $Root
     Assert-SourceLock $Root
     Assert-VerificationRegistry $Root

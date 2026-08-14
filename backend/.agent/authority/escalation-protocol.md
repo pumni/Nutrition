@@ -1,6 +1,6 @@
 # Escalation Protocol
 
-Stop before writing when the task packet is missing, the repository baseline or expected implementation does not match, a forbidden path or conflicting change is present, a required verification fails, or a packet requirement forces an unspecified decision.
+Stop the affected work before writing when the approved task artifact is missing, the repository baseline is stale, a protected path or conflicting change is present, a required verification fails without an in-scope correction, or implementation requires an unspecified protected decision. Do not escalate merely because an initial implementation hypothesis or fixable test failed.
 
 Use these exact classifications:
 
@@ -15,14 +15,17 @@ Use these exact classifications:
 - `BLOCKED_VERIFICATION_FAILURE`
 - `BLOCKED_SCOPE_CONFLICT`
 
-The report must identify:
+For a protected-decision blocker, the report must identify:
 
+- the classification;
 - the observed fact;
-- the packet requirement that conflicts or is missing;
-- the exact file, path, or symbol;
-- the smallest architect decision or repository correction required.
+- the existing constraint;
+- the exact file, path, symbol, test, or error evidence;
+- why the current approved task cannot proceed;
+- the implementation impact;
+- the smallest architect decision required.
 
-After escalation, do not continue implementation, do not create a workaround, and do not propose an architecture unless the architect separately requests options.
+After escalation, do not continue the blocked change, create a workaround, or silently approve an option. Safe unrelated verification may continue only when it does not expand scope.
 
 Sources:
 

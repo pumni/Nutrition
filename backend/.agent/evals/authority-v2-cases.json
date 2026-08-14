@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "cases": [
+    {"id": "AUTH-001", "kind": "in_scope_autonomy", "expected": "pass", "observable": ["agent may investigate", "agent may revise plan", "agent may choose relevant files"]},
+    {"id": "AUTH-002", "kind": "protected_decision_block", "expected": "pass", "observable": ["agent cannot independently change protected decisions", "work blocks without approval"]},
+    {"id": "AUTH-003", "kind": "fixable_failure_recovery", "expected": "pass", "observable": ["agent inspects failure", "agent revises plan", "agent reruns verification"]},
+    {"id": "AUTH-004", "kind": "blocker_report", "expected": "pass", "observable": ["classification", "observed fact", "evidence", "existing constraint", "implementation impact", "smallest architect decision"]}
+  ]
+}

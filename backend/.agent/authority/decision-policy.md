@@ -10,11 +10,11 @@ Authority is ordered from highest to lowest:
 6. existing implementation details;
 7. executor preferences.
 
-The executor does not use a lower layer to override a higher layer. The architect decides public contracts, dependency boundaries, persistence shape, security and privacy behavior, product/domain rules, provider behavior, infrastructure, and versioning.
+The implementation agent does not use a lower layer to override a higher layer. The architect decides public contracts, dependency boundaries, persistence shape, security and privacy behavior, product/domain rules, provider behavior, infrastructure, and versioning.
 
-If a packet leaves a required decision unresolved, the executor stops. It does not select a preferred alternative, widen scope, or make an implicit behavior/version/dependency/database choice.
+If a Task Spec leaves a protected decision unresolved, the agent stops the affected work. It does not select a preferred alternative, widen scope, or make an implicit behavior/version/dependency/database choice. A fixable test failure or incorrect implementation hypothesis is not itself a protected decision.
 
-Every task packet must make its decision points explicit. A completed packet has no unresolved decision points; the executor follows its stated paths, sequence, impacts, acceptance criteria, and verification.
+Modern Task Specs define outcomes, acceptance criteria, risk, scope, boundaries, policy modules, and gates. The agent plan owns implementation sequencing and may change after evidence. Transitional v1 packets retain their explicit decision-point and exact-change compatibility checks.
 
 Sources:
 
