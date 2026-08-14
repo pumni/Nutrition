@@ -129,15 +129,20 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/profiles/context-profiles.json",
         ".agent/contracts/task-packet.schema.json",
         ".agent/contracts/task-spec.schema.json",
+        ".agent/contracts/agent-plan.schema.json",
+        ".agent/contracts/execution-state.schema.json",
         ".agent/contracts/verification-report.schema.json",
         ".agent/contracts/implementation-report.schema.json",
         ".agent/templates/task-packet.example.json",
         ".agent/templates/task-spec.example.json",
+        ".agent/templates/agent-plan.example.json",
+        ".agent/templates/execution-state.example.json",
         ".agent/templates/verification-report.example.json",
         ".agent/templates/implementation-report.example.md",
         ".agent/evals/README.md",
         ".agent/evals/context-layer-cases.json",
         ".agent/evals/task-spec-v2-cases.json",
+        ".agent/evals/agent-plan-state-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
         ".agent/contracts/ci-attestation.schema.json",
@@ -298,6 +303,10 @@ function Assert-Template([string]$Root) {
     if ($attestation.schema_version -ne "1.0.0" -or $attestation.release -ne "agent-ci-attestation-1.0.0") { Fail "CI attestation template release mismatch" }
     $taskSpec = Load-Json (Get-RepoPath $Root ".agent/templates/task-spec.example.json")
     Assert-TaskSpecV2Object $Root $taskSpec
+    $agentPlan = Load-Json (Get-RepoPath $Root ".agent/templates/agent-plan.example.json")
+    Assert-AgentPlanObject $Root $agentPlan
+    $executionState = Load-Json (Get-RepoPath $Root ".agent/templates/execution-state.example.json")
+    Assert-ExecutionStateObject $Root $executionState
 }
 
 function Assert-ReportContracts([string]$Root) {
@@ -402,6 +411,117 @@ function Assert-TaskSpecV2Fixtures([string]$Root) {
         $expectedPass = [string]$case.expected -eq "pass"
         if ($observedPass -ne $expectedPass) { Fail "task spec v2 fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
         Write-Output "[PASS] Task spec v2 fixture: $($case.name)"
+    }
+}
+
+function Assert-DurableContentSafe($Object, [string]$Context) {
+    $serialized = $Object | ConvertTo-Json -Depth 30 -Compress
+    if ($serialized -match '(?i)authorization\s*header|bearer\s+[A-Za-z0-9._-]{8,}|raw[_ -]?meal[_ -]?text|raw[_ -]?payload|api[_ -]?key\s*[:=]|secret\s*[:=]|password\s*[:=]') {
+        Fail "$Context contains prohibited sensitive content"
+    }
+}
+
+function Assert-DurableCommitFresh([string]$Root, [string]$Commit, [string]$Label) {
+    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+        & git -C $Root cat-file -e "$($Commit)^{commit}" 2>$null
+        $commitExitCode = $LASTEXITCODE
+        $head = @(& git -C $Root rev-parse --verify "HEAD^{commit}" 2>$null) | Select-Object -First 1
+        $headExitCode = $LASTEXITCODE
+        if ($commitExitCode -eq 0 -and $headExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace([string]$head)) {
+            & git -C $Root merge-base --is-ancestor $Commit $head 2>$null
+            $ancestorExitCode = $LASTEXITCODE
+        }
+        else {
+            $ancestorExitCode = 1
+        }
+    }
+    finally {
+        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+    }
+    if ($commitExitCode -ne 0) { Fail "$Label is stale: commit is not available locally" }
+    if ($headExitCode -ne 0 -or [string]::IsNullOrWhiteSpace([string]$head)) { Fail "$Label is stale: repository HEAD is unavailable" }
+    if ($ancestorExitCode -ne 0) { Fail "$Label is stale: commit is not an ancestor of repository HEAD" }
+}
+
+function Assert-AgentPlanObject([string]$Root, $Plan) {
+    $required = @("schema_version", "task_id", "task_spec_sha256", "baseline", "observations", "hypothesis", "planned_changes", "expected_affected_paths", "implementation_steps", "verification_strategy", "risks", "protected_decisions_required", "status")
+    foreach ($property in $required) { if (-not (Has-Property $Plan $property)) { Fail "agent plan is missing required field: $property" } }
+    Assert-ExactProperties $Plan $required "agent plan"
+    if ($Plan.schema_version -ne "1.0.0") { Fail "agent plan schema_version must be 1.0.0" }
+    if ([string]$Plan.task_spec_sha256 -notmatch "^[0-9a-fA-F]{64}$") { Fail "agent plan task_spec_sha256 is invalid" }
+    $baseline = $Plan.baseline
+    Assert-ExactProperties $baseline @("commit", "source") "agent plan baseline"
+    if ([string]$baseline.commit -notmatch "^[0-9a-fA-F]{40}$" -or $baseline.source -ne "git") { Fail "agent plan baseline is invalid" }
+    [void](Assert-StringArray $Plan.observations "agent plan observations" $true)
+    if ([string]::IsNullOrWhiteSpace([string]$Plan.hypothesis)) { Fail "agent plan hypothesis is empty" }
+    [void](Assert-StringArray $Plan.planned_changes "agent plan planned_changes" $true)
+    [void](Assert-StringArray $Plan.expected_affected_paths "agent plan expected_affected_paths" $true)
+    [void](Assert-StringArray $Plan.implementation_steps "agent plan implementation_steps" $true)
+    $strategy = @(Assert-StringArray $Plan.verification_strategy "agent plan verification_strategy" $true)
+    $knownGates = @(Assert-VerificationRegistry $Root | ForEach-Object { [string]$_ })
+    foreach ($gate in $strategy) { if ($gate -notin $knownGates) { Fail "agent plan references unknown canonical gate: $gate" } }
+    [void](Assert-StringArray $Plan.risks "agent plan risks")
+    $protected = @(Assert-StringArray $Plan.protected_decisions_required "agent plan protected_decisions_required")
+    if ($Plan.status -notin @("draft", "in_progress", "blocked", "complete")) { Fail "agent plan status is invalid" }
+    if ($protected.Count -gt 0 -and $Plan.status -ne "blocked") { Fail "agent plan with protected decisions must be blocked" }
+    if ($Plan.status -eq "blocked" -and $protected.Count -eq 0) { Fail "blocked agent plan must name protected decisions" }
+    Assert-DurableContentSafe $Plan "agent plan"
+}
+
+function Assert-ExecutionStateObject([string]$Root, $State) {
+    $required = @("schema_version", "task_id", "task_spec_sha256", "baseline_commit", "head_commit", "plan_sha256", "discoveries", "progress", "verification_references", "protected_decision_blockers", "status")
+    foreach ($property in $required) { if (-not (Has-Property $State $property)) { Fail "execution state is missing required field: $property" } }
+    Assert-ExactProperties $State $required "execution state"
+    if ($State.schema_version -ne "1.0.0") { Fail "execution state schema_version must be 1.0.0" }
+    if ([string]$State.task_spec_sha256 -notmatch "^[0-9a-fA-F]{64}$") { Fail "execution state task_spec_sha256 is invalid" }
+    if ([string]$State.plan_sha256 -notmatch "^[0-9a-fA-F]{64}$") { Fail "execution state plan_sha256 is invalid" }
+    if ([string]$State.baseline_commit -notmatch "^[0-9a-fA-F]{40}$") { Fail "execution state baseline_commit is invalid" }
+    if ([string]$State.head_commit -notmatch "^[0-9a-fA-F]{40}$") { Fail "execution state head_commit is invalid" }
+    Assert-DurableCommitFresh $Root ([string]$State.baseline_commit) "execution state baseline"
+    Assert-DurableCommitFresh $Root ([string]$State.head_commit) "execution state head"
+    [void](Assert-StringArray $State.discoveries "execution state discoveries")
+    foreach ($item in @(Assert-Array $State.progress "execution state progress")) {
+        Assert-ExactProperties $item @("id", "status", "evidence_refs") "execution state progress item"
+        if ([string]::IsNullOrWhiteSpace([string]$item.id)) { Fail "execution state progress id is empty" }
+        if ($item.status -notin @("pending", "in_progress", "complete", "blocked")) { Fail "execution state progress status is invalid" }
+        [void](Assert-StringArray $item.evidence_refs "execution state progress evidence_refs")
+    }
+    $references = @(Assert-Array $State.verification_references "execution state verification_references")
+    $knownGates = @(Assert-VerificationRegistry $Root | ForEach-Object { [string]$_ })
+    foreach ($reference in $references) {
+        Assert-ExactProperties $reference @("gate", "status", "evidence_ref") "execution state verification reference"
+        if ([string]$reference.gate -notin $knownGates) { Fail "execution state references unknown canonical gate: $($reference.gate)" }
+        if ($reference.status -notin @("pass", "fail", "skipped", "blocked")) { Fail "execution state verification status is invalid" }
+        if ([string]::IsNullOrWhiteSpace([string]$reference.evidence_ref)) { Fail "execution state evidence_ref is empty" }
+    }
+    $blockers = @(Assert-StringArray $State.protected_decision_blockers "execution state protected_decision_blockers")
+    if ($State.status -notin @("not_started", "in_progress", "blocked", "complete")) { Fail "execution state status is invalid" }
+    if ($blockers.Count -gt 0 -and $State.status -ne "blocked") { Fail "execution state with protected decision blockers must be blocked" }
+    if ($State.status -eq "blocked" -and $blockers.Count -eq 0) { Fail "blocked execution state must name protected decision blockers" }
+    Assert-DurableContentSafe $State "execution state"
+}
+
+function Assert-AgentPlanStateFixtures([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/agent-plan-state-cases.json")
+    $cases = @((Require-Property $document "cases" "agent plan/state fixtures"))
+    if ($cases.Count -lt 8) { Fail "agent plan/state fixtures require at least eight cases" }
+    foreach ($case in $cases) {
+        $observedPass = $false
+        $failureText = ""
+        try {
+            if ($case.kind -eq "plan") { Assert-AgentPlanObject $Root $case.plan }
+            elseif ($case.kind -eq "state") { Assert-ExecutionStateObject $Root $case.state }
+            else { Fail "agent plan/state fixture kind is invalid: $($case.kind)" }
+            $observedPass = $true
+        }
+        catch {
+            $failureText = [string]$_.Exception.Message
+        }
+        $expectedPass = [string]$case.expected -eq "pass"
+        if ($observedPass -ne $expectedPass) { Fail "agent plan/state fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
+        Write-Output "[PASS] Agent plan/state fixture: $($case.name)"
     }
 }
 
@@ -859,6 +979,7 @@ function Assert-Integrity([string]$Root) {
     Assert-ReportContracts $Root
     Assert-ImplementationReportFixtures $Root
     Assert-TaskSpecV2Fixtures $Root
+    Assert-AgentPlanStateFixtures $Root
     Assert-Template $Root
     Assert-CiPolicy $Root
     return $profiles

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "MODERN-EXAMPLE-001",
+  "task_spec_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "baseline": {
+    "commit": "e1a4bc64862c69e34a68d328889bef52b06a916e",
+    "source": "git"
+  },
+  "observations": [
+    "The approved task scope names the agent context verification subsystem.",
+    "The canonical gate registry contains acl-integrity and foundation-verify."
+  ],
+  "hypothesis": "The smallest correct implementation is a policy-local change within the approved agent context envelope.",
+  "planned_changes": [
+    "Inspect the current verifier and its related context artifacts.",
+    "Implement the approved task objective without changing product or runtime semantics."
+  ],
+  "expected_affected_paths": [".agent/**", "scripts/verify-agent-context.ps1"],
+  "implementation_steps": [
+    "Validate the current assumptions against repository evidence.",
+    "Apply the smallest implementation change.",
+    "Run canonical verification and revise this plan if evidence requires it."
+  ],
+  "verification_strategy": ["acl-integrity", "foundation-verify"],
+  "risks": ["A stale source lock would make the context layer unverifiable."],
+  "protected_decisions_required": [],
+  "status": "in_progress"
+}

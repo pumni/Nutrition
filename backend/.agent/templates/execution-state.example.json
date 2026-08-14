@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "MODERN-EXAMPLE-001",
+  "task_spec_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "baseline_commit": "e1a4bc64862c69e34a68d328889bef52b06a916e",
+  "head_commit": "e1a4bc64862c69e34a68d328889bef52b06a916e",
+  "plan_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "discoveries": [
+    "The task spec is the authority and the plan is mutable working state."
+  ],
+  "progress": [
+    {"id": "investigate", "status": "complete", "evidence_refs": ["local:repository-inspection"]},
+    {"id": "implement", "status": "in_progress", "evidence_refs": []}
+  ],
+  "verification_references": [
+    {"gate": "acl-integrity", "status": "pass", "evidence_ref": "local:acl-integrity"}
+  ],
+  "protected_decision_blockers": [],
+  "status": "in_progress"
+}
