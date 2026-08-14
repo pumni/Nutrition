@@ -56,6 +56,10 @@
     {"name": "registry_json_parse_missing_paths", "expected": "fail", "expected_reason": "missing required field 'paths'"},
     {"name": "manifest_contract_release_mismatch", "expected": "fail", "expected_reason": "contract_release mismatch"},
     {"name": "manifest_verifier_release_mismatch", "expected": "fail", "expected_reason": "verifier_release mismatch"},
-    {"name": "manifest_registry_release_mismatch", "expected": "fail", "expected_reason": "verification_registry_release mismatch"}
+    {"name": "manifest_registry_release_mismatch", "expected": "fail", "expected_reason": "verification_registry_release mismatch"},
+    {"name": "m03_code_source_drift", "expected": "fail", "expected_reason": "stale source hash: crates/domain/src/calculation.rs"},
+    {"name": "m03_doc_source_drift", "expected": "fail", "expected_reason": "stale source hash: docs/FOUNDATION_DECISIONS.md"},
+    {"name": "m03_missing_declared_source", "expected": "fail", "expected_reason": "source lock source is missing: crates/domain/src/calculation.rs"},
+    {"name": "m03_deterministic_source_lock", "expected": "pass"}
   ]
 }

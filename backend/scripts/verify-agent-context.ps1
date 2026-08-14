@@ -231,23 +231,55 @@ function Assert-SourceRegister([string]$Root) {
     foreach ($entry in $register.PSObject.Properties) {
         if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $entry.Name) -PathType Leaf)) { Fail "source register artifact is missing: $($entry.Name)" }
         foreach ($source in @($entry.Value)) {
-            if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $source) -PathType Leaf)) { Fail "source register path is missing: $source" }
+            $normalized = Normalize-RepoPath ([string]$source)
+            if ($normalized -ne [string]$source) { Fail "source register path is not normalized: $source" }
+            if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $normalized) -PathType Leaf)) { Fail "source register path is missing: $source" }
         }
+    }
+}
+
+function Get-DeclaredSourcePaths([string]$Root) {
+    $register = Load-Json (Get-RepoPath $Root ".agent/maps/source-register.json")
+    $paths = foreach ($entry in $register.PSObject.Properties) {
+        foreach ($source in @($entry.Value)) {
+            $normalized = Normalize-RepoPath ([string]$source)
+            if ([string]::IsNullOrWhiteSpace($normalized)) { Fail "source register contains an empty source path: $($entry.Name)" }
+            $normalized
+        }
+    }
+    return @($paths | Sort-Object -Unique)
+}
+
+function New-SourceLock([string]$Root) {
+    $entries = foreach ($path in @(Get-DeclaredSourcePaths $Root)) {
+        $fullPath = Get-RepoPath $Root $path
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { Fail "source lock source is missing: $path" }
+        [pscustomobject][ordered]@{
+            path = $path
+            sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $fullPath).Hash.ToLowerInvariant()
+        }
+    }
+    return [pscustomobject][ordered]@{
+        schema_version = "2.0.0"
+        algorithm = "SHA256"
+        sources = @($entries)
     }
 }
 
 function Assert-SourceLock([string]$Root) {
     $lock = Load-Json (Get-RepoPath $Root ".agent/state/source-lock.json")
-    if ($lock.schema_version -ne "1.0.0" -or $lock.algorithm -ne "SHA256") { Fail "source lock schema or algorithm mismatch" }
-    $expected = @("Cargo.toml", "docs/FOUNDATION_DECISIONS.md", "docs/HOSTED_PARSER.md", "docs/RISK_REGISTER.md", "docs/SECURITY_AND_OPERATIONS.md", "docs/archive/nutrition_backend_blueprint_v1.0/00_README.md", "docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md", "docs/archive/nutrition_backend_blueprint_v1.0/13_IMPLEMENTATION_CHECKLIST.md")
+    if ($lock.schema_version -ne "2.0.0" -or $lock.algorithm -ne "SHA256") { Fail "source lock schema or algorithm mismatch" }
+    $expected = @(Get-DeclaredSourcePaths $Root)
     $sources = @($lock.sources)
-    if ($sources.Count -ne $expected.Count) { Fail "source lock must contain exactly eight sources" }
+    if ($sources.Count -ne $expected.Count) { Fail "source lock must contain exactly $($expected.Count) declared sources" }
     for ($index = 0; $index -lt $expected.Count; $index++) {
-        if ($sources[$index].path -ne $expected[$index]) { Fail "source lock path order/list mismatch at index $index" }
-        $fullPath = Get-RepoPath $Root $expected[$index]
-        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { Fail "source lock source is missing: $($expected[$index])" }
+        $actualPath = Normalize-RepoPath ([string]$sources[$index].path)
+        if ($actualPath -ne $expected[$index]) { Fail "source lock path order/list mismatch at index $index" }
+        $fullPath = Get-RepoPath $Root $actualPath
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { Fail "source lock source is missing: $actualPath" }
+        if ([string]::IsNullOrWhiteSpace([string]$sources[$index].sha256)) { Fail "source lock hash is missing: $actualPath" }
         $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $fullPath).Hash.ToLowerInvariant()
-        if ($actualHash -ne $sources[$index].sha256.ToLowerInvariant()) { Fail "stale source hash: $($expected[$index])" }
+        if ($actualHash -ne $sources[$index].sha256.ToLowerInvariant()) { Fail "stale source hash: $actualPath" }
     }
 }
 
@@ -876,6 +908,83 @@ function Invoke-ActualImpactScenario([string]$SourceRoot, [string]$Name, [string
     }
 }
 
+function New-SourceLockSelfTestRepository([string]$SourceRoot) {
+    $root = Join-Path ([IO.Path]::GetTempPath()) ("agent-source-lock-selftest-" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $root | Out-Null
+    try {
+        Copy-Item -Recurse -Force -LiteralPath (Get-RepoPath $SourceRoot ".agent") -Destination (Join-Path $root ".agent")
+        foreach ($source in @(Get-DeclaredSourcePaths $SourceRoot)) {
+            $sourcePath = Get-RepoPath $SourceRoot $source
+            $destination = Get-RepoPath $root $source
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+            Copy-Item -Force -LiteralPath $sourcePath -Destination $destination
+        }
+        return $root
+    }
+    catch {
+        if (Test-Path -LiteralPath $root) { Remove-Item -Recurse -Force -LiteralPath $root }
+        throw
+    }
+}
+
+function Invoke-SourceLockScenario([string]$SourceRoot, [string]$Name, [scriptblock]$Setup, [bool]$ExpectedPass, [string]$ExpectedReason = "") {
+    $repositoryRoot = New-SourceLockSelfTestRepository $SourceRoot
+    try {
+        & $Setup $repositoryRoot | Out-Null
+        Assert-SelfTestExpected $Name $ExpectedPass {
+            if ($Name -eq "m03_deterministic_source_lock") {
+                $first = New-SourceLock $repositoryRoot
+                $second = New-SourceLock $repositoryRoot
+                $firstJson = $first | ConvertTo-Json -Depth 20 -Compress
+                $secondJson = $second | ConvertTo-Json -Depth 20 -Compress
+                if ($firstJson -cne $secondJson) { Fail "source lock generation is not deterministic" }
+                $lockPath = Get-RepoPath $repositoryRoot ".agent/state/source-lock.json"
+                $first | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $lockPath -Encoding utf8
+            }
+            [void](Assert-SourceLock $repositoryRoot)
+        } $ExpectedReason
+    }
+    finally {
+        if (Test-Path -LiteralPath $repositoryRoot) { Remove-Item -Recurse -Force -LiteralPath $repositoryRoot }
+    }
+}
+
+function Invoke-M03SelfTests([string]$Root, $Cases) {
+    $requiredNames = @("m03_code_source_drift", "m03_doc_source_drift", "m03_missing_declared_source", "m03_deterministic_source_lock")
+    $caseNames = @($Cases | ForEach-Object { [string]$_.name })
+    foreach ($name in $requiredNames) {
+        if ($name -notin $caseNames) { Fail "M03 self-test case is missing from eval matrix: $name" }
+    }
+    foreach ($case in @($Cases | Where-Object { $_.name -in $requiredNames })) {
+        $name = [string]$case.name
+        $expectedPass = [string]$case.expected -eq "pass"
+        $expectedReason = if ($case.PSObject.Properties["expected_reason"]) { [string]$case.expected_reason } else { "" }
+        switch ($name) {
+            "m03_code_source_drift" {
+                Invoke-SourceLockScenario $Root $name {
+                    param($repositoryRoot)
+                    Set-SelfTestFile $repositoryRoot "crates/domain/src/calculation.rs" "code source drift"
+                } $expectedPass $expectedReason
+            }
+            "m03_doc_source_drift" {
+                Invoke-SourceLockScenario $Root $name {
+                    param($repositoryRoot)
+                    Set-SelfTestFile $repositoryRoot "docs/FOUNDATION_DECISIONS.md" "documentation source drift"
+                } $expectedPass $expectedReason
+            }
+            "m03_missing_declared_source" {
+                Invoke-SourceLockScenario $Root $name {
+                    param($repositoryRoot)
+                    Remove-Item -LiteralPath (Get-RepoPath $repositoryRoot "crates/domain/src/calculation.rs")
+                } $expectedPass $expectedReason
+            }
+            "m03_deterministic_source_lock" {
+                Invoke-SourceLockScenario $Root $name { param($repositoryRoot) } $expectedPass $expectedReason
+            }
+        }
+    }
+}
+
 function Invoke-P09SelfTests([string]$Root, $Cases) {
     $requiredNames = @(
         "valid_complete_task_delta", "outside_allowlist_unstaged", "outside_allowlist_staged", "outside_allowlist_untracked", "outside_allowlist_committed_after_baseline", "mixed_allowed_and_forbidden_states", "baseline_commit_missing", "missing_mandatory_profile_gate", "mandatory_gate_marked_not_required", "unknown_declared_verification_gate", "intended_create_outside_allowed_paths", "intended_modify_outside_allowed_paths", "actual_dependency_change_impact_none", "actual_migration_change_impact_none", "actual_behavior_version_change_impact_none", "committed_allowed_change_after_baseline", "staged_allowed_change", "untracked_allowed_change"
@@ -1254,13 +1363,13 @@ function Invoke-CiPolicySelfTests([string]$Root) {
 function Invoke-SelfTest([string]$Root) {
     $casesDocument = Load-Json (Get-RepoPath $Root ".agent/evals/context-layer-cases.json")
     $cases = @((Require-Property $casesDocument "cases" "self-test cases"))
-    if ($cases.Count -lt 56) { Fail "P10A self-test requires at least fifty-six cases" }
+    if ($cases.Count -lt 60) { Fail "M03/P10A self-test requires at least sixty cases" }
     $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("agent-context-selftest-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
     try {
         Copy-Item -Recurse -Force -LiteralPath (Get-RepoPath $Root ".agent") -Destination (Join-Path $tempRoot ".agent")
-        $lockSources = @("Cargo.toml", "docs/FOUNDATION_DECISIONS.md", "docs/HOSTED_PARSER.md", "docs/RISK_REGISTER.md", "docs/SECURITY_AND_OPERATIONS.md", "docs/archive/nutrition_backend_blueprint_v1.0/00_README.md", "docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md", "docs/archive/nutrition_backend_blueprint_v1.0/13_IMPLEMENTATION_CHECKLIST.md")
-        foreach ($source in $lockSources) {
+        $sourcePaths = @(Get-DeclaredSourcePaths $Root)
+        foreach ($source in $sourcePaths) {
             $destination = Get-RepoPath $tempRoot $source
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
             $sourcePath = Get-RepoPath $Root $source
@@ -1283,7 +1392,7 @@ function Invoke-SelfTest([string]$Root) {
                 "migration_change_declared_none" { $packet.modify_files = @([pscustomobject]@{path = "migrations/0002.sql"; changes = @("change schema")}); $packet.impacts.database = "none" }
                 "changed_file_outside_allowlist" { $packet.modify_files = @([pscustomobject]@{path = "crates/domain/src/lib.rs"; changes = @("runtime change")}) }
                 "forbidden_runtime_file_for_acl_task" { $packet.allowed_paths = @(".agent/**"); $packet.modify_files = @([pscustomobject]@{path = "crates/domain/src/lib.rs"; changes = @("runtime change")}) }
-                "stale_source_hash" { Add-Content -LiteralPath (Get-RepoPath $tempRoot "Cargo.toml") -Value "# stale self-test fixture" }
+                "stale_source_hash" { Add-Content -LiteralPath (Get-RepoPath $tempRoot "crates/domain/src/calculation.rs") -Value "// stale self-test fixture" }
                 "oversized_agents_md_fixture" { Set-Content -LiteralPath (Get-RepoPath $tempRoot "AGENTS.md") -Value ("x" * 4097) }
                 "profile_references_missing_file" { Remove-Item -LiteralPath (Get-RepoPath $tempRoot ".agent/contexts/verification.md") }
             }
@@ -1318,6 +1427,7 @@ function Invoke-SelfTest([string]$Root) {
     finally {
         if (Test-Path -LiteralPath $tempRoot) { Remove-Item -Recurse -Force -LiteralPath $tempRoot }
     }
+    Invoke-M03SelfTests $Root $cases
     Invoke-P09SelfTests $Root $cases
     Invoke-P10SelfTests $Root $cases
     Invoke-CiPolicySelfTests $Root
