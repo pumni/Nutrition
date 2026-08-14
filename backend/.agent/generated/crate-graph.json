@@ -1,0 +1,535 @@
+{
+  "schema_version": "1.0.0",
+  "artifact": "crate-graph",
+  "generated_by": "scripts/generate-agent-facts.ps1",
+  "generated_from": [
+    {
+      "path": "Cargo.lock",
+      "sha256": "09438d0220932eafbd9a7d4f2035f3cfdda96d750c2f35bd8a02a66e348f17b9"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "3d8bb62501e3388980a5ae9d42b9ae84be0aae48cc587c2782f3ab0aed7a2b61"
+    },
+    {
+      "path": "scripts/generate-agent-facts.ps1",
+      "sha256": "cc463ba5bab3a00afed3fce71c4e2d0f93200ae22d696b76eec9f973ba63a8c4"
+    }
+  ],
+  "facts": {
+    "workspace_members": [
+      "adapters",
+      "api-http",
+      "application",
+      "domain",
+      "persistence-postgres",
+      "worker"
+    ],
+    "packages": [
+      {
+        "name": "adapters",
+        "version": "0.6.0",
+        "manifest_path": "crates/adapters/Cargo.toml",
+        "targets": [
+          {
+            "name": "adapters",
+            "kinds": [
+              "lib"
+            ],
+            "crate_types": [
+              "lib"
+            ]
+          }
+        ],
+        "dependencies": [
+          {
+            "name": "application",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "async-trait",
+            "req": "^0.1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "domain",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "hex",
+            "req": "^0.4",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "jsonschema",
+            "req": "^0.49.2",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "reqwest",
+            "req": "^0.13.4",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "rust_decimal",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde_json",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "sha2",
+            "req": "^0.10",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tokio",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          }
+        ]
+      },
+      {
+        "name": "api-http",
+        "version": "0.6.0",
+        "manifest_path": "crates/api-http/Cargo.toml",
+        "targets": [
+          {
+            "name": "api-http",
+            "kinds": [
+              "bin"
+            ],
+            "crate_types": [
+              "bin"
+            ]
+          }
+        ],
+        "dependencies": [
+          {
+            "name": "adapters",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "application",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "axum",
+            "req": "^0.8",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "domain",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "hex",
+            "req": "^0.4",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "persistence-postgres",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde_json",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "sha2",
+            "req": "^0.10",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "sqlx",
+            "req": "^0.8",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tokio",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tower-http",
+            "req": "^0.6",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tracing",
+            "req": "^0.1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tracing-subscriber",
+            "req": "^0.3",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "uuid",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          }
+        ]
+      },
+      {
+        "name": "application",
+        "version": "0.6.0",
+        "manifest_path": "crates/application/Cargo.toml",
+        "targets": [
+          {
+            "name": "application",
+            "kinds": [
+              "lib"
+            ],
+            "crate_types": [
+              "lib"
+            ]
+          }
+        ],
+        "dependencies": [
+          {
+            "name": "async-trait",
+            "req": "^0.1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "domain",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "rust_decimal",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde_json",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "thiserror",
+            "req": "^2",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "unicode-normalization",
+            "req": "^0.1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          }
+        ]
+      },
+      {
+        "name": "domain",
+        "version": "0.6.0",
+        "manifest_path": "crates/domain/Cargo.toml",
+        "targets": [
+          {
+            "name": "domain",
+            "kinds": [
+              "lib"
+            ],
+            "crate_types": [
+              "lib"
+            ]
+          }
+        ],
+        "dependencies": [
+          {
+            "name": "rust_decimal",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "thiserror",
+            "req": "^2",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "uuid",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          }
+        ]
+      },
+      {
+        "name": "persistence-postgres",
+        "version": "0.6.0",
+        "manifest_path": "crates/persistence-postgres/Cargo.toml",
+        "targets": [
+          {
+            "name": "build-script-build",
+            "kinds": [
+              "custom-build"
+            ],
+            "crate_types": [
+              "bin"
+            ]
+          },
+          {
+            "name": "persistence_postgres",
+            "kinds": [
+              "lib"
+            ],
+            "crate_types": [
+              "lib"
+            ]
+          },
+          {
+            "name": "postgres_integration",
+            "kinds": [
+              "test"
+            ],
+            "crate_types": [
+              "bin"
+            ]
+          }
+        ],
+        "dependencies": [
+          {
+            "name": "adapters",
+            "req": "*",
+            "kind": "dev",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "application",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "async-trait",
+            "req": "^0.1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "domain",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "hex",
+            "req": "^0.4",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "rust_decimal",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "serde_json",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "sha2",
+            "req": "^0.10",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "sqlx",
+            "req": "^0.8",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "thiserror",
+            "req": "^2",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tokio",
+            "req": "^1",
+            "kind": "dev",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "uuid",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          }
+        ]
+      },
+      {
+        "name": "worker",
+        "version": "0.6.0",
+        "manifest_path": "crates/worker/Cargo.toml",
+        "targets": [
+          {
+            "name": "worker",
+            "kinds": [
+              "bin"
+            ],
+            "crate_types": [
+              "bin"
+            ]
+          }
+        ],
+        "dependencies": [
+          {
+            "name": "persistence-postgres",
+            "req": "*",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "sqlx",
+            "req": "^0.8",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tokio",
+            "req": "^1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tracing",
+            "req": "^0.1",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          },
+          {
+            "name": "tracing-subscriber",
+            "req": "^0.3",
+            "kind": "normal",
+            "optional": false,
+            "target": ""
+          }
+        ]
+      }
+    ]
+  }
+}

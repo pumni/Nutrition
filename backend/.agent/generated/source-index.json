@@ -1,0 +1,922 @@
+{
+  "schema_version": "1.0.0",
+  "artifact": "source-index",
+  "generated_by": "scripts/generate-agent-facts.ps1",
+  "generated_from": [
+    {
+      "path": ".agent/authority/decision-policy.md",
+      "sha256": "9e36d75676b7a67b0093002328e388a4980f01416a28011746d6a68a33a51da8"
+    },
+    {
+      "path": ".agent/authority/escalation-protocol.md",
+      "sha256": "7208eb1191b56657a577f36f1b507bef95af130754e7ea44c9d52cef0480d178"
+    },
+    {
+      "path": ".agent/authority/executor-contract.md",
+      "sha256": "9bfde587b6dcdfd630191ce3e684b7e1a638d0612e2addc58230b692b9f83d3f"
+    },
+    {
+      "path": ".agent/context/presets.json",
+      "sha256": "e7869e0c4a6d9f513e361763c4ee0b8018d06030ba5c63cfb27a317d4be0d81c"
+    },
+    {
+      "path": ".agent/context/router.json",
+      "sha256": "e83c9c08f8e0c5db9819421c9fd48396a6e63a08ce7766f24b2a484dd82a42ea"
+    },
+    {
+      "path": ".agent/contracts/agent-plan.schema.json",
+      "sha256": "d3e4cee6e6bd31d53ac6530fda663bb41ee47f1bf6c32efdf9eab2ca71bb925f"
+    },
+    {
+      "path": ".agent/contracts/ci-attestation.schema.json",
+      "sha256": "5cef701d0fdb5feccb678792e67c7ed2a0936075d16f042e06ea2f8008df63f4"
+    },
+    {
+      "path": ".agent/contracts/execution-state.schema.json",
+      "sha256": "1730f72000dc61be869b00376aac77268e36ab34e5d21ed1eef486aaf6b52cc7"
+    },
+    {
+      "path": ".agent/contracts/external-evidence.schema.json",
+      "sha256": "c0c42728c7624e99fc8cfdc4ebecf6503cc25bf75d8dc85635e6a6b7d5cae626"
+    },
+    {
+      "path": ".agent/contracts/implementation-report.schema.json",
+      "sha256": "9ca4ca47847d200d50c383c8be696fb4f3f69eea83f7bf09fe9f9f05666d32d4"
+    },
+    {
+      "path": ".agent/contracts/task-packet.schema.json",
+      "sha256": "7569f16571793e9659b2f7c35d95cfc500a8799d581f064acebb503bae7d726e"
+    },
+    {
+      "path": ".agent/contracts/task-spec.schema.json",
+      "sha256": "52704de705627eff111b0ea05c37d6bfe4008c4f8bd71405ad7bc8578f6a2644"
+    },
+    {
+      "path": ".agent/contracts/verification-report.schema.json",
+      "sha256": "57663c8cc9f3d8d00ae95a05d75b71229486bc623ede336456d21c29950c08a5"
+    },
+    {
+      "path": ".agent/evals/agent-plan-state-cases.json",
+      "sha256": "6078dada2fb12c59c6beb61bb93143b5b746ea55d6e1f1235fd438bcc11c4ead"
+    },
+    {
+      "path": ".agent/evals/authority-v2-cases.json",
+      "sha256": "d8e23783a5220cf0cfe839fccd80fdd315ec0f69ed5f6b7561aae58f32e8ee1e"
+    },
+    {
+      "path": ".agent/evals/behavioral-cases.json",
+      "sha256": "2d663ef8dfbc13046e5976ff6d83bf4ec1496e683aaec3dccc5bb9d44b58d53f"
+    },
+    {
+      "path": ".agent/evals/ci-cases.json",
+      "sha256": "f33a646b42f846a70bc8e07dbf76373da9e70cdc9a055dc8b20c8dd14bd6b297"
+    },
+    {
+      "path": ".agent/evals/context-routing-cases.json",
+      "sha256": "8f82cc754d9e00ddfa799ff595141bd68f58da6500974b82b6d2c6dfb154f04a"
+    },
+    {
+      "path": ".agent/evals/implementation-report-cases.json",
+      "sha256": "ad0f70119b295cb9013ff0b5b2ef79f3f6c2a8e72f241375fd5ead030e1785c2"
+    },
+    {
+      "path": ".agent/evals/risk-policy-cases.json",
+      "sha256": "9abb79786a34da2e776d8e0cf99d9705e6a62071ca04ed704dab45b6bff90b06"
+    },
+    {
+      "path": ".agent/evals/scope-envelope-cases.json",
+      "sha256": "3c60d42da5c36a9769c7cd21b85ddc64a35aef253bf694b6c8553558ef4ea680"
+    },
+    {
+      "path": ".agent/evals/sequence-ablation-cases.json",
+      "sha256": "30b0dcaab39b86bfb6e17d0bd865d6d16a69d3762497365832b5c55b500a918c"
+    },
+    {
+      "path": ".agent/evals/task-spec-v2-cases.json",
+      "sha256": "9fa216e71bad051333862aa9fde944f8f66d6a4b350d5bd4a35b96ece56ae75a"
+    },
+    {
+      "path": ".agent/maps/ci-policy.json",
+      "sha256": "8f7109c3892d7db41293f4f9c119fa304f0c97d6d4df859d944d0ddb6ac6e9f3"
+    },
+    {
+      "path": ".agent/maps/source-register.json",
+      "sha256": "f86ec047ea311fb0c4e0a95f3320123b646982a3141907f556b94f903e11dc91"
+    },
+    {
+      "path": ".agent/maps/verification-map.json",
+      "sha256": "870789b3a9945307f5a6d4ac49e7a2b3c37acdcdaafbb63d571bc6a2c2b895c1"
+    },
+    {
+      "path": ".agent/profiles/context-profiles.json",
+      "sha256": "9853a3d2a095dc33f0c9de252769e346db3ea7c338337fa2ea318ce0c833f77f"
+    },
+    {
+      "path": ".agent/templates/agent-plan.example.json",
+      "sha256": "399c37621c62fb30323f22b8986bc05f43b6363d4be5ae626886a1d5f8eb200e"
+    },
+    {
+      "path": ".agent/templates/execution-state.example.json",
+      "sha256": "b7da94400420a1cc510926aba13fc09f900be28fee0e16f636d103108d8096c6"
+    },
+    {
+      "path": ".agent/templates/task-spec.example.json",
+      "sha256": "60976a402039d63f29e6c5726cf253dd6a7bb55f2747a9b0ce10ad85b97c5bcd"
+    },
+    {
+      "path": ".agent/verification/risk-policy.json",
+      "sha256": "2e8c03634c86820780d6473ddafce23cc23c6b54eb81075428e18422cf4ce7a0"
+    },
+    {
+      "path": ".agent/verification/scope-policy.json",
+      "sha256": "8cceb7ff1a79279086649796c4f20541c43296c2ff3db626f7b429ca41e509dc"
+    },
+    {
+      "path": ".github/workflows/agent-context-integrity.yml",
+      "sha256": "22f0a20089fdb15634d50dedea6b8ab2b604510b719625aa0aeb29bf4c8afab3"
+    },
+    {
+      "path": ".github/workflows/agent-task-attest.yml",
+      "sha256": "1f7d5b48f3bae0c7b64852ef7e953b393228c23c7ab2bfaa75ea28d751ba4add"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "2a5dcbdf2b3ffd337394a0499e28e51c9e7c20decd4a10e91b2c2406482d9787"
+    },
+    {
+      "path": "crates/adapters/src/fixture.rs",
+      "sha256": "8edca26b2515d37cddc4db7ba920b051d835420a903b63e05ee6e5633c83ec97"
+    },
+    {
+      "path": "crates/adapters/src/hosted_parser.rs",
+      "sha256": "c7ec9e8dae836c62942279e2a135c4265729b346daaf2f954f1ac5da8c74e45f"
+    },
+    {
+      "path": "crates/api-http/src/main.rs",
+      "sha256": "bbee5a13f372a3bdde1307aa31aa841ec2c17d9aec23de18c2f40767723b7752"
+    },
+    {
+      "path": "crates/application/src/analyze.rs",
+      "sha256": "de5c628fa9bceb59fb61903e4cf1168ff11b5a3b63319787d5c1e0c2792ec7a8"
+    },
+    {
+      "path": "crates/application/src/model.rs",
+      "sha256": "2f42ec4143f3aabe334df633bcfe2b1f650c99bcbe05660f8e98378dfc71ff8d"
+    },
+    {
+      "path": "crates/application/src/ports.rs",
+      "sha256": "c15d3ce78b82e07f8d2c7e5ee53efde100fffe23bac661708b5ef6cb96e517b8"
+    },
+    {
+      "path": "crates/application/src/revise.rs",
+      "sha256": "530f4d01d4072bacd93336128543841630f18833b802ae7041cf4e8d98417c40"
+    },
+    {
+      "path": "crates/domain/src/calculation.rs",
+      "sha256": "400952ea339d66691d1040e5e2f8fee7f7dd248aa3dc17b3389a78726a906233"
+    },
+    {
+      "path": "crates/domain/src/ids.rs",
+      "sha256": "10b6300652266eb8f8fb5e24026959b1e47c8b290fc4127baea454c49bfa7222"
+    },
+    {
+      "path": "crates/domain/src/nutrition.rs",
+      "sha256": "8493ada3f2421f4c49cf83fb327d2a074365d7c24b6155887a799e34a46e3f7c"
+    },
+    {
+      "path": "crates/persistence-postgres/src/analysis_repository.rs",
+      "sha256": "31f0779a3b5bed35658d574f69e82df2d431cfd7b8db975a79d86e0f6d69324f"
+    },
+    {
+      "path": "crates/persistence-postgres/src/catalog_repository.rs",
+      "sha256": "614158d88381beed9f2c5de0c0c7509de8b4cb661a5b308cd8270612bf025af3"
+    },
+    {
+      "path": "crates/persistence-postgres/src/ops_repository.rs",
+      "sha256": "24b980c3118cf53ccaf268e49fb4c692d8a5827b10088825aa744608d2f4c9d6"
+    },
+    {
+      "path": "crates/persistence-postgres/src/parser_telemetry.rs",
+      "sha256": "596a796983c6378f4869c5cdefe5494c76cc5a3f94e675cf59a2776d1308c38d"
+    },
+    {
+      "path": "crates/persistence-postgres/src/portion_repository.rs",
+      "sha256": "bd29fbf59ac1f4b6729fd6f4ccffed50dc9ae27d16d5c05cb24f1b712807c22a"
+    },
+    {
+      "path": "crates/worker/src/main.rs",
+      "sha256": "df800763e2c6ae605f3d34c94fe774e2964d0d4277a531c719b3bf721f9a654d"
+    },
+    {
+      "path": "deploy/compose.yaml",
+      "sha256": "cfe0ab17f8ac2e824aec24f6de9283af386d53283a82d01d96458d1d10bab90b"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/00_README.md",
+      "sha256": "82ae8b6691dd9fa700ed9009ff2c75e19711f33d59302ac9308efe27a64d13cb"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/04_DATABASE_ARCHITECTURE_AND_ERD.md",
+      "sha256": "f7d3956863d685d625f03530e0fffb03e262f8e9d4962fb1e2b9f27605b77808"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/05_NUTRITION_CALCULATION_SPEC.md",
+      "sha256": "9118685fc96f820fdff186b8dca2a34ab2b44a0d57a48f4a81da13c6e66081db"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/06_FOOD_RESOLUTION_AND_LLM_SPEC.md",
+      "sha256": "db8f3d2eced05a330844e347887e639b9d8145f17ffcf82d84096d991f0bad0f"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/07_DATA_SOURCE_QUALITY_AND_GOVERNANCE.md",
+      "sha256": "e7f6e811b3aac8a2e3246184f79506cefc01dce72e1f7dc9d477c6b751597399"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/08_API_AND_RUNTIME_ARCHITECTURE.md",
+      "sha256": "12f8055d57569a0174ced8122b3921261e109394056551071cdfb5941aa95547"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/09_TESTING_EVALUATION_AND_OBSERVABILITY.md",
+      "sha256": "733247aeee02305f1141ebfe20d4f468c2f934946c7bee3a96c030c7f31042e3"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/10_SECURITY_PRIVACY_AND_PRODUCT_SAFETY.md",
+      "sha256": "8e4c93470c8a258fc38aabe726f57b2e16cdc6ed7b59093da717ffece74ecc5f"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md",
+      "sha256": "a6cd2033dd68094a2b41aebc4638cd68023d1473a8f05fc81134df2952ffc6ed"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/16_VIETNAMESE_MEAL_BENCH_SPEC.md",
+      "sha256": "c8032454ab4ee7b8f4b07dbc44315350453950780cf5b15f62a778667b52e9f6"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/17_CLARIFICATION_CORRECTION_UX_SPEC.md",
+      "sha256": "85b47d2379b4f7e24f11f267f571910ed25a421d95045f8c7b7185bcc6ea488c"
+    },
+    {
+      "path": "docs/archive/nutrition_backend_blueprint_v1.0/18_SOURCE_ADAPTER_CONTRACT.md",
+      "sha256": "f8375f90192c249b884e1de74e1af0e93c57062f29e2efcc32bdf4a47bc7400a"
+    },
+    {
+      "path": "docs/FOUNDATION_DECISIONS.md",
+      "sha256": "f3f8387e3fe373a20550b64b37e8451ff76cb591eaff6811bc57e31098dff5d2"
+    },
+    {
+      "path": "docs/HOSTED_PARSER.md",
+      "sha256": "b6501639f00d23e1f6d6d19433896c05f8eaacd495a8935adf5615a5b1c1b497"
+    },
+    {
+      "path": "docs/RISK_REGISTER.md",
+      "sha256": "11997fb525dcf08ff81675f6d491a0642682ec29fc283b1bbaaacf46afe6b105"
+    },
+    {
+      "path": "docs/SECURITY_AND_OPERATIONS.md",
+      "sha256": "7c2a2398a88bbbaa050d3caa6895d5bd6186690b16f3ef883774eef6160a92f3"
+    },
+    {
+      "path": "fixtures/vietnamese-meal-bench/foundation-cases.json",
+      "sha256": "7abcc34657318e6dcf9836fb6c2299d0a1760d77eaf5252b2cacf3c33ee4bc43"
+    },
+    {
+      "path": "fixtures/vietnamese-meal-bench/manifest.json",
+      "sha256": "fe9dd5cec1d2c9ebac0f0409722aced68d48d9b3df93219c15cd6c3c7f71c7a0"
+    },
+    {
+      "path": "schemas/parsed-meal-0.1.0.json",
+      "sha256": "97038755c8e8ebac4212ceca828e4687f8ef9f47fbd160ad6e04cc8d502b3d21"
+    },
+    {
+      "path": "scripts/generate-agent-facts.ps1",
+      "sha256": "cc463ba5bab3a00afed3fce71c4e2d0f93200ae22d696b76eec9f973ba63a8c4"
+    },
+    {
+      "path": "scripts/run-agent-verification.ps1",
+      "sha256": "3f6bcc876c56cba032d30d1b405a3756a3ae5baaae8899a0188a219d8cef1a41"
+    },
+    {
+      "path": "scripts/verify-agent-behavior.ps1",
+      "sha256": "6f7032e4d2f280e149bfa7a909ec86857b910ee9fffbe7b26c3354fa686a8e30"
+    },
+    {
+      "path": "scripts/verify-agent-context.ps1",
+      "sha256": "6d8b28171d4c4306b4f2437e160706408d7ff32e8537bbea80dc134d3aae6c21"
+    },
+    {
+      "path": "scripts/verify-agent-facts.ps1",
+      "sha256": "b4b2036c956449dc4cc49d00fc76f3382cfc8e985ea85e72bebcecc50819b1a4"
+    },
+    {
+      "path": "scripts/verify-postgres.ps1",
+      "sha256": "601e07b9cd7d54486f834c7cad984a3f9f495b911302dafe527d7bbb170bd603"
+    },
+    {
+      "path": "scripts/verify.ps1",
+      "sha256": "c6790821493f2cc9e3d46c4e58e28451d9ba4d947101320a129cf8afbc705a43"
+    },
+    {
+      "path": "seeds/0001_foundation_fixture.sql",
+      "sha256": "457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84"
+    }
+  ],
+  "facts": {
+    "source_register": ".agent/maps/source-register.json",
+    "derived_artifacts_excluded": ".agent/generated/**",
+    "sources": [
+      {
+        "path": ".agent/authority/decision-policy.md",
+        "sha256": "9e36d75676b7a67b0093002328e388a4980f01416a28011746d6a68a33a51da8",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/authority/escalation-protocol.md",
+        "sha256": "7208eb1191b56657a577f36f1b507bef95af130754e7ea44c9d52cef0480d178",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/authority/executor-contract.md",
+        "sha256": "9bfde587b6dcdfd630191ce3e684b7e1a638d0612e2addc58230b692b9f83d3f",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/context/presets.json",
+        "sha256": "e7869e0c4a6d9f513e361763c4ee0b8018d06030ba5c63cfb27a317d4be0d81c",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/context/router.json",
+        "sha256": "e83c9c08f8e0c5db9819421c9fd48396a6e63a08ce7766f24b2a484dd82a42ea",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/contracts/agent-plan.schema.json",
+        "sha256": "d3e4cee6e6bd31d53ac6530fda663bb41ee47f1bf6c32efdf9eab2ca71bb925f",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/contracts/ci-attestation.schema.json",
+        "sha256": "5cef701d0fdb5feccb678792e67c7ed2a0936075d16f042e06ea2f8008df63f4",
+        "consumers": [
+          ".agent/contexts/verification.md",
+          ".agent/maps/ci-policy.json"
+        ]
+      },
+      {
+        "path": ".agent/contracts/execution-state.schema.json",
+        "sha256": "1730f72000dc61be869b00376aac77268e36ab34e5d21ed1eef486aaf6b52cc7",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/contracts/external-evidence.schema.json",
+        "sha256": "c0c42728c7624e99fc8cfdc4ebecf6503cc25bf75d8dc85635e6a6b7d5cae626",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/contracts/implementation-report.schema.json",
+        "sha256": "9ca4ca47847d200d50c383c8be696fb4f3f69eea83f7bf09fe9f9f05666d32d4",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/contracts/task-packet.schema.json",
+        "sha256": "7569f16571793e9659b2f7c35d95cfc500a8799d581f064acebb503bae7d726e",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/contracts/task-spec.schema.json",
+        "sha256": "52704de705627eff111b0ea05c37d6bfe4008c4f8bd71405ad7bc8578f6a2644",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/contracts/verification-report.schema.json",
+        "sha256": "57663c8cc9f3d8d00ae95a05d75b71229486bc623ede336456d21c29950c08a5",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/agent-plan-state-cases.json",
+        "sha256": "6078dada2fb12c59c6beb61bb93143b5b746ea55d6e1f1235fd438bcc11c4ead",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/authority-v2-cases.json",
+        "sha256": "d8e23783a5220cf0cfe839fccd80fdd315ec0f69ed5f6b7561aae58f32e8ee1e",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/behavioral-cases.json",
+        "sha256": "2d663ef8dfbc13046e5976ff6d83bf4ec1496e683aaec3dccc5bb9d44b58d53f",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/ci-cases.json",
+        "sha256": "f33a646b42f846a70bc8e07dbf76373da9e70cdc9a055dc8b20c8dd14bd6b297",
+        "consumers": [
+          ".agent/contexts/verification.md",
+          ".agent/maps/ci-policy.json"
+        ]
+      },
+      {
+        "path": ".agent/evals/context-routing-cases.json",
+        "sha256": "8f82cc754d9e00ddfa799ff595141bd68f58da6500974b82b6d2c6dfb154f04a",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/implementation-report-cases.json",
+        "sha256": "ad0f70119b295cb9013ff0b5b2ef79f3f6c2a8e72f241375fd5ead030e1785c2",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/risk-policy-cases.json",
+        "sha256": "9abb79786a34da2e776d8e0cf99d9705e6a62071ca04ed704dab45b6bff90b06",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/scope-envelope-cases.json",
+        "sha256": "3c60d42da5c36a9769c7cd21b85ddc64a35aef253bf694b6c8553558ef4ea680",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/sequence-ablation-cases.json",
+        "sha256": "30b0dcaab39b86bfb6e17d0bd865d6d16a69d3762497365832b5c55b500a918c",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/evals/task-spec-v2-cases.json",
+        "sha256": "9fa216e71bad051333862aa9fde944f8f66d6a4b350d5bd4a35b96ece56ae75a",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/maps/ci-policy.json",
+        "sha256": "8f7109c3892d7db41293f4f9c119fa304f0c97d6d4df859d944d0ddb6ac6e9f3",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/maps/verification-map.json",
+        "sha256": "870789b3a9945307f5a6d4ac49e7a2b3c37acdcdaafbb63d571bc6a2c2b895c1",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/profiles/context-profiles.json",
+        "sha256": "9853a3d2a095dc33f0c9de252769e346db3ea7c338337fa2ea318ce0c833f77f",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/templates/agent-plan.example.json",
+        "sha256": "399c37621c62fb30323f22b8986bc05f43b6363d4be5ae626886a1d5f8eb200e",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/templates/execution-state.example.json",
+        "sha256": "b7da94400420a1cc510926aba13fc09f900be28fee0e16f636d103108d8096c6",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/templates/task-spec.example.json",
+        "sha256": "60976a402039d63f29e6c5726cf253dd6a7bb55f2747a9b0ce10ad85b97c5bcd",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/verification/risk-policy.json",
+        "sha256": "2e8c03634c86820780d6473ddafce23cc23c6b54eb81075428e18422cf4ce7a0",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".agent/verification/scope-policy.json",
+        "sha256": "8cceb7ff1a79279086649796c4f20541c43296c2ff3db626f7b429ca41e509dc",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": ".github/workflows/agent-context-integrity.yml",
+        "sha256": "22f0a20089fdb15634d50dedea6b8ab2b604510b719625aa0aeb29bf4c8afab3",
+        "consumers": [
+          ".agent/contexts/verification.md",
+          ".agent/maps/ci-policy.json"
+        ]
+      },
+      {
+        "path": ".github/workflows/agent-task-attest.yml",
+        "sha256": "1f7d5b48f3bae0c7b64852ef7e953b393228c23c7ab2bfaa75ea28d751ba4add",
+        "consumers": [
+          ".agent/contexts/verification.md",
+          ".agent/maps/ci-policy.json"
+        ]
+      },
+      {
+        "path": "AGENTS.md",
+        "sha256": "2a5dcbdf2b3ffd337394a0499e28e51c9e7c20decd4a10e91b2c2406482d9787",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "crates/adapters/src/fixture.rs",
+        "sha256": "8edca26b2515d37cddc4db7ba920b051d835420a903b63e05ee6e5633c83ec97",
+        "consumers": [
+          ".agent/contexts/parser.md"
+        ]
+      },
+      {
+        "path": "crates/adapters/src/hosted_parser.rs",
+        "sha256": "c7ec9e8dae836c62942279e2a135c4265729b346daaf2f954f1ac5da8c74e45f",
+        "consumers": [
+          ".agent/contexts/parser.md"
+        ]
+      },
+      {
+        "path": "crates/api-http/src/main.rs",
+        "sha256": "bbee5a13f372a3bdde1307aa31aa841ec2c17d9aec23de18c2f40767723b7752",
+        "consumers": [
+          ".agent/contexts/api.md"
+        ]
+      },
+      {
+        "path": "crates/application/src/analyze.rs",
+        "sha256": "de5c628fa9bceb59fb61903e4cf1168ff11b5a3b63319787d5c1e0c2792ec7a8",
+        "consumers": [
+          ".agent/contexts/application.md"
+        ]
+      },
+      {
+        "path": "crates/application/src/model.rs",
+        "sha256": "2f42ec4143f3aabe334df633bcfe2b1f650c99bcbe05660f8e98378dfc71ff8d",
+        "consumers": [
+          ".agent/contexts/application.md"
+        ]
+      },
+      {
+        "path": "crates/application/src/ports.rs",
+        "sha256": "c15d3ce78b82e07f8d2c7e5ee53efde100fffe23bac661708b5ef6cb96e517b8",
+        "consumers": [
+          ".agent/contexts/application.md"
+        ]
+      },
+      {
+        "path": "crates/application/src/revise.rs",
+        "sha256": "530f4d01d4072bacd93336128543841630f18833b802ae7041cf4e8d98417c40",
+        "consumers": [
+          ".agent/contexts/application.md"
+        ]
+      },
+      {
+        "path": "crates/domain/src/calculation.rs",
+        "sha256": "400952ea339d66691d1040e5e2f8fee7f7dd248aa3dc17b3389a78726a906233",
+        "consumers": [
+          ".agent/contexts/domain.md"
+        ]
+      },
+      {
+        "path": "crates/domain/src/ids.rs",
+        "sha256": "10b6300652266eb8f8fb5e24026959b1e47c8b290fc4127baea454c49bfa7222",
+        "consumers": [
+          ".agent/contexts/domain.md"
+        ]
+      },
+      {
+        "path": "crates/domain/src/nutrition.rs",
+        "sha256": "8493ada3f2421f4c49cf83fb327d2a074365d7c24b6155887a799e34a46e3f7c",
+        "consumers": [
+          ".agent/contexts/domain.md"
+        ]
+      },
+      {
+        "path": "crates/persistence-postgres/src/analysis_repository.rs",
+        "sha256": "31f0779a3b5bed35658d574f69e82df2d431cfd7b8db975a79d86e0f6d69324f",
+        "consumers": [
+          ".agent/contexts/persistence.md"
+        ]
+      },
+      {
+        "path": "crates/persistence-postgres/src/catalog_repository.rs",
+        "sha256": "614158d88381beed9f2c5de0c0c7509de8b4cb661a5b308cd8270612bf025af3",
+        "consumers": [
+          ".agent/contexts/persistence.md"
+        ]
+      },
+      {
+        "path": "crates/persistence-postgres/src/ops_repository.rs",
+        "sha256": "24b980c3118cf53ccaf268e49fb4c692d8a5827b10088825aa744608d2f4c9d6",
+        "consumers": [
+          ".agent/contexts/persistence.md",
+          ".agent/contexts/worker.md"
+        ]
+      },
+      {
+        "path": "crates/persistence-postgres/src/parser_telemetry.rs",
+        "sha256": "596a796983c6378f4869c5cdefe5494c76cc5a3f94e675cf59a2776d1308c38d",
+        "consumers": [
+          ".agent/contexts/persistence.md"
+        ]
+      },
+      {
+        "path": "crates/persistence-postgres/src/portion_repository.rs",
+        "sha256": "bd29fbf59ac1f4b6729fd6f4ccffed50dc9ae27d16d5c05cb24f1b712807c22a",
+        "consumers": [
+          ".agent/contexts/persistence.md"
+        ]
+      },
+      {
+        "path": "crates/worker/src/main.rs",
+        "sha256": "df800763e2c6ae605f3d34c94fe774e2964d0d4277a531c719b3bf721f9a654d",
+        "consumers": [
+          ".agent/contexts/worker.md"
+        ]
+      },
+      {
+        "path": "deploy/compose.yaml",
+        "sha256": "cfe0ab17f8ac2e824aec24f6de9283af386d53283a82d01d96458d1d10bab90b",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/00_README.md",
+        "sha256": "82ae8b6691dd9fa700ed9009ff2c75e19711f33d59302ac9308efe27a64d13cb",
+        "consumers": [
+          ".agent/contexts/foundation.md",
+          ".agent/invariants/architecture.md",
+          ".agent/invariants/data-replay.md",
+          ".agent/invariants/llm-boundary.md",
+          ".agent/invariants/product-domain.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/04_DATABASE_ARCHITECTURE_AND_ERD.md",
+        "sha256": "f7d3956863d685d625f03530e0fffb03e262f8e9d4962fb1e2b9f27605b77808",
+        "consumers": [
+          ".agent/contexts/persistence.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/05_NUTRITION_CALCULATION_SPEC.md",
+        "sha256": "9118685fc96f820fdff186b8dca2a34ab2b44a0d57a48f4a81da13c6e66081db",
+        "consumers": [
+          ".agent/contexts/domain.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/06_FOOD_RESOLUTION_AND_LLM_SPEC.md",
+        "sha256": "db8f3d2eced05a330844e347887e639b9d8145f17ffcf82d84096d991f0bad0f",
+        "consumers": [
+          ".agent/contexts/parser.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/07_DATA_SOURCE_QUALITY_AND_GOVERNANCE.md",
+        "sha256": "e7f6e811b3aac8a2e3246184f79506cefc01dce72e1f7dc9d477c6b751597399",
+        "consumers": [
+          ".agent/contexts/data-governance.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/08_API_AND_RUNTIME_ARCHITECTURE.md",
+        "sha256": "12f8055d57569a0174ced8122b3921261e109394056551071cdfb5941aa95547",
+        "consumers": [
+          ".agent/contexts/api.md",
+          ".agent/contexts/worker.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/09_TESTING_EVALUATION_AND_OBSERVABILITY.md",
+        "sha256": "733247aeee02305f1141ebfe20d4f468c2f934946c7bee3a96c030c7f31042e3",
+        "consumers": [
+          ".agent/contexts/verification.md",
+          ".agent/contexts/worker.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/10_SECURITY_PRIVACY_AND_PRODUCT_SAFETY.md",
+        "sha256": "8e4c93470c8a258fc38aabe726f57b2e16cdc6ed7b59093da717ffece74ecc5f",
+        "consumers": [
+          ".agent/contexts/api.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md",
+        "sha256": "a6cd2033dd68094a2b41aebc4638cd68023d1473a8f05fc81134df2952ffc6ed",
+        "consumers": [
+          ".agent/contexts/api.md",
+          ".agent/contexts/application.md",
+          ".agent/contexts/data-governance.md",
+          ".agent/contexts/domain.md",
+          ".agent/contexts/foundation.md",
+          ".agent/contexts/parser.md",
+          ".agent/contexts/persistence.md",
+          ".agent/contexts/worker.md",
+          ".agent/invariants/architecture.md",
+          ".agent/invariants/data-replay.md",
+          ".agent/invariants/llm-boundary.md",
+          ".agent/invariants/product-domain.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/16_VIETNAMESE_MEAL_BENCH_SPEC.md",
+        "sha256": "c8032454ab4ee7b8f4b07dbc44315350453950780cf5b15f62a778667b52e9f6",
+        "consumers": [
+          ".agent/contexts/parser.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/17_CLARIFICATION_CORRECTION_UX_SPEC.md",
+        "sha256": "85b47d2379b4f7e24f11f267f571910ed25a421d95045f8c7b7185bcc6ea488c",
+        "consumers": [
+          ".agent/contexts/application.md"
+        ]
+      },
+      {
+        "path": "docs/archive/nutrition_backend_blueprint_v1.0/18_SOURCE_ADAPTER_CONTRACT.md",
+        "sha256": "f8375f90192c249b884e1de74e1af0e93c57062f29e2efcc32bdf4a47bc7400a",
+        "consumers": [
+          ".agent/contexts/data-governance.md",
+          ".agent/contexts/persistence.md"
+        ]
+      },
+      {
+        "path": "docs/FOUNDATION_DECISIONS.md",
+        "sha256": "f3f8387e3fe373a20550b64b37e8451ff76cb591eaff6811bc57e31098dff5d2",
+        "consumers": [
+          ".agent/contexts/api.md",
+          ".agent/contexts/application.md",
+          ".agent/contexts/data-governance.md",
+          ".agent/contexts/domain.md",
+          ".agent/contexts/foundation.md",
+          ".agent/contexts/parser.md",
+          ".agent/contexts/persistence.md",
+          ".agent/contexts/worker.md",
+          ".agent/invariants/architecture.md",
+          ".agent/invariants/data-replay.md",
+          ".agent/invariants/llm-boundary.md",
+          ".agent/invariants/product-domain.md",
+          ".agent/invariants/security-privacy.md"
+        ]
+      },
+      {
+        "path": "docs/HOSTED_PARSER.md",
+        "sha256": "b6501639f00d23e1f6d6d19433896c05f8eaacd495a8935adf5615a5b1c1b497",
+        "consumers": [
+          ".agent/contexts/parser.md",
+          ".agent/invariants/llm-boundary.md",
+          ".agent/invariants/security-privacy.md"
+        ]
+      },
+      {
+        "path": "docs/RISK_REGISTER.md",
+        "sha256": "11997fb525dcf08ff81675f6d491a0642682ec29fc283b1bbaaacf46afe6b105",
+        "consumers": [
+          ".agent/contexts/data-governance.md",
+          ".agent/contexts/parser.md",
+          ".agent/invariants/architecture.md",
+          ".agent/invariants/llm-boundary.md",
+          ".agent/invariants/product-domain.md",
+          ".agent/invariants/security-privacy.md"
+        ]
+      },
+      {
+        "path": "docs/SECURITY_AND_OPERATIONS.md",
+        "sha256": "7c2a2398a88bbbaa050d3caa6895d5bd6186690b16f3ef883774eef6160a92f3",
+        "consumers": [
+          ".agent/contexts/api.md",
+          ".agent/contexts/worker.md",
+          ".agent/invariants/security-privacy.md"
+        ]
+      },
+      {
+        "path": "fixtures/vietnamese-meal-bench/foundation-cases.json",
+        "sha256": "7abcc34657318e6dcf9836fb6c2299d0a1760d77eaf5252b2cacf3c33ee4bc43",
+        "consumers": [
+          ".agent/contexts/data-governance.md",
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "fixtures/vietnamese-meal-bench/manifest.json",
+        "sha256": "fe9dd5cec1d2c9ebac0f0409722aced68d48d9b3df93219c15cd6c3c7f71c7a0",
+        "consumers": [
+          ".agent/contexts/data-governance.md",
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "schemas/parsed-meal-0.1.0.json",
+        "sha256": "97038755c8e8ebac4212ceca828e4687f8ef9f47fbd160ad6e04cc8d502b3d21",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "scripts/generate-agent-facts.ps1",
+        "sha256": "cc463ba5bab3a00afed3fce71c4e2d0f93200ae22d696b76eec9f973ba63a8c4",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "scripts/run-agent-verification.ps1",
+        "sha256": "3f6bcc876c56cba032d30d1b405a3756a3ae5baaae8899a0188a219d8cef1a41",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "scripts/verify-agent-behavior.ps1",
+        "sha256": "6f7032e4d2f280e149bfa7a909ec86857b910ee9fffbe7b26c3354fa686a8e30",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "scripts/verify-agent-context.ps1",
+        "sha256": "6d8b28171d4c4306b4f2437e160706408d7ff32e8537bbea80dc134d3aae6c21",
+        "consumers": [
+          ".agent/contexts/verification.md",
+          ".agent/maps/ci-policy.json"
+        ]
+      },
+      {
+        "path": "scripts/verify-agent-facts.ps1",
+        "sha256": "b4b2036c956449dc4cc49d00fc76f3382cfc8e985ea85e72bebcecc50819b1a4",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "scripts/verify-postgres.ps1",
+        "sha256": "601e07b9cd7d54486f834c7cad984a3f9f495b911302dafe527d7bbb170bd603",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "scripts/verify.ps1",
+        "sha256": "c6790821493f2cc9e3d46c4e58e28451d9ba4d947101320a129cf8afbc705a43",
+        "consumers": [
+          ".agent/contexts/verification.md"
+        ]
+      },
+      {
+        "path": "seeds/0001_foundation_fixture.sql",
+        "sha256": "457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84",
+        "consumers": [
+          ".agent/contexts/data-governance.md"
+        ]
+      }
+    ]
+  }
+}
