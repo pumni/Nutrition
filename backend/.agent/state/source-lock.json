@@ -2,6 +2,8 @@
   "schema_version": "2.0.0",
   "algorithm": "SHA256",
   "sources": [
+    {"path": ".agent/context/presets.json", "sha256": "e7869e0c4a6d9f513e361763c4ee0b8018d06030ba5c63cfb27a317d4be0d81c"},
+    {"path": ".agent/context/router.json", "sha256": "e83c9c08f8e0c5db9819421c9fd48396a6e63a08ce7766f24b2a484dd82a42ea"},
     {"path": ".agent/contracts/agent-plan.schema.json", "sha256": "d3e4cee6e6bd31d53ac6530fda663bb41ee47f1bf6c32efdf9eab2ca71bb925f"},
     {"path": ".agent/contracts/ci-attestation.schema.json", "sha256": "5cef701d0fdb5feccb678792e67c7ed2a0936075d16f042e06ea2f8008df63f4"},
     {"path": ".agent/contracts/execution-state.schema.json", "sha256": "1730f72000dc61be869b00376aac77268e36ab34e5d21ed1eef486aaf6b52cc7"},
@@ -12,6 +14,7 @@
     {"path": ".agent/contracts/verification-report.schema.json", "sha256": "57663c8cc9f3d8d00ae95a05d75b71229486bc623ede336456d21c29950c08a5"},
     {"path": ".agent/evals/agent-plan-state-cases.json", "sha256": "6078dada2fb12c59c6beb61bb93143b5b746ea55d6e1f1235fd438bcc11c4ead"},
     {"path": ".agent/evals/ci-cases.json", "sha256": "f33a646b42f846a70bc8e07dbf76373da9e70cdc9a055dc8b20c8dd14bd6b297"},
+    {"path": ".agent/evals/context-routing-cases.json", "sha256": "8f82cc754d9e00ddfa799ff595141bd68f58da6500974b82b6d2c6dfb154f04a"},
     {"path": ".agent/evals/implementation-report-cases.json", "sha256": "ad0f70119b295cb9013ff0b5b2ef79f3f6c2a8e72f241375fd5ead030e1785c2"},
     {"path": ".agent/evals/risk-policy-cases.json", "sha256": "9abb79786a34da2e776d8e0cf99d9705e6a62071ca04ed704dab45b6bff90b06"},
     {"path": ".agent/evals/task-spec-v2-cases.json", "sha256": "9fa216e71bad051333862aa9fde944f8f66d6a4b350d5bd4a35b96ece56ae75a"},
@@ -61,7 +64,7 @@
     {"path": "fixtures/vietnamese-meal-bench/manifest.json", "sha256": "fe9dd5cec1d2c9ebac0f0409722aced68d48d9b3df93219c15cd6c3c7f71c7a0"},
     {"path": "schemas/parsed-meal-0.1.0.json", "sha256": "97038755c8e8ebac4212ceca828e4687f8ef9f47fbd160ad6e04cc8d502b3d21"},
     {"path": "scripts/run-agent-verification.ps1", "sha256": "3f6bcc876c56cba032d30d1b405a3756a3ae5baaae8899a0188a219d8cef1a41"},
-    {"path": "scripts/verify-agent-context.ps1", "sha256": "54140a077830e6668aa9f5131382c9c8b11c47665f069835cc01b16b808a90c1"},
+    {"path": "scripts/verify-agent-context.ps1", "sha256": "f6b68d6880dd9a5293dadcfd5c22b5248a5abaaa3b3d1533626c31cf7040c815"},
     {"path": "scripts/verify-postgres.ps1", "sha256": "601e07b9cd7d54486f834c7cad984a3f9f495b911302dafe527d7bbb170bd603"},
     {"path": "scripts/verify.ps1", "sha256": "c6790821493f2cc9e3d46c4e58e28451d9ba4d947101320a129cf8afbc705a43"},
     {"path": "seeds/0001_foundation_fixture.sql", "sha256": "457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84"}

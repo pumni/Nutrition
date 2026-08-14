@@ -122,6 +122,8 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/contexts/worker.md",
         ".agent/contexts/data-governance.md",
         ".agent/contexts/verification.md",
+        ".agent/context/presets.json",
+        ".agent/context/router.json",
         ".agent/maps/crate-map.json",
         ".agent/maps/change-impact-map.json",
         ".agent/maps/verification-map.json",
@@ -144,6 +146,7 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/evals/task-spec-v2-cases.json",
         ".agent/evals/agent-plan-state-cases.json",
         ".agent/evals/risk-policy-cases.json",
+        ".agent/evals/context-routing-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
         ".agent/contracts/ci-attestation.schema.json",
@@ -372,6 +375,146 @@ function Assert-ImplementationReportFixtures([string]$Root) {
         if ($observedPass -ne $expectedPass) { Fail "implementation report fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
         Write-Output "[PASS] Implementation report fixture: $($case.name)"
     }
+}
+
+function Assert-ContextPresetsObject([string]$Root, $Presets) {
+    $required = @("schema_version", "budget_policy", "modules", "presets")
+    foreach ($property in $required) { if (-not (Has-Property $Presets $property)) { Fail "context presets are missing required field: $property" } }
+    Assert-ExactProperties $Presets $required "context presets"
+    if ($Presets.schema_version -ne "1.0.0") { Fail "context presets schema_version must be 1.0.0" }
+    $budget = $Presets.budget_policy
+    Assert-ExactProperties $budget @("per_file_limit_source", "preserve_per_file_limit", "max_modules_per_task") "context preset budget policy"
+    if ($budget.per_file_limit_source -ne "manifest.budgets.context_file_max_bytes" -or $budget.preserve_per_file_limit -ne $true -or [int]$budget.max_modules_per_task -lt 1) { Fail "context preset budget policy is invalid" }
+    $manifest = Load-Json (Get-RepoPath $Root ".agent/manifest.json")
+    $fileLimit = [int]$manifest.budgets.context_file_max_bytes
+    $knownGates = @(Assert-VerificationRegistry $Root | ForEach-Object { [string]$_ })
+    $modules = @(Assert-Array $Presets.modules "context preset modules" $true)
+    $moduleNames = @{}
+    foreach ($module in $modules) {
+        Assert-ExactProperties $module @("name", "context_files", "mandatory_gates", "risk_tags") "context module"
+        if ([string]::IsNullOrWhiteSpace([string]$module.name) -or $moduleNames.ContainsKey([string]$module.name)) { Fail "context module name is empty or duplicated" }
+        $moduleNames[[string]$module.name] = $true
+        foreach ($path in @(Assert-StringArray $module.context_files "context module files" $true)) {
+            $fullPath = Get-RepoPath $Root $path
+            if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { Fail "context module file is missing: $path" }
+            if ((Get-Item -LiteralPath $fullPath).Length -gt $fileLimit) { Fail "context module file exceeds context budget: $path" }
+        }
+        foreach ($gate in @(Assert-StringArray $module.mandatory_gates "context module gates" $true)) { if ($gate -notin $knownGates) { Fail "context module references unknown gate: $gate" } }
+        [void](Assert-StringArray $module.risk_tags "context module risk_tags" $true)
+    }
+    $presetNames = @{}
+    $presets = @(Assert-Array $Presets.presets "context presets" $true)
+    foreach ($preset in $presets) {
+        Assert-ExactProperties $preset @("name", "modules") "context preset"
+        if ([string]::IsNullOrWhiteSpace([string]$preset.name) -or $presetNames.ContainsKey([string]$preset.name)) { Fail "context preset name is empty or duplicated" }
+        $presetNames[[string]$preset.name] = $true
+        $presetModules = @(Assert-StringArray $preset.modules "context preset modules" $true)
+        if (@($presetModules | Select-Object -Unique).Count -ne $presetModules.Count) { Fail "context preset contains duplicate modules: $($preset.name)" }
+        foreach ($moduleName in $presetModules) { if (-not $moduleNames.ContainsKey($moduleName)) { Fail "context preset references unknown module: $moduleName" } }
+        if ($presetModules.Count -gt [int]$budget.max_modules_per_task) { Fail "context preset exceeds module budget: $($preset.name)" }
+    }
+    if (-not $presetNames.ContainsKey("base")) { Fail "context presets must define base" }
+    return [pscustomobject]@{ModuleNames = $moduleNames.Keys; PresetNames = $presetNames.Keys}
+}
+
+function Assert-ContextRouterObject([string]$Root, $Router, $PresetIndex) {
+    $required = @("schema_version", "presets_ref", "base_modules", "path_routes", "risk_routes", "legacy_profile_aliases", "expansion_policy")
+    foreach ($property in $required) { if (-not (Has-Property $Router $property)) { Fail "context router is missing required field: $property" } }
+    Assert-ExactProperties $Router $required "context router"
+    if ($Router.schema_version -ne "1.0.0" -or $Router.presets_ref -ne ".agent/context/presets.json") { Fail "context router identity is invalid" }
+    $moduleNames = @($PresetIndex.ModuleNames)
+    $knownGates = @(Assert-VerificationRegistry $Root | ForEach-Object { [string]$_ })
+    $baseModules = @(Assert-StringArray $Router.base_modules "context router base_modules" $true)
+    foreach ($module in $baseModules) { if ($module -notin $moduleNames) { Fail "context router references unknown base module: $module" } }
+    foreach ($route in @(Assert-Array $Router.path_routes "context router path_routes" $true)) {
+        Assert-ExactProperties $route @("path_pattern", "modules", "risk_tags", "mandatory_gates") "context path route"
+        if ([string]::IsNullOrWhiteSpace([string]$route.path_pattern)) { Fail "context route path_pattern is empty" }
+        foreach ($module in @(Assert-StringArray $route.modules "context route modules" $true)) { if ($module -notin $moduleNames) { Fail "context route references unknown module: $module" } }
+        foreach ($gate in @(Assert-StringArray $route.mandatory_gates "context route gates" $true)) { if ($gate -notin $knownGates) { Fail "context route references unknown gate: $gate" } }
+        [void](Assert-StringArray $route.risk_tags "context route risk_tags" $true)
+    }
+    $riskPolicy = Load-Json (Get-RepoPath $Root ".agent/verification/risk-policy.json")
+    $knownRisk = @($riskPolicy.risk_levels | ForEach-Object { [string]$_.id })
+    $riskRoutes = @(Assert-Array $Router.risk_routes "context router risk_routes" $true)
+    if ($riskRoutes.Count -ne $knownRisk.Count) { Fail "context router must define one route per risk level" }
+    foreach ($route in $riskRoutes) {
+        Assert-ExactProperties $route @("risk_level", "modules", "mandatory_gates") "context risk route"
+        if ($route.risk_level -notin $knownRisk) { Fail "context router references unknown risk level: $($route.risk_level)" }
+        foreach ($module in @(Assert-StringArray $route.modules "context risk route modules")) { if ($module -notin $moduleNames) { Fail "context risk route references unknown module: $module" } }
+        foreach ($gate in @(Assert-StringArray $route.mandatory_gates "context risk route gates")) { if ($gate -notin $knownGates) { Fail "context risk route references unknown gate: $gate" } }
+    }
+    if (@($riskRoutes.risk_level | Select-Object -Unique).Count -ne $riskRoutes.Count) { Fail "context router has duplicate risk routes" }
+    $aliases = $Router.legacy_profile_aliases
+    $profiles = Load-Json (Get-RepoPath $Root ".agent/profiles/context-profiles.json")
+    $profileNames = @($profiles.profiles | ForEach-Object { [string]$_.name })
+    foreach ($profileName in $profileNames) {
+        if (-not (Has-Property $aliases $profileName)) { Fail "context router is missing legacy profile alias: $profileName" }
+        $alias = [string]$aliases.PSObject.Properties[$profileName].Value
+        if ($alias -notin $PresetIndex.PresetNames) { Fail "context router alias points to unknown preset: $profileName -> $alias" }
+    }
+    $expansion = $Router.expansion_policy
+    Assert-ExactProperties $expansion @("allow_additional_modules", "requires_repository_evidence", "reject_unrelated_context", "max_modules", "preserve_module_budgets") "context expansion policy"
+    if ($expansion.allow_additional_modules -ne $true -or $expansion.requires_repository_evidence -ne $true -or $expansion.reject_unrelated_context -ne $true -or $expansion.preserve_module_budgets -ne $true -or [int]$expansion.max_modules -lt 1 -or [int]$expansion.max_modules -gt 10) { Fail "context expansion policy is invalid" }
+    $crossCutting = @($Router.path_routes | Where-Object { @($_.modules).Count -gt 1 })
+    if ($crossCutting.Count -eq 0) { Fail "context router must include a cross-cutting multi-module route" }
+    return [pscustomobject]@{ModuleNames = $moduleNames; KnownGates = $knownGates}
+}
+
+function Resolve-ContextRoute([string]$Root, $Router, [string[]]$Paths, [string]$RiskLevel, [string]$LegacyProfile) {
+    $presets = Load-Json (Get-RepoPath $Root ".agent/context/presets.json")
+    $modules = [ordered]@{}
+    $gates = [ordered]@{}
+    $addModule = { param([string]$Name) if (-not $modules.Contains($Name)) { $modules[$Name] = $true } }
+    $addGate = { param([string]$Name) if (-not $gates.Contains($Name)) { $gates[$Name] = $true } }
+    foreach ($module in @($Router.base_modules)) { & $addModule $module }
+    if (-not [string]::IsNullOrWhiteSpace($LegacyProfile)) {
+        if (-not (Has-Property $Router.legacy_profile_aliases $LegacyProfile)) { Fail "context router unknown legacy profile alias: $LegacyProfile" }
+        $presetName = [string]$Router.legacy_profile_aliases.PSObject.Properties[$LegacyProfile].Value
+        $preset = @($presets.presets | Where-Object name -eq $presetName)[0]
+        if ($null -eq $preset) { Fail "context router alias preset is missing: $presetName" }
+        foreach ($module in @($preset.modules)) { & $addModule $module }
+    }
+    foreach ($path in @($Paths)) {
+        foreach ($route in @($Router.path_routes | Where-Object { Test-GlobMatch $path $_.path_pattern })) {
+            foreach ($module in @($route.modules)) { & $addModule $module }
+            foreach ($gate in @($route.mandatory_gates)) { & $addGate $gate }
+        }
+    }
+    $riskRoute = @($Router.risk_routes | Where-Object risk_level -eq $RiskLevel)
+    if ($riskRoute.Count -ne 1) { Fail "context router unknown risk level: $RiskLevel" }
+    foreach ($module in @($riskRoute[0].modules)) { & $addModule $module }
+    foreach ($gate in @($riskRoute[0].mandatory_gates)) { & $addGate $gate }
+    if ($modules.Count -gt [int]$Router.expansion_policy.max_modules) { Fail "context route exceeds module budget" }
+    return [pscustomobject]@{Modules = @($modules.Keys); Gates = @($gates.Keys)}
+}
+
+function Assert-ContextRoutingFixtures([string]$Root, $Router) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/context-routing-cases.json")
+    $cases = @((Require-Property $document "cases" "context routing fixtures"))
+    if ($cases.Count -lt 7) { Fail "context routing fixtures require at least seven cases" }
+    foreach ($case in $cases) {
+        $observedPass = $false
+        $failureText = ""
+        try {
+            $result = Resolve-ContextRoute $Root $Router @($case.paths) ([string]$case.risk_level) ([string]$case.legacy_profile)
+            foreach ($module in @($case.must_include_modules)) { if ($module -notin @($result.Modules)) { Fail "context routing result is missing module: $module" } }
+            $observedPass = $true
+        }
+        catch {
+            $failureText = [string]$_.Exception.Message
+        }
+        $expectedPass = [string]$case.expected -eq "pass"
+        if ($observedPass -ne $expectedPass) { Fail "context routing fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
+        Write-Output "[PASS] Context routing fixture: $($case.name)"
+    }
+}
+
+function Assert-ContextRouting([string]$Root) {
+    $presets = Load-Json (Get-RepoPath $Root ".agent/context/presets.json")
+    $presetIndex = Assert-ContextPresetsObject $Root $presets
+    $router = Load-Json (Get-RepoPath $Root ".agent/context/router.json")
+    [void](Assert-ContextRouterObject $Root $router $presetIndex)
+    Assert-ContextRoutingFixtures $Root $router
 }
 
 function Assert-TaskSpecV2Object([string]$Root, $Spec) {
@@ -1029,6 +1172,7 @@ function Assert-Integrity([string]$Root) {
     $manifest = Assert-Manifest $Root
     Assert-Budgets $Root $manifest
     $profiles = Assert-Profiles $Root
+    Assert-ContextRouting $Root
     Assert-SourceRegister $Root
     Assert-SourceLock $Root
     Assert-VerificationRegistry $Root
