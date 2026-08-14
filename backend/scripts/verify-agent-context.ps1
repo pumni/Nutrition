@@ -143,6 +143,7 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/evals/context-layer-cases.json",
         ".agent/evals/task-spec-v2-cases.json",
         ".agent/evals/agent-plan-state-cases.json",
+        ".agent/evals/risk-policy-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
         ".agent/contracts/ci-attestation.schema.json",
@@ -152,6 +153,7 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/templates/external-evidence.example.json",
         ".agent/templates/ci-attestation.example.json",
         ".agent/maps/ci-policy.json",
+        ".agent/verification/risk-policy.json",
         ".agent/evals/ci-cases.json",
         ".github/workflows/agent-context-integrity.yml",
         ".github/workflows/agent-task-attest.yml"
@@ -377,7 +379,10 @@ function Assert-TaskSpecV2Object([string]$Root, $Spec) {
     foreach ($property in $required) { if (-not (Has-Property $Spec $property)) { Fail "task spec v2 is missing required field: $property" } }
     Assert-ExactProperties $Spec $required "task spec v2"
     if ($Spec.schema_version -ne "2.0.0") { Fail "task spec schema_version must be 2.0.0" }
-    if ($Spec.risk_level -notin @("investigation", "normal_internal", "boundary_sensitive", "protected_decision")) { Fail "task spec risk_level is invalid" }
+    $riskPolicy = Load-Json (Get-RepoPath $Root ".agent/verification/risk-policy.json")
+    Assert-RiskPolicyObject $Root $riskPolicy
+    $knownRiskLevels = @($riskPolicy.risk_levels | ForEach-Object { [string]$_.id })
+    if ($Spec.risk_level -notin $knownRiskLevels) { Fail "task spec risk_level is invalid" }
     if (@($Spec.acceptance_criteria).Count -eq 0) { Fail "task spec acceptance_criteria is empty" }
     $scope = $Spec.scope_envelope
     Assert-ExactProperties $scope @("include", "exclude") "task spec scope_envelope"
@@ -392,6 +397,57 @@ function Assert-TaskSpecV2Object([string]$Root, $Spec) {
     Assert-ExactProperties $baseline @("commit", "source") "task spec baseline"
     if ([string]$baseline.commit -notmatch "^[0-9a-fA-F]{40}$" -or $baseline.source -ne "git") { Fail "task spec baseline binding is invalid" }
     if ($Spec.risk_level -eq "protected_decision" -and @($Spec.approved_protected_decisions).Count -eq 0) { Fail "protected_decision task spec requires approved_protected_decisions" }
+}
+
+function Assert-RiskPolicyObject([string]$Root, $Policy) {
+    $required = @("schema_version", "classification_authority", "agent_artifacts_may_reclassify", "risk_levels", "protected_decision_domains", "rules")
+    foreach ($property in $required) { if (-not (Has-Property $Policy $property)) { Fail "risk policy is missing required field: $property" } }
+    Assert-ExactProperties $Policy $required "risk policy"
+    if ($Policy.schema_version -ne "1.0.0") { Fail "risk policy schema_version must be 1.0.0" }
+    if ($Policy.classification_authority -ne "task_spec") { Fail "risk policy classification authority must be task_spec" }
+    if ($Policy.agent_artifacts_may_reclassify -isnot [bool] -or $Policy.agent_artifacts_may_reclassify) { Fail "risk policy must forbid agent risk reclassification" }
+    $levels = @(Assert-Array $Policy.risk_levels "risk policy risk_levels" $true)
+    if ($levels.Count -ne 4) { Fail "risk policy must define exactly four risk levels" }
+    $expectedLevels = @(
+        [pscustomobject]@{id="investigation"; ordinal=0; mode="read_only"; can_modify=$false; requires_approval=$false; protected_change="escalate"},
+        [pscustomobject]@{id="normal_internal"; ordinal=1; mode="implementation_within_scope"; can_modify=$true; requires_approval=$false; protected_change="escalate"},
+        [pscustomobject]@{id="boundary_sensitive"; ordinal=2; mode="approved_behavior_only"; can_modify=$true; requires_approval=$false; protected_change="escalate"},
+        [pscustomobject]@{id="protected_decision"; ordinal=3; mode="blocked_until_human_approval"; can_modify=$false; requires_approval=$true; protected_change="block"}
+    )
+    for ($index = 0; $index -lt $expectedLevels.Count; $index++) {
+        $level = $levels[$index]
+        Assert-ExactProperties $level @("id", "ordinal", "mode", "can_modify", "requires_approval", "protected_change") "risk policy level"
+        $expected = $expectedLevels[$index]
+        if ($level.id -ne $expected.id -or $level.ordinal -ne $expected.ordinal -or $level.mode -ne $expected.mode -or $level.can_modify -ne $expected.can_modify -or $level.requires_approval -ne $expected.requires_approval -or $level.protected_change -ne $expected.protected_change) { Fail "risk policy level definition is invalid at ordinal $index" }
+    }
+    $requiredDomains = @("product_domain_behavior", "architecture", "public_api", "database_migration_intent", "security_privacy", "behavior_version_semantics", "production_provider_infrastructure", "canonical_publication", "release_policy", "architecturally_significant_dependency_changes")
+    $domains = @(Assert-StringArray $Policy.protected_decision_domains "risk policy protected_decision_domains" $true)
+    foreach ($domain in $requiredDomains) { if ($domain -notin $domains) { Fail "risk policy is missing protected decision domain: $domain" } }
+    $rules = $Policy.rules
+    Assert-ExactProperties $rules @("fail_closed_on_unknown_risk", "prevent_risk_downgrade", "protected_decision_requires_explicit_approval", "protected_decision_blocks_execution") "risk policy rules"
+    foreach ($rule in @("fail_closed_on_unknown_risk", "prevent_risk_downgrade", "protected_decision_requires_explicit_approval", "protected_decision_blocks_execution")) {
+        if ($rules.$rule -isnot [bool] -or -not $rules.$rule) { Fail "risk policy rule must be enabled: $rule" }
+    }
+}
+
+function Assert-RiskPolicyFixtures([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/risk-policy-cases.json")
+    $cases = @((Require-Property $document "cases" "risk policy fixtures"))
+    if ($cases.Count -lt 5) { Fail "risk policy fixtures require at least five cases" }
+    foreach ($case in $cases) {
+        $observedPass = $false
+        $failureText = ""
+        try {
+            Assert-RiskPolicyObject $Root $case.policy
+            $observedPass = $true
+        }
+        catch {
+            $failureText = [string]$_.Exception.Message
+        }
+        $expectedPass = [string]$case.expected -eq "pass"
+        if ($observedPass -ne $expectedPass) { Fail "risk policy fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
+        Write-Output "[PASS] Risk policy fixture: $($case.name)"
+    }
 }
 
 function Assert-TaskSpecV2Fixtures([string]$Root) {
@@ -978,6 +1034,7 @@ function Assert-Integrity([string]$Root) {
     Assert-VerificationRegistry $Root
     Assert-ReportContracts $Root
     Assert-ImplementationReportFixtures $Root
+    Assert-RiskPolicyFixtures $Root
     Assert-TaskSpecV2Fixtures $Root
     Assert-AgentPlanStateFixtures $Root
     Assert-Template $Root

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "classification_authority": "task_spec",
+  "agent_artifacts_may_reclassify": false,
+  "risk_levels": [
+    {"id": "investigation", "ordinal": 0, "mode": "read_only", "can_modify": false, "requires_approval": false, "protected_change": "escalate"},
+    {"id": "normal_internal", "ordinal": 1, "mode": "implementation_within_scope", "can_modify": true, "requires_approval": false, "protected_change": "escalate"},
+    {"id": "boundary_sensitive", "ordinal": 2, "mode": "approved_behavior_only", "can_modify": true, "requires_approval": false, "protected_change": "escalate"},
+    {"id": "protected_decision", "ordinal": 3, "mode": "blocked_until_human_approval", "can_modify": false, "requires_approval": true, "protected_change": "block"}
+  ],
+  "protected_decision_domains": [
+    "product_domain_behavior",
+    "architecture",
+    "public_api",
+    "database_migration_intent",
+    "security_privacy",
+    "behavior_version_semantics",
+    "production_provider_infrastructure",
+    "canonical_publication",
+    "release_policy",
+    "architecturally_significant_dependency_changes"
+  ],
+  "rules": {
+    "fail_closed_on_unknown_risk": true,
+    "prevent_risk_downgrade": true,
+    "protected_decision_requires_explicit_approval": true,
+    "protected_decision_blocks_execution": true
+  }
+}
