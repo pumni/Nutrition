@@ -128,13 +128,16 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/maps/source-register.json",
         ".agent/profiles/context-profiles.json",
         ".agent/contracts/task-packet.schema.json",
+        ".agent/contracts/task-spec.schema.json",
         ".agent/contracts/verification-report.schema.json",
         ".agent/contracts/implementation-report.schema.json",
         ".agent/templates/task-packet.example.json",
+        ".agent/templates/task-spec.example.json",
         ".agent/templates/verification-report.example.json",
         ".agent/templates/implementation-report.example.md",
         ".agent/evals/README.md",
         ".agent/evals/context-layer-cases.json",
+        ".agent/evals/task-spec-v2-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
         ".agent/contracts/ci-attestation.schema.json",
@@ -293,6 +296,8 @@ function Assert-Template([string]$Root) {
     if ($evidence.schema_version -ne "1.0.0") { Fail "external evidence template schema_version mismatch" }
     $attestation = Load-Json (Get-RepoPath $Root ".agent/templates/ci-attestation.example.json")
     if ($attestation.schema_version -ne "1.0.0" -or $attestation.release -ne "agent-ci-attestation-1.0.0") { Fail "CI attestation template release mismatch" }
+    $taskSpec = Load-Json (Get-RepoPath $Root ".agent/templates/task-spec.example.json")
+    Assert-TaskSpecV2Object $Root $taskSpec
 }
 
 function Assert-ReportContracts([string]$Root) {
@@ -355,6 +360,48 @@ function Assert-ImplementationReportFixtures([string]$Root) {
         $expectedPass = [string]$case.expected -eq "pass"
         if ($observedPass -ne $expectedPass) { Fail "implementation report fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
         Write-Output "[PASS] Implementation report fixture: $($case.name)"
+    }
+}
+
+function Assert-TaskSpecV2Object([string]$Root, $Spec) {
+    $required = @("schema_version", "task_id", "objective", "acceptance_criteria", "risk_level", "scope_envelope", "protected_boundaries", "required_policy_modules", "required_verification_gates", "approved_protected_decisions", "baseline")
+    foreach ($property in $required) { if (-not (Has-Property $Spec $property)) { Fail "task spec v2 is missing required field: $property" } }
+    Assert-ExactProperties $Spec $required "task spec v2"
+    if ($Spec.schema_version -ne "2.0.0") { Fail "task spec schema_version must be 2.0.0" }
+    if ($Spec.risk_level -notin @("investigation", "normal_internal", "boundary_sensitive", "protected_decision")) { Fail "task spec risk_level is invalid" }
+    if (@($Spec.acceptance_criteria).Count -eq 0) { Fail "task spec acceptance_criteria is empty" }
+    $scope = $Spec.scope_envelope
+    Assert-ExactProperties $scope @("include", "exclude") "task spec scope_envelope"
+    if (@($scope.include).Count -eq 0) { Fail "task spec scope_envelope.include is empty" }
+    if (@($Spec.protected_boundaries).Count -eq 0) { Fail "task spec protected_boundaries is empty" }
+    if (@($Spec.required_policy_modules).Count -eq 0) { Fail "task spec required_policy_modules is empty" }
+    $declaredGates = @($Spec.required_verification_gates)
+    if ($declaredGates.Count -eq 0) { Fail "task spec required_verification_gates is empty" }
+    $knownGates = @(Assert-VerificationRegistry $Root | ForEach-Object { [string]$_ })
+    foreach ($gate in $declaredGates) { if ([string]$gate -notin $knownGates) { Fail "task spec references unknown canonical gate: $gate" } }
+    $baseline = $Spec.baseline
+    Assert-ExactProperties $baseline @("commit", "source") "task spec baseline"
+    if ([string]$baseline.commit -notmatch "^[0-9a-fA-F]{40}$" -or $baseline.source -ne "git") { Fail "task spec baseline binding is invalid" }
+    if ($Spec.risk_level -eq "protected_decision" -and @($Spec.approved_protected_decisions).Count -eq 0) { Fail "protected_decision task spec requires approved_protected_decisions" }
+}
+
+function Assert-TaskSpecV2Fixtures([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/task-spec-v2-cases.json")
+    $cases = @((Require-Property $document "cases" "task spec v2 fixtures"))
+    if ($cases.Count -lt 5) { Fail "task spec v2 fixtures require at least five cases" }
+    foreach ($case in $cases) {
+        $observedPass = $false
+        $failureText = ""
+        try {
+            Assert-TaskSpecV2Object $Root $case.spec
+            $observedPass = $true
+        }
+        catch {
+            $failureText = [string]$_.Exception.Message
+        }
+        $expectedPass = [string]$case.expected -eq "pass"
+        if ($observedPass -ne $expectedPass) { Fail "task spec v2 fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
+        Write-Output "[PASS] Task spec v2 fixture: $($case.name)"
     }
 }
 
@@ -811,6 +858,7 @@ function Assert-Integrity([string]$Root) {
     Assert-VerificationRegistry $Root
     Assert-ReportContracts $Root
     Assert-ImplementationReportFixtures $Root
+    Assert-TaskSpecV2Fixtures $Root
     Assert-Template $Root
     Assert-CiPolicy $Root
     return $profiles

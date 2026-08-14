@@ -1,0 +1,24 @@
+{
+  "schema_version": "2.0.0",
+  "task_id": "MODERN-EXAMPLE-001",
+  "objective": "Record a policy-bounded internal context-layer change.",
+  "acceptance_criteria": [
+    "The approved outcome is implemented without changing runtime behavior.",
+    "Canonical verification gates produce trusted evidence."
+  ],
+  "risk_level": "normal_internal",
+  "scope_envelope": {
+    "include": [".agent/**"],
+    "exclude": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock"]
+  },
+  "protected_boundaries": [
+    "No product, domain, API, database, dependency, security, privacy, provider, or release decision changes."
+  ],
+  "required_policy_modules": ["architecture", "security-privacy"],
+  "required_verification_gates": ["acl-integrity", "foundation-verify"],
+  "approved_protected_decisions": [],
+  "baseline": {
+    "commit": "0000000000000000000000000000000000000000",
+    "source": "git"
+  }
+}
