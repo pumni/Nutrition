@@ -1,10 +1,11 @@
 {
-  "schema_version": "2.1.0",
+  "schema_version": "3.0.0",
+  "release": "agent-gates-3.0.0",
   "gates": [
     {"name": "acl-self-test", "kind": "control-script", "script": "scripts/verify-agent-context.ps1", "arguments": ["-SelfTest"], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-context.ps1 -SelfTest -RepositoryRoot <TargetRoot>"},
     {"name": "agent-runner-self-test", "kind": "control-script", "script": "scripts/run-agent-verification.ps1", "arguments": ["-SelfTest"], "display_command": ".\\scripts\\run-agent-verification.ps1 -SelfTest"},
     {"name": "agent-ci-policy", "kind": "control-script", "script": "scripts/verify-agent-context.ps1", "arguments": ["-CiPolicy"], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-context.ps1 -CiPolicy -RepositoryRoot <TargetRoot>"},
-    {"name": "agent-behavior-evals", "kind": "control-script", "script": "scripts/verify-agent-behavior.ps1", "arguments": ["-SelfTest"], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-behavior.ps1 -SelfTest -RepositoryRoot <TargetRoot>"},
+    {"name": "agent-behavior-evals", "kind": "control-script", "script": "scripts/verify-agent-behavior.ps1", "arguments": ["-LegacyResultsPath", ".agent/evals/results/legacy/results.json", "-ModernResultsPath", ".agent/evals/results/modern/results.json", "-RequireRealEvidence"], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-behavior.ps1 -LegacyResultsPath .agent/evals/results/legacy/results.json -ModernResultsPath .agent/evals/results/modern/results.json -RequireRealEvidence -RepositoryRoot <TargetRoot>"},
     {"name": "agent-facts", "kind": "control-script", "script": "scripts/verify-agent-facts.ps1", "arguments": ["-Check"], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-facts.ps1 -Check -RepositoryRoot <TargetRoot>"},
     {"name": "acl-integrity", "kind": "control-script", "script": "scripts/verify-agent-context.ps1", "arguments": [], "target_root_argument": "-RepositoryRoot", "display_command": ".\\scripts\\verify-agent-context.ps1 -RepositoryRoot <TargetRoot>"},
     {"name": "cargo-fmt", "kind": "native", "program": "cargo", "arguments": ["fmt", "--all", "--", "--check"], "display_command": "cargo fmt --all -- --check"},

@@ -139,11 +139,21 @@ function Get-SchemaFacts {
 }
 
 function New-FactDocument([string]$Artifact, $Provenance, $Facts) {
+    $signatureInput = (@($Provenance | ForEach-Object { "$( [string]$_.path ):$( [string]$_.sha256 )" } | Sort-Object) -join "`n")
+    $signatureBytes = [Text.Encoding]::UTF8.GetBytes($signatureInput)
+    $signatureHash = [Security.Cryptography.SHA256]::Create().ComputeHash($signatureBytes)
+    $signature = ([BitConverter]::ToString($signatureHash).Replace('-', '')).ToLowerInvariant()
     return [ordered]@{
         schema_version = '1.0.0'
         artifact = $Artifact
         generated_by = 'scripts/generate-agent-facts.ps1'
         generated_from = $Provenance
+        refresh_attestation = [ordered]@{
+            algorithm = 'SHA256'
+            input_count = @($Provenance).Count
+            signature = $signature
+            consumer_refresh = 'required'
+        }
         facts = $Facts
     }
 }

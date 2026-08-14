@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pumni.example/schemas/verification-report.schema.json",
-  "title": "Task Verification Report",
+  "title": "Task Spec Verification Report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "task_packet_sha256", "releases", "control_plane", "target", "change_records", "gate_results", "scope", "impacts", "result"],
+  "required": ["schema_version", "task_id", "task_spec_sha256", "releases", "control_plane", "target", "change_records", "gate_results", "scope", "impacts", "result"],
   "properties": {
     "schema_version": {"const": "2.0.0"},
     "task_id": {"type": "string", "minLength": 1},
-    "task_packet_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+    "task_spec_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
     "releases": {
       "type": "object",
       "additionalProperties": false,
@@ -59,7 +59,7 @@
         "additionalProperties": false,
         "required": ["gate", "kind", "required", "status", "exit_code", "output_byte_count", "output_sha256", "summary"],
         "properties": {
-          "gate": {"type": "string", "minLength": 1},
+          "gate_id": {"type": "string", "minLength": 1},
           "kind": {"type": "string", "minLength": 1},
           "required": {"type": "boolean"},
           "status": {"enum": ["pass", "fail", "skipped", "blocked"]},

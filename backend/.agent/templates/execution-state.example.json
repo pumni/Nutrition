@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "task_id": "MODERN-EXAMPLE-001",
   "task_spec_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "baseline_commit": "e1a4bc64862c69e34a68d328889bef52b06a916e",
@@ -13,7 +13,7 @@
     {"id": "implement", "status": "in_progress", "evidence_refs": []}
   ],
   "verification_references": [
-    {"gate": "acl-integrity", "status": "pass", "evidence_ref": "local:acl-integrity"}
+    {"gate_id": "acl-integrity", "status": "pass", "evidence_ref": "local:acl-integrity"}
   ],
   "protected_decision_blockers": [],
   "status": "in_progress"

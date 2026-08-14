@@ -33,7 +33,7 @@ function Invoke-Git([string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { Fail "git command failed: git $($Arguments -join ' ')`n$output" }
     return $output.Trim()
 }
-function Normalize([string]$Path) { $Path.Replace('\', '/').TrimStart('./') }
+function Normalize([string]$Path) { $value=$Path.Replace('\', '/'); if ($value.StartsWith('./')) { $value=$value.Substring(2) }; return $value }
 
 $casesDocument = Load-Json $CasesPath
 $cases = @($casesDocument.cases)

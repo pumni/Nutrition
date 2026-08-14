@@ -25,4 +25,6 @@ jobs:
       - shell: pwsh
         run: ./scripts/verify-agent-context.ps1 -CiPolicy
       - shell: pwsh
+        run: ./scripts/verify-agent-facts.ps1 -Check
+      - shell: pwsh
         run: ./scripts/verify-agent-context.ps1

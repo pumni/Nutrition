@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "task_id", "task_spec_sha256", "baseline", "observations", "hypothesis", "planned_changes", "expected_affected_paths", "implementation_steps", "verification_strategy", "risks", "protected_decisions_required", "status"],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "2.0.0"},
     "task_id": {"type": "string", "minLength": 1},
     "task_spec_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
     "baseline": {

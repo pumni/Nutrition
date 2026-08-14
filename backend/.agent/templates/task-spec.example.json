@@ -6,16 +6,14 @@
     "The approved outcome is implemented without changing runtime behavior.",
     "Canonical verification gates produce trusted evidence."
   ],
-  "risk_level": "normal_internal",
+  "risk_level": "low",
   "scope_envelope": {
     "include": [".agent/**"],
     "exclude": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock"],
     "approved_protected_paths": []
   },
-  "protected_boundaries": [
-    "No product, domain, API, database, dependency, security, privacy, provider, or release decision changes."
-  ],
-  "required_policy_modules": ["architecture", "security-privacy"],
+  "protected_boundaries": ["architectural_boundary", "security_privacy_policy"],
+  "required_policy_modules": ["base-policy", "verification"],
   "required_verification_gates": ["acl-integrity", "foundation-verify"],
   "approved_protected_decisions": [],
   "baseline": {

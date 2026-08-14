@@ -34,7 +34,7 @@
     {"name":"report_written_inside_target","expected":"fail","expected_reason":"report must be outside TargetRoot"},
     {"name":"artifact_retention_wrong","expected":"fail","expected_reason":"artifact retention must be 30 days"},
     {"name":"rust_toolchain_wrong","expected":"fail","expected_reason":"Rust toolchain must be 1.97.1"},
-    {"name":"p10d_exporter_invoked","expected":"fail","expected_reason":"P10D capability exporter is forbidden"},
+    {"name":"capability_exporter_invoked","expected":"fail","expected_reason":"Capability exporter is forbidden"},
     {"name":"integrity_workflow_status_write","expected":"fail","expected_reason":"integrity workflow must not publish status"},
     {"name":"integrity_workflow_missing_ci_policy","expected":"fail","expected_reason":"integrity workflow must run -CiPolicy"}
   ]

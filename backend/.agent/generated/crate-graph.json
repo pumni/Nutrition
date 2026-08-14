@@ -13,9 +13,15 @@
     },
     {
       "path": "scripts/generate-agent-facts.ps1",
-      "sha256": "cc463ba5bab3a00afed3fce71c4e2d0f93200ae22d696b76eec9f973ba63a8c4"
+      "sha256": "266ca9904588d50ba598f02269cea8a450b5a6fd9311866cddffda096212c3a8"
     }
   ],
+  "refresh_attestation": {
+    "algorithm": "SHA256",
+    "input_count": 3,
+    "signature": "1d0e776638ab6824302e5d0a6a6e96d1bf6ee57c46a9e5b961ebd674e234ff8d",
+    "consumer_refresh": "required"
+  },
   "facts": {
     "workspace_members": [
       "adapters",

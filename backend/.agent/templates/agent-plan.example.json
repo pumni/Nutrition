@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "task_id": "MODERN-EXAMPLE-001",
   "task_spec_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "baseline": {

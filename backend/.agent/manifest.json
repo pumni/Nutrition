@@ -1,26 +1,23 @@
 {
   "schema_version": "1.0.0",
-  "context_release": "agent-context-1.0.0",
-  "contract_release": "agent-contract-1.1.0",
-  "verifier_release": "agent-verifier-2.2.0",
-  "verification_registry_release": "agent-gates-2.2.0",
-  "runner_release": "agent-runner-1.0.1",
-  "verification_report_release": "agent-verification-report-2.0.0",
-  "implementation_report_release": "agent-implementation-report-1.1.0",
-  "ci_release": "agent-ci-1.0.0",
-  "ci_attestation_contract_release": "agent-ci-attestation-1.0.0",
+  "context_release": "agent-context-2.0.0",
+  "contract_release": "agent-contract-2.0.0",
+  "verifier_release": "agent-verifier-3.0.0",
+  "verification_registry_release": "agent-gates-3.0.0",
+  "runner_release": "agent-runner-2.0.0",
+  "verification_report_release": "agent-verification-report-3.0.0",
+  "implementation_report_release": "agent-implementation-report-2.0.0",
+  "ci_release": "agent-ci-2.0.0",
+  "ci_attestation_contract_release": "agent-ci-attestation-2.0.0",
   "project": {
     "repository": "pumni/Nutrition_backend",
     "behavior_release": "foundation-0.6.0"
   },
   "authority": {
     "architect_decides": true,
-    "executor_implementation_only": false,
     "implementation_autonomous_within_policy": true,
     "protected_decisions_fail_closed": true,
-    "task_packet_required": false,
     "task_spec_required": true,
-    "context_profile_required": false,
     "context_routing_required": true
   },
   "budgets": {
@@ -30,7 +27,8 @@
     "context_file_max_bytes": 16384
   },
   "paths": {
-    "profile_index": ".agent/profiles/context-profiles.json",
+    "context_router": ".agent/context/router.json",
+    "context_presets": ".agent/context/presets.json",
     "source_register": ".agent/maps/source-register.json",
     "source_lock": ".agent/state/source-lock.json",
     "verification_map": ".agent/maps/verification-map.json"

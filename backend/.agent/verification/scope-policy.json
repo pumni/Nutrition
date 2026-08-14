@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "protected_path_patterns": [
     "Cargo.toml",
     "Cargo.lock",
@@ -10,5 +10,7 @@
     ".agent/invariants/**"
   ],
   "approval_source": "task_spec.scope_envelope.approved_protected_paths",
-  "exact_file_mode_risks": ["protected_decision"]
+  "risk_levels": ["low", "medium", "high", "critical"],
+  "authorization_states": ["unprotected", "approved_protected_change", "requires_human_decision"],
+  "exact_file_mode_risks": ["critical"]
 }

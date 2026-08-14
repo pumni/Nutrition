@@ -17,7 +17,7 @@ New-Item -ItemType Directory -Force -Path $EvidenceDirectory | Out-Null
 function Fail([string]$Message) { throw "[FAIL] $Message" }
 function Load-Json([string]$Path) { try { Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json } catch { Fail "invalid JSON: $Path" } }
 function Write-Json([string]$Path, $Value) { $Value | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $Path -Encoding utf8 }
-function Normalize([string]$Path) { $Path.Replace('\', '/').TrimStart('./') }
+function Normalize([string]$Path) { $value=$Path.Replace('\', '/'); if ($value.StartsWith('./')) { $value=$value.Substring(2) }; return $value }
 function Invoke-Git([string[]]$Arguments) {
     $output = & git -C $RepositoryRoot @Arguments 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) { Fail "git command failed: git $($Arguments -join ' ')`n$output" }
