@@ -197,7 +197,7 @@ function Assert-Manifest([string]$Root) {
     if ((Require-Property $manifest "project" "manifest").repository -ne "pumni/Nutrition_backend") { Fail "manifest repository mismatch" }
     if ((Require-Property $manifest "project" "manifest").behavior_release -ne "foundation-0.6.0") { Fail "manifest behavior_release mismatch" }
     $authority = Require-Property $manifest "authority" "manifest"
-    if ($authority.executor_implementation_only -ne $false -or $authority.implementation_autonomous_within_policy -ne $true -or $authority.protected_decisions_fail_closed -ne $true) { Fail "manifest authority model is not policy-bounded autonomy" }
+    if ($authority.executor_implementation_only -ne $false -or $authority.implementation_autonomous_within_policy -ne $true -or $authority.protected_decisions_fail_closed -ne $true -or $authority.task_packet_required -ne $false -or $authority.task_spec_required -ne $true -or $authority.context_profile_required -ne $false -or $authority.context_routing_required -ne $true) { Fail "manifest authority model is not modern policy-bounded autonomy" }
     $paths = Require-Property $manifest "paths" "manifest"
     foreach ($name in @("profile_index", "source_register", "source_lock", "verification_map")) {
         [void](Require-Property $paths $name "manifest.paths")
@@ -222,6 +222,17 @@ function Assert-Budgets([string]$Root, $Manifest) {
             if ($file.Length -gt [int64]$directory[1]) { Fail "$($file.FullName) exceeds its context budget" }
         }
     }
+}
+
+function Assert-ModernEntrypoint([string]$Root) {
+    $text = Get-Content -Raw (Get-RepoPath $Root "AGENTS.md")
+    foreach ($requiredText in @(".agent/manifest.json", "implementation_autonomous_within_policy", "Task Spec", "minimal relevant preset", "scope envelope", "canonical gate IDs", "protected-decision report")) {
+        if ($text -notmatch [regex]::Escape($requiredText)) { Fail "AGENTS.md is missing modern entrypoint guidance: $requiredText" }
+    }
+    foreach ($forbiddenText in @("implements exactly one", 'exact `create_files`', "implementation_sequence", "context profile's profile files only")) {
+        if ($text -match [regex]::Escape($forbiddenText)) { Fail "AGENTS.md retains obsolete procedural guidance: $forbiddenText" }
+    }
+    if ($text.Length -gt 4096) { Fail "AGENTS.md exceeds 4096 bytes" }
 }
 
 function Assert-Profiles([string]$Root) {
@@ -1324,6 +1335,7 @@ function Assert-Integrity([string]$Root) {
     Assert-JsonArtifacts $Root
     $manifest = Assert-Manifest $Root
     Assert-Budgets $Root $manifest
+    Assert-ModernEntrypoint $Root
     $profiles = Assert-Profiles $Root
     Assert-ContextRouting $Root
     Assert-ScopeEnvelopeFixtures $Root

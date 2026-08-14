@@ -1,11 +1,13 @@
 # Coding Agent Entry Point
 
-This repository uses `.agent/manifest.json` as the machine-readable context-layer manifest.
+The machine-readable context manifest is `.agent/manifest.json`. Human authority and protected boundaries are in `.agent/authority/`; canonical gates are in `.agent/maps/verification-map.json`.
 
-The coding agent is an implementation executor. An architect-authored task packet and its named context profile are required before any write. The architect owns product, domain, architecture, API, database, dependency, security, privacy, provider, and release decisions. The executor does not select a context profile, design alternatives, widen scope, or add unrequested behavior.
+The architect owns product/domain semantics, architecture, public API, database and migration intent, dependencies, security/privacy, providers, behavior versions, publication, infrastructure, and release policy. The coding agent is `implementation_autonomous_within_policy`: it investigates, plans, implements, tests, debugs, and revises its plan inside an approved task scope, but never silently decides a protected change.
 
-Read the authority contract at `.agent/authority/executor-contract.md`, then read only the context files named by the current packet's profile. `allowed_paths` is only the outer boundary: every task must declare exact `create_files`, `modify_files`, and `delete_files`, and the verifier requires those sets to match actual changes. Deletions require `delete_files`. Gate IDs are canonical; task packets declare gate IDs and required status but do not supply commands. The trusted runner resolves gate execution from its ControlRoot, validates external packets, and writes hashed verification evidence outside TargetRoot. Run the packet's required verification and report gates, then perform changed-path verification and produce the required implementation report.
+For modern work, read the approved Task Spec, start with the minimal relevant preset from `.agent/context/router.json`, expand context only when repository evidence requires it, and keep durable plan/progress state separate from task authority. Verify actual changes against the scope envelope and protected-path approvals. Use canonical gate IDs and the trusted runner; task artifacts do not define commands.
 
-If a packet, baseline, context profile, contract, scope, or verification precondition is missing or inconsistent, stop and report the most specific exact block code from the authority contract. Do not work around an unresolved architect decision.
+Transitional v1 task packets and profile names remain compatibility inputs only. Follow their contract when explicitly assigned; modern work uses Task Spec v2, progressive context routing, agent plan/state, and policy-bounded scope verification.
 
-The ACL is repository governance only. It does not integrate with nutrition runtime behavior, dependencies, database schema, or migrations.
+If baseline, task contract, scope, context, or verification preconditions are missing or inconsistent, stop the affected work and report the exact blocker. A protected-decision report must include classification, observed fact, evidence, existing constraint, implementation impact, and the smallest architect decision required. Do not work around it or inspect hidden reasoning.
+
+This layer is repository governance only; it does not integrate with nutrition runtime behavior, dependencies, database schema, or migrations.

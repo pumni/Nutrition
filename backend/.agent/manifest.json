@@ -18,8 +18,10 @@
     "executor_implementation_only": false,
     "implementation_autonomous_within_policy": true,
     "protected_decisions_fail_closed": true,
-    "task_packet_required": true,
-    "context_profile_required": true
+    "task_packet_required": false,
+    "task_spec_required": true,
+    "context_profile_required": false,
+    "context_routing_required": true
   },
   "budgets": {
     "agents_md_max_bytes": 4096,

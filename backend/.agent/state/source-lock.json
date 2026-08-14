@@ -35,6 +35,7 @@
     {"path": ".agent/verification/scope-policy.json", "sha256": "8cceb7ff1a79279086649796c4f20541c43296c2ff3db626f7b429ca41e509dc"},
     {"path": ".github/workflows/agent-context-integrity.yml", "sha256": "22f0a20089fdb15634d50dedea6b8ab2b604510b719625aa0aeb29bf4c8afab3"},
     {"path": ".github/workflows/agent-task-attest.yml", "sha256": "1f7d5b48f3bae0c7b64852ef7e953b393228c23c7ab2bfaa75ea28d751ba4add"},
+    {"path": "AGENTS.md", "sha256": "2a5dcbdf2b3ffd337394a0499e28e51c9e7c20decd4a10e91b2c2406482d9787"},
     {"path": "crates/adapters/src/fixture.rs", "sha256": "8edca26b2515d37cddc4db7ba920b051d835420a903b63e05ee6e5633c83ec97"},
     {"path": "crates/adapters/src/hosted_parser.rs", "sha256": "c7ec9e8dae836c62942279e2a135c4265729b346daaf2f954f1ac5da8c74e45f"},
     {"path": "crates/api-http/src/main.rs", "sha256": "bbee5a13f372a3bdde1307aa31aa841ec2c17d9aec23de18c2f40767723b7752"},
@@ -73,7 +74,7 @@
     {"path": "schemas/parsed-meal-0.1.0.json", "sha256": "97038755c8e8ebac4212ceca828e4687f8ef9f47fbd160ad6e04cc8d502b3d21"},
     {"path": "scripts/run-agent-verification.ps1", "sha256": "3f6bcc876c56cba032d30d1b405a3756a3ae5baaae8899a0188a219d8cef1a41"},
     {"path": "scripts/verify-agent-behavior.ps1", "sha256": "6f7032e4d2f280e149bfa7a909ec86857b910ee9fffbe7b26c3354fa686a8e30"},
-    {"path": "scripts/verify-agent-context.ps1", "sha256": "e7c7523549969da43791f406fae0d1dcdc28a8b3f8469f303ef6b1d8793b678b"},
+    {"path": "scripts/verify-agent-context.ps1", "sha256": "6d8b28171d4c4306b4f2437e160706408d7ff32e8537bbea80dc134d3aae6c21"},
     {"path": "scripts/verify-postgres.ps1", "sha256": "601e07b9cd7d54486f834c7cad984a3f9f495b911302dafe527d7bbb170bd603"},
     {"path": "scripts/verify.ps1", "sha256": "c6790821493f2cc9e3d46c4e58e28451d9ba4d947101320a129cf8afbc705a43"},
     {"path": "seeds/0001_foundation_fixture.sql", "sha256": "457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84"}
