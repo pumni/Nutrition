@@ -134,7 +134,7 @@ $aggregate = [ordered]@{
     }
     mode = $Mode
     baseline_commit = $BaselineCommit
-    subject_commit = (& git -C $RepositoryRoot rev-parse HEAD 2>&1 | Out-String).Trim()
+    subject_commit = $BaselineCommit
     evidence_root = (Resolve-Path -LiteralPath $evidenceRoot).Path
     cases = @($caseResults)
 }

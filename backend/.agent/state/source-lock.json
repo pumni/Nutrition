@@ -52,7 +52,7 @@
     },
     {
       "path": ".agent/evals/behavioral-cases.json",
-      "sha256": "4f1bf21e43c481a72d1341869c9f790619eb2d3b601bbb2213fa981e90c307e5"
+      "sha256": "1453032f146204288481c44103102ebba6e996696f5e07cbefda1c63d1ebab7c"
     },
     {
       "path": ".agent/evals/ci-cases.json",
@@ -72,7 +72,7 @@
     },
     {
       "path": ".agent/generated/change-impact-map.json",
-      "sha256": "68eb262fdd1f757079cdab707464a00b6b375b24268e5e56b1ddd7d1dc786d01"
+      "sha256": "4d2f422e2a5044a918b00e4a2c49e2945be81989ac36a42d3611b1db38a61afb"
     },
     {
       "path": ".agent/generated/crate-graph.json",
@@ -80,7 +80,7 @@
     },
     {
       "path": ".agent/generated/source-index.json",
-      "sha256": "0d3057c38926cb304c387d72f974eb56791bc4f44b80ac1b8791f257cc490f02"
+      "sha256": "419214e1ff0c7175fc0b380444a0ce5b17134a40b47b3677e417b7e5e4b098e1"
     },
     {
       "path": ".agent/generated/test-map.json",
@@ -288,7 +288,7 @@
     },
     {
       "path": "scripts/run-agent-behavior.ps1",
-      "sha256": "8f86a62ccf514d9d03d7b0360a00f304611dc35fb6d37cc066d3571a10490ac3"
+      "sha256": "07e702610577c73e92ada4f831f919b153a56bcc2dec41494ddb60439758b59c"
     },
     {
       "path": "scripts/run-agent-verification.ps1",

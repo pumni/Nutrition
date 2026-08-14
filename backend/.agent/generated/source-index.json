@@ -53,7 +53,7 @@
     },
     {
       "path": ".agent/evals/behavioral-cases.json",
-      "sha256": "4f1bf21e43c481a72d1341869c9f790619eb2d3b601bbb2213fa981e90c307e5"
+      "sha256": "1453032f146204288481c44103102ebba6e996696f5e07cbefda1c63d1ebab7c"
     },
     {
       "path": ".agent/evals/ci-cases.json",
@@ -273,7 +273,7 @@
     },
     {
       "path": "scripts/run-agent-behavior.ps1",
-      "sha256": "8f86a62ccf514d9d03d7b0360a00f304611dc35fb6d37cc066d3571a10490ac3"
+      "sha256": "07e702610577c73e92ada4f831f919b153a56bcc2dec41494ddb60439758b59c"
     },
     {
       "path": "scripts/run-agent-verification.ps1",
@@ -311,7 +311,7 @@
   "refresh_attestation": {
     "algorithm": "SHA256",
     "input_count": 76,
-    "signature": "b43fd67224506d43fd71e177c63938e666678aca58f841a6187c992895e49958",
+    "signature": "977e535af18b5949ea0b496172030c0ba6990d71a25ea59b237a6b571bdc2020",
     "consumer_refresh": "required"
   },
   "facts": {
@@ -405,7 +405,7 @@
       },
       {
         "path": ".agent/evals/behavioral-cases.json",
-        "sha256": "4f1bf21e43c481a72d1341869c9f790619eb2d3b601bbb2213fa981e90c307e5",
+        "sha256": "1453032f146204288481c44103102ebba6e996696f5e07cbefda1c63d1ebab7c",
         "consumers": [
           ".agent/contexts/verification.md"
         ]
@@ -829,7 +829,7 @@
       },
       {
         "path": "scripts/run-agent-behavior.ps1",
-        "sha256": "8f86a62ccf514d9d03d7b0360a00f304611dc35fb6d37cc066d3571a10490ac3",
+        "sha256": "07e702610577c73e92ada4f831f919b153a56bcc2dec41494ddb60439758b59c",
         "consumers": [
           ".agent/contexts/verification.md"
         ]

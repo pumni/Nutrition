@@ -53,7 +53,7 @@
     },
     {
       "path": ".agent/evals/behavioral-cases.json",
-      "sha256": "4f1bf21e43c481a72d1341869c9f790619eb2d3b601bbb2213fa981e90c307e5"
+      "sha256": "1453032f146204288481c44103102ebba6e996696f5e07cbefda1c63d1ebab7c"
     },
     {
       "path": ".agent/evals/ci-cases.json",
@@ -277,7 +277,7 @@
     },
     {
       "path": "scripts/run-agent-behavior.ps1",
-      "sha256": "8f86a62ccf514d9d03d7b0360a00f304611dc35fb6d37cc066d3571a10490ac3"
+      "sha256": "07e702610577c73e92ada4f831f919b153a56bcc2dec41494ddb60439758b59c"
     },
     {
       "path": "scripts/run-agent-verification.ps1",
@@ -315,7 +315,7 @@
   "refresh_attestation": {
     "algorithm": "SHA256",
     "input_count": 77,
-    "signature": "57c4478c9ce1091979d7d21e434a460c76e92b54170317cb466eb5570fba5d42",
+    "signature": "274c3055988603d04000cb82b67b39e846830e75a6284a6e2f629198f2816d1c",
     "consumer_refresh": "required"
   },
   "facts": {
