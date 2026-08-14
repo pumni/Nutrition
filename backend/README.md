@@ -1,7 +1,7 @@
 # Nutrition backend
 
-Evidence-first nutrition analysis backend based on
-[`nutrition_backend_blueprint_v1.0`](docs/archive/nutrition_backend_blueprint_v1.0/00_README.md).
+Evidence-first nutrition analysis backend with current decisions recorded in
+[`docs/FOUNDATION_DECISIONS.md`](docs/FOUNDATION_DECISIONS.md).
 
 Current behavior release: `foundation-0.6.0`.
 
@@ -173,12 +173,12 @@ The initial governance artifacts are
 
 ## AI coding context layer
 
-`AGENTS.md` is the repository entrypoint for coding agents. An architect authors the modern Task
-Spec; the coding agent operates with policy-bounded implementation autonomy and must not make
-protected project decisions. The ACL is repository governance and does not alter nutrition runtime
-behavior.
+`AGENTS.md` is the repository entrypoint for coding agents. A human supplies Task Intent; the
+trusted harness compiles the execution spec; the coding agent operates with policy-bounded
+implementation autonomy and must not make protected project decisions. This governance layer does
+not alter nutrition runtime behavior.
 
-Run the context self-test, the default ACL verification, and the full foundation verification:
+Run the context self-test, the default context verification, and the full foundation verification:
 
 ```powershell
 .\scripts\verify-agent-context.ps1 -SelfTest
@@ -186,6 +186,6 @@ Run the context self-test, the default ACL verification, and the full foundation
 .\scripts\verify.ps1
 ```
 
-Modern work starts from the [Task Spec example](.agent/templates/task-spec.example.json). The
-[legacy task packet example](.agent/templates/legacy-task-packet.example.json) is retained only for
-explicit compatibility checks.
+Modern work starts from the [Task Intent example](.agent/templates/task-intent.example.json). The
+trusted runner compiles it into a Task Spec, discovers relevant context from repository evidence,
+and derives applicable gates from the final diff.

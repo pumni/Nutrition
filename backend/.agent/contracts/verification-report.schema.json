@@ -4,7 +4,7 @@
   "title": "Task Spec Verification Report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "task_spec_sha256", "releases", "control_plane", "target", "change_records", "gate_results", "risk", "scope", "result"],
+  "required": ["schema_version", "task_id", "task_spec_sha256", "releases", "control_plane", "target", "change_records", "derived_context_modules", "derived_risk_tags", "gate_results", "risk", "scope", "result"],
   "properties": {
     "schema_version": {"const": "2.0.0"},
     "task_id": {"type": "string", "minLength": 1},
@@ -52,6 +52,8 @@
         }
       }
     },
+    "derived_context_modules": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "derived_risk_tags": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "gate_results": {
       "type": "array",
       "items": {

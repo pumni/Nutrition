@@ -3,7 +3,6 @@ param(
     [string]$TaskSpec,
     [string]$RepositoryRoot,
     [switch]$CiPolicy,
-    [switch]$RegenerateSourceLock,
     [switch]$SelfTest
 )
 
@@ -24,7 +23,7 @@ $script:AuthorizationStates = @('unprotected', 'approved_protected_change', 'req
 
 function Fail([string]$Message) { throw "[FAIL] $Message" }
 function Normalize-RepoPath([string]$Path) { if ($null -eq $Path) { return '' }; $value=$Path.Replace('\', '/'); if ($value.StartsWith('./')) { $value=$value.Substring(2) }; return $value }
-function Get-RepoPath([string]$Root, [string]$RelativePath) { Join-Path $Root ($RelativePath.Replace('/', '\')) }
+function Get-RepoPath([string]$Root, [string]$RelativePath) { [IO.Path]::Combine($Root, ($RelativePath -replace '/', [IO.Path]::DirectorySeparatorChar)) }
 function Load-Json([string]$Path) { if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Fail "JSON file does not exist: $Path" }; try { Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json } catch { Fail "invalid JSON: $Path" } }
 function Has-Property($Object, [string]$Name) { $null -ne $Object.PSObject.Properties[$Name] }
 function Require-Property($Object, [string]$Name, [string]$Context) { if (-not (Has-Property $Object $Name)) { Fail "$Context is missing '$Name'" }; return $Object.PSObject.Properties[$Name].Value }
@@ -46,16 +45,15 @@ function Assert-RequiredFiles([string]$Root) {
         '.agent/invariants/llm-boundary.md', '.agent/invariants/security-privacy.md',
         '.agent/contexts/domain.md', '.agent/contexts/application.md', '.agent/contexts/parser.md', '.agent/contexts/persistence.md',
         '.agent/contexts/api.md', '.agent/contexts/worker.md', '.agent/contexts/data-governance.md', '.agent/contexts/verification.md',
-        '.agent/context/modules.json', '.agent/context/router.json', '.agent/policies/crate-boundaries.json', '.agent/policies/change-impact-policy.json',
-        '.agent/generated/source-index.json',
+        '.agent/context/modules.json', '.agent/context/router.json',
         '.agent/maps/verification-map.json', '.agent/maps/source-register.json', '.agent/verification/risk-policy.json', '.agent/verification/scope-policy.json',
         '.agent/contracts/task-intent.schema.json', '.agent/contracts/task-spec.schema.json', '.agent/contracts/agent-plan.schema.json', '.agent/contracts/execution-state.schema.json',
         '.agent/contracts/verification-report.schema.json', '.agent/contracts/implementation-report.schema.json', '.agent/contracts/external-evidence.schema.json', '.agent/contracts/ci-attestation.schema.json',
         '.agent/templates/task-intent.example.json', '.agent/templates/task-spec.example.json', '.agent/templates/agent-plan.example.json', '.agent/templates/execution-state.example.json',
         '.agent/templates/verification-report.example.json', '.agent/templates/implementation-report.example.md', '.agent/templates/external-evidence.example.json', '.agent/templates/ci-attestation.example.json',
-        '.agent/evals/README.md', '.agent/evals/behavioral-cases.json', '.agent/evals/implementation-report-cases.json', '.agent/evals/ci-cases.json',
-        '.agent/evals/tasks/README.md', '.agent/evals/graders/README.md', '.agent/state/source-lock.json',
-        'scripts/compile-agent-task-spec.ps1', 'scripts/verify-agent-context.ps1', 'scripts/run-agent-verification.ps1', 'scripts/verify-agent-behavior.ps1', 'scripts/generate-agent-facts.ps1', 'scripts/verify-agent-facts.ps1',
+        '.agent/evals/README.md', '.agent/evals/implementation-report-cases.json', '.agent/evals/ci-cases.json',
+        '.agent/evals/tasks/README.md', '.agent/evals/graders/README.md',
+        'scripts/compile-agent-task-spec.ps1', 'scripts/verify-agent-context.ps1', 'scripts/run-agent-verification.ps1', 'scripts/verify-agent-behavior.ps1',
         '.github/workflows/agent-context-integrity.yml', '.github/workflows/agent-task-attest.yml'
     )
     foreach ($path in $required) { if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) { Fail "required active file is missing: $path" } }
@@ -73,7 +71,7 @@ function Assert-Manifest([string]$Root) {
     $authority = $manifest.authority
     Assert-ExactProperties $authority @('architect_decides','implementation_autonomous_within_policy','protected_decisions_fail_closed','task_spec_required','context_routing_required') 'manifest authority'
     if ($authority.architect_decides -ne $true -or $authority.implementation_autonomous_within_policy -ne $true -or $authority.protected_decisions_fail_closed -ne $true -or $authority.task_spec_required -ne $true -or $authority.context_routing_required -ne $true) { Fail 'manifest authority model is invalid' }
-    Assert-ExactProperties $manifest.paths @('context_router','context_modules','source_register','source_lock','verification_map') 'manifest paths'
+    Assert-ExactProperties $manifest.paths @('context_router','context_modules','source_register','verification_map') 'manifest paths'
     return $manifest
 }
 
@@ -86,7 +84,7 @@ function Assert-Budgets([string]$Root, $Manifest) {
 
 function Assert-Entrypoint([string]$Root) {
     $text = Get-Content -Raw (Get-RepoPath $Root 'AGENTS.md')
-    foreach ($required in @('.agent/manifest.json','docs/AGENT_ENGINEERING.md','Task Spec','minimal modules','scope envelope','canonical gate IDs','protected-decision report')) { if ($text -notmatch [regex]::Escape($required)) { Fail "AGENTS.md is missing guidance: $required" } }
+    foreach ($required in @('.agent/manifest.json','docs/AGENT_ENGINEERING.md','Task Intent','minimal modules','scope envelope','canonical gate IDs','protected-decision report')) { if ($text -notmatch [regex]::Escape($required)) { Fail "AGENTS.md is missing guidance: $required" } }
     foreach ($forbidden in @('Transitional executor model','obsolete profile selection')) { if ($text -match [regex]::Escape($forbidden)) { Fail "AGENTS.md retains stale guidance: $forbidden" } }
 }
 
@@ -97,17 +95,6 @@ function Assert-SourceRegister([string]$Root) {
         foreach ($source in @($entry.Value)) { $path = Normalize-RepoPath ([string]$source); if ($path -ne [string]$source) { Fail "source register path is not normalized: $source" }; if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) { Fail "source register source is missing: $path" } }
     }
 }
-function Get-DeclaredSourcePaths([string]$Root) { $register = Load-Json (Get-RepoPath $Root '.agent/maps/source-register.json'); return @($register.PSObject.Properties | ForEach-Object { $_.Value } | ForEach-Object { $_ } | ForEach-Object { Normalize-RepoPath ([string]$_) } | Sort-Object -Unique) }
-function New-SourceLock([string]$Root) {
-    $entries = foreach ($path in @(Get-DeclaredSourcePaths $Root)) { $full = Get-RepoPath $Root $path; if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { Fail "source lock source is missing: $path" }; [pscustomobject][ordered]@{path=$path;sha256=(Get-FileHash -Algorithm SHA256 -LiteralPath $full).Hash.ToLowerInvariant()} }
-    [pscustomobject][ordered]@{schema_version='2.0.0';algorithm='SHA256';sources=@($entries)}
-}
-function Assert-SourceLock([string]$Root) {
-    $lock = Load-Json (Get-RepoPath $Root '.agent/state/source-lock.json'); if ([string]$lock.schema_version -ne '2.0.0' -or [string]$lock.algorithm -ne 'SHA256') { Fail 'source lock identity mismatch' }
-    $expected = @(Get-DeclaredSourcePaths $Root); $sources = @($lock.sources); if ($sources.Count -ne $expected.Count) { Fail 'source lock source count mismatch' }
-    for ($i=0; $i -lt $expected.Count; $i++) { if ((Normalize-RepoPath ([string]$sources[$i].path)) -ne $expected[$i]) { Fail "source lock path mismatch at $i" }; $full=Get-RepoPath $Root $expected[$i]; $actual=(Get-FileHash -Algorithm SHA256 -LiteralPath $full).Hash.ToLowerInvariant(); if ($actual -ne ([string]$sources[$i].sha256).ToLowerInvariant()) { Fail "stale source hash: $($expected[$i])" } }
-}
-
 function Assert-VerificationMap([string]$Root) {
     $map = Load-Json (Get-RepoPath $Root '.agent/maps/verification-map.json'); Assert-ExactProperties $map @('schema_version','release','gates') 'verification map'; if ($map.schema_version -ne '3.0.0' -or $map.release -ne 'agent-gates-3.0.0') { Fail 'verification map release mismatch' }
     $names=@(); foreach ($gate in @($map.gates)) { Assert-ExactProperties $gate @('name','kind','script','arguments','program','paths','evidence_kind','display_command','target_root_argument') 'verification gate'; if ([string]::IsNullOrWhiteSpace([string]$gate.name)) { Fail 'verification gate ID is empty' }; if ($gate.name -in $names) { Fail "duplicate verification gate: $($gate.name)" }; $names += [string]$gate.name; if ([string]$gate.kind -notin @('control-script','target-script','native','json-parse','external-evidence')) { Fail "unknown verification gate kind: $($gate.name)" } }
@@ -135,13 +122,10 @@ function Assert-ScopePolicy([string]$Root) {
 }
 
 function Assert-TaskSpecV2([string]$Root, $Spec) {
-    $allowed=@('schema_version','task_id','objective','acceptance_criteria','non_negotiables','risk_level','scope_envelope','protected_boundaries','required_policy_modules','required_verification_gates','approved_protected_decisions','baseline'); Assert-ExactProperties $Spec $allowed 'Task Spec'; if ($Spec.schema_version -ne '2.0.0') { Fail 'Task Spec schema_version must be 2.0.0' }; if ([string]::IsNullOrWhiteSpace([string]$Spec.task_id) -or [string]::IsNullOrWhiteSpace([string]$Spec.objective)) { Fail 'Task Spec identity/objective is empty' }; [void](Assert-StringArray $Spec.acceptance_criteria 'Task Spec acceptance_criteria' $true); [void](Assert-StringArray $Spec.non_negotiables 'Task Spec non_negotiables'); if ($Spec.risk_level -and $Spec.risk_level -notin $script:RiskLevels) { Fail 'Task Spec risk_level is invalid' }
+    $allowed=@('schema_version','task_id','objective','acceptance_criteria','non_negotiables','risk_level','scope_envelope','approved_protected_decisions','baseline'); Assert-ExactProperties $Spec $allowed 'Task Spec'; if ($Spec.schema_version -ne '2.0.0') { Fail 'Task Spec schema_version must be 2.0.0' }; if ([string]::IsNullOrWhiteSpace([string]$Spec.task_id) -or [string]::IsNullOrWhiteSpace([string]$Spec.objective)) { Fail 'Task Spec identity/objective is empty' }; [void](Assert-StringArray $Spec.acceptance_criteria 'Task Spec acceptance_criteria' $true); [void](Assert-StringArray $Spec.non_negotiables 'Task Spec non_negotiables'); if ($Spec.risk_level -notin $script:RiskLevels) { Fail 'Task Spec risk_level is invalid' }
     Assert-ExactProperties $Spec.scope_envelope @('include','exclude','approved_protected_paths') 'Task Spec scope_envelope'; [void](Assert-StringArray $Spec.scope_envelope.include 'Task Spec scope include' $true); [void](Assert-StringArray $Spec.scope_envelope.exclude 'Task Spec scope exclude'); [void](Assert-StringArray $Spec.scope_envelope.approved_protected_paths 'Task Spec approved protected paths')
-    if ($Spec.PSObject.Properties.Name -contains 'protected_boundaries') { foreach ($domain in @(Assert-StringArray $Spec.protected_boundaries 'Task Spec protected_boundaries')) { if ($domain -notin $script:ProtectedDomains) { Fail "Task Spec protected domain is not canonical: $domain" } } }
-    if ($Spec.required_policy_modules) { $modules=Assert-StringArray $Spec.required_policy_modules 'Task Spec required_policy_modules' $true; $knownModules=Get-ContextModules $Root; foreach ($module in $modules) { if ($module -notin $knownModules) { Fail "Task Spec required policy module is not routed: $module" } } }
-    if ($Spec.required_verification_gates) { $knownGates=Assert-VerificationMap $Root; foreach ($gate in (Assert-StringArray $Spec.required_verification_gates 'Task Spec required_verification_gates' $true)) { if ($gate -notin $knownGates) { Fail "Task Spec required gate is unknown: $gate" } } }
     foreach ($approval in @(Assert-Array $Spec.approved_protected_decisions 'Task Spec approvals')) { Assert-ExactProperties $approval @('domain','decision_id','approval_ref','scope') 'Task Spec protected approval'; if ($approval.domain -notin $script:ProtectedDomains) { Fail "Task Spec approval domain is invalid: $($approval.domain)" }; foreach ($field in @('decision_id','approval_ref')) { if ([string]::IsNullOrWhiteSpace([string]$approval.$field)) { Fail "Task Spec approval $field is empty" } }; [void](Assert-StringArray $approval.scope 'Task Spec approval scope' $true) }
-    if ($Spec.baseline) { Assert-ExactProperties $Spec.baseline @('commit','source') 'Task Spec baseline'; if ([string]$Spec.baseline.commit -notmatch '^[0-9a-fA-F]{40}$' -or $Spec.baseline.source -ne 'git') { Fail 'Task Spec baseline is invalid' } }
+    Assert-ExactProperties $Spec.baseline @('commit','source') 'Task Spec baseline'; if ([string]$Spec.baseline.commit -notmatch '^[0-9a-fA-F]{40}$' -or $Spec.baseline.source -ne 'git') { Fail 'Task Spec baseline is invalid' }
 }
 
 function Assert-Contracts([string]$Root, [string[]]$KnownGates) {
@@ -156,15 +140,16 @@ function Assert-Contracts([string]$Root, [string[]]$KnownGates) {
 }
 
 function Assert-ContextText([string]$Root) {
-    $active = @('AGENTS.md','docs/AGENT_ENGINEERING.md','.agent/README.md','.agent/authority/execution-contract.md','.agent/authority/decision-policy.md','.agent/authority/escalation-policy.md','.agent/evals/README.md','.agent/contexts/verification.md')
-    foreach ($path in $active) { $text=Get-Content -Raw (Get-RepoPath $Root $path); if ($text -match '(?i)transitional\s+v1|compatibility\s+architecture') { Fail "active context contains retired migration guidance: $path" } }
+    $active = @('AGENTS.md','README.md','docs/AGENT_ENGINEERING.md','.agent/README.md') + @(Get-ChildItem -LiteralPath (Get-RepoPath $Root '.agent') -Recurse -File | ForEach-Object { Normalize-RepoPath $_.FullName.Substring($Root.Length + 1) })
+    $archivedPrefix = 'docs/' + 'archive/'
+    foreach ($path in $active) { $text=Get-Content -Raw (Get-RepoPath $Root $path); if ($text -match '(?i)transitional\s+v1|compatibility\s+architecture') { Fail "active context contains retired migration guidance: $path" }; if ($text -match [regex]::Escape($archivedPrefix)) { Fail "active context points at archived normative material: $path" } }
 }
 
 function Assert-CiPolicy([string]$Root) {
     $ciPolicy=Load-Json (Get-RepoPath $Root '.agent/maps/ci-policy.json'); if ($ciPolicy.schema_version -ne '2.0.0' -or $ciPolicy.release -ne 'agent-ci-2.0.0') { Fail 'CI policy release mismatch' }
     $attestation=Load-Json (Get-RepoPath $Root '.agent/contracts/ci-attestation.schema.json'); if ($attestation.properties.schema_version.const -ne '2.0.0' -or $attestation.properties.release.const -ne 'agent-ci-attestation-2.0.0' -or $attestation.properties.runner_release.const -ne 'agent-runner-2.0.0' -or $attestation.properties.verifier_release.const -ne 'agent-verifier-3.0.0') { Fail 'CI attestation contract release mismatch' }
     $integrity=Get-RepoPath $Root '.github/workflows/agent-context-integrity.yml'; $attest=Get-RepoPath $Root '.github/workflows/agent-task-attest.yml'; foreach ($path in @($integrity,$attest)) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail "CI workflow missing: $path" } }
-    $text=Get-Content -Raw $integrity; foreach ($required in @('verify-agent-context.ps1 -SelfTest','run-agent-verification.ps1 -SelfTest','verify-agent-context.ps1 -CiPolicy','verify-agent-facts.ps1 -Check')) { if ($text -notmatch [regex]::Escape($required)) { Fail "integrity workflow missing check: $required" } }; if ($text -match '(?m)contents:\s*write') { Fail 'integrity workflow grants contents write' }
+    $text=Get-Content -Raw $integrity; foreach ($required in @('verify-agent-context.ps1 -SelfTest','run-agent-verification.ps1 -SelfTest','verify-agent-context.ps1 -CiPolicy')) { if ($text -notmatch [regex]::Escape($required)) { Fail "integrity workflow missing check: $required" } }; if ($text -match '(?m)contents:\s*write') { Fail 'integrity workflow grants contents write' }
     $attestText=Get-Content -Raw $attest; if ($attestText -notmatch 'workflow_dispatch') { Fail 'attestation workflow is not dispatch-only' }; if ($attestText -match '(?m)pull_request_target|workflow_run') { Fail 'attestation workflow has an unsafe trigger' }
     foreach ($workflow in @($text,$attestText)) { foreach ($match in [regex]::Matches($workflow, 'uses:\s*[^\s]+@([^\s#]+)')) { if ($match.Groups[1].Value -notmatch '^[0-9a-fA-F]{40}$') { Fail 'CI action reference is not pinned to a full commit' } } }
 }
@@ -183,21 +168,26 @@ function Assert-Scope([string]$Root, $Spec) {
 }
 
 function Assert-Integrity([string]$Root) {
-    Assert-RequiredFiles $Root; $manifest=Assert-Manifest $Root; Assert-Budgets $Root $manifest; Assert-Entrypoint $Root; Assert-ContextText $Root; Assert-SourceRegister $Root; Assert-SourceLock $Root; $knownGates=@(Assert-VerificationMap $Root); [void](Assert-ContextRouting $Root $knownGates); Assert-RiskPolicy $Root; Assert-ScopePolicy $Root; Assert-Contracts $Root $knownGates; Assert-CiPolicy $Root; Write-Output '[PASS] Active agent context integrity verified.'
+    Assert-RequiredFiles $Root; $manifest=Assert-Manifest $Root; Assert-Budgets $Root $manifest; Assert-Entrypoint $Root; Assert-ContextText $Root; Assert-SourceRegister $Root; $knownGates=@(Assert-VerificationMap $Root); [void](Assert-ContextRouting $Root $knownGates); Assert-RiskPolicy $Root; Assert-ScopePolicy $Root; Assert-Contracts $Root $knownGates; Assert-CiPolicy $Root; Write-Output '[PASS] Active agent context integrity verified.'
 }
 
 function Assert-SelfTestExpected([string]$Name, [bool]$ExpectedPass, [scriptblock]$Action) { $passed=$false; try { & $Action; $passed=$true } catch { $passed=$false }; if ($passed -ne $ExpectedPass) { Fail "self-test case failed: $Name" }; Write-Output "[PASS] Self-test: $Name" }
-function Invoke-SourceLockSelfTests([string]$Root) {
-    $fixture=Join-Path ([IO.Path]::GetTempPath()) ('agent-context-source-lock-' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force -Path $fixture | Out-Null
+function Invoke-SourceRegisterSelfTests([string]$Root) {
+    $fixture=Join-Path ([IO.Path]::GetTempPath()) ('agent-context-source-register-' + [guid]::NewGuid().ToString('N')); New-Item -ItemType Directory -Force -Path $fixture | Out-Null
     try {
-        Copy-Item -Recurse -Force (Get-RepoPath $Root '.agent') (Join-Path $fixture '.agent'); foreach ($source in @(Get-DeclaredSourcePaths $Root)) { $dest=Get-RepoPath $fixture $source; New-Item -ItemType Directory -Force (Split-Path -Parent $dest) | Out-Null; Copy-Item -Force (Get-RepoPath $Root $source) $dest }
-        $lock=New-SourceLock $fixture; $lock | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Get-RepoPath $fixture '.agent/state/source-lock.json') -Encoding utf8; Assert-SourceLock $fixture
-        $first=$lock | ConvertTo-Json -Depth 20 -Compress; $second=New-SourceLock $fixture | ConvertTo-Json -Depth 20 -Compress; if ($first -ne $second) { Fail 'source-lock generation is not deterministic' }; Write-Output '[PASS] Source-lock deterministic baseline'
-        Add-Content -LiteralPath (Get-RepoPath $fixture ([string](Get-DeclaredSourcePaths $fixture)[0])) -Value 'drift'; Assert-SelfTestExpected 'source drift fails closed' $false { Assert-SourceLock $fixture }
-        $missing=[string](Get-DeclaredSourcePaths $fixture)[0]; Remove-Item -LiteralPath (Get-RepoPath $fixture $missing) -Force; Assert-SelfTestExpected 'missing source fails closed' $false { Assert-SourceLock $fixture }
+        Copy-Item -Recurse -Force (Get-RepoPath $Root '.agent') (Join-Path $fixture '.agent')
+        $register=Load-Json (Get-RepoPath $Root '.agent/maps/source-register.json')
+        foreach ($entry in $register.PSObject.Properties) {
+            foreach ($source in @($entry.Value)) {
+                $dest=Get-RepoPath $fixture ([string]$source); New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null; Copy-Item -Force (Get-RepoPath $Root ([string]$source)) $dest
+            }
+        }
+        Assert-SourceRegister $fixture; Write-Output '[PASS] Source register baseline'
+        $entry=$register.PSObject.Properties | Select-Object -First 1
+        $missing=[string]$entry.Value[0]; Remove-Item -LiteralPath (Get-RepoPath $fixture $missing) -Force; Assert-SelfTestExpected 'missing authoritative source fails closed' $false { Assert-SourceRegister $fixture }
     } finally { if (Test-Path -LiteralPath $fixture) { Remove-Item -Recurse -Force $fixture } }
 }
-function Invoke-SelfTest([string]$Root) { Invoke-SourceLockSelfTests $Root; Assert-Integrity $Root; Write-Output '[PASS] Modern agent context self-test completed.' }
+function Invoke-SelfTest([string]$Root) { Invoke-SourceRegisterSelfTests $Root; Assert-Integrity $Root; Write-Output '[PASS] Modern agent context self-test completed.' }
 
 Push-Location $script:RepoRoot
 try {
@@ -205,7 +195,6 @@ try {
     if ($CiPolicy -and ($SelfTest -or $TaskSpec)) { Fail '-CiPolicy cannot be combined with other execution modes' }
     if ($SelfTest) { Invoke-SelfTest $script:RepoRoot; exit 0 }
     if ($CiPolicy) { Assert-CiPolicy $script:RepoRoot; Write-Output '[PASS] CI policy verification passed.'; exit 0 }
-    if ($RegenerateSourceLock) { $lock = New-SourceLock $script:RepoRoot; $lock | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Get-RepoPath $script:RepoRoot '.agent/state/source-lock.json') -Encoding utf8; Write-Output '[PASS] Source lock regenerated.'; exit 0 }
     Assert-Integrity $script:RepoRoot
     if ($TaskSpec) { $path=if([IO.Path]::IsPathRooted($TaskSpec)){$TaskSpec}else{Get-RepoPath $script:RepoRoot $TaskSpec}; $spec=Load-Json $path; Assert-TaskSpecV2 $script:RepoRoot $spec; [void](Assert-Scope $script:RepoRoot $spec); Write-Output "[PASS] Task Spec validated: $($spec.task_id)" }
 }

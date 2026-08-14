@@ -4,7 +4,7 @@
   "title": "Agent-Owned Implementation Plan",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "task_spec_sha256", "baseline", "observations", "hypothesis", "planned_changes", "expected_affected_paths", "implementation_steps", "verification_strategy", "risks", "protected_decisions_required", "status"],
+  "required": ["schema_version", "task_id", "task_spec_sha256", "baseline", "status"],
   "properties": {
     "schema_version": {"const": "2.0.0"},
     "task_id": {"type": "string", "minLength": 1},

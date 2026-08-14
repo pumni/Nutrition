@@ -12,5 +12,3 @@ Sources:
 - `docs/FOUNDATION_DECISIONS.md`
 - `docs/HOSTED_PARSER.md`
 - `docs/RISK_REGISTER.md`
-- `docs/archive/nutrition_backend_blueprint_v1.0/00_README.md`
-- `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`

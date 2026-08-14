@@ -30,7 +30,7 @@
     {"name":"status_job_missing_always","expected":"fail","expected_reason":"status job must use if: always()"},
     {"name":"status_job_missing_needs_attest","expected":"fail","expected_reason":"status job must need attest"},
     {"name":"runner_path_uses_target_root","expected":"fail","expected_reason":"trusted runner must execute from ControlRoot"},
-    {"name":"packet_written_inside_target","expected":"fail","expected_reason":"packet must be outside TargetRoot"},
+    {"name":"task_intent_written_inside_target","expected":"fail","expected_reason":"task intent must be outside TargetRoot"},
     {"name":"report_written_inside_target","expected":"fail","expected_reason":"report must be outside TargetRoot"},
     {"name":"artifact_retention_wrong","expected":"fail","expected_reason":"artifact retention must be 30 days"},
     {"name":"rust_toolchain_wrong","expected":"fail","expected_reason":"Rust toolchain must be 1.97.1"},

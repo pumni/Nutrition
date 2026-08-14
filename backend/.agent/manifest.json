@@ -31,7 +31,6 @@
     "context_router": ".agent/context/router.json",
     "context_modules": ".agent/context/modules.json",
     "source_register": ".agent/maps/source-register.json",
-    "source_lock": ".agent/state/source-lock.json",
     "verification_map": ".agent/maps/verification-map.json"
   }
 }

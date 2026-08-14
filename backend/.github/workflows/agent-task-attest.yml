@@ -11,6 +11,21 @@ on:
         description: Human task intent JSON compiled by the trusted runner
         required: true
         type: string
+      external_evidence_json:
+        description: Optional external-evidence object JSON
+        required: false
+        default: ''
+        type: string
+      external_artifact_base64:
+        description: Optional base64-encoded external evidence artifact
+        required: false
+        default: ''
+        type: string
+      external_artifact_name:
+        description: Artifact filename referenced by external_evidence_json
+        required: false
+        default: artifact.bin
+        type: string
 
 permissions: {}
 
@@ -71,6 +86,27 @@ jobs:
           $bytes = [Text.Encoding]::UTF8.GetBytes($env:TASK_INTENT_JSON)
           [IO.File]::WriteAllBytes($specPath, $bytes)
 
+      - name: Prepare optional external evidence
+        shell: pwsh
+        env:
+          EXTERNAL_EVIDENCE_JSON: ${{ inputs.external_evidence_json }}
+          EXTERNAL_ARTIFACT_BASE64: ${{ inputs.external_artifact_base64 }}
+          EXTERNAL_ARTIFACT_NAME: ${{ inputs.external_artifact_name }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:EXTERNAL_EVIDENCE_JSON) -and [string]::IsNullOrWhiteSpace($env:EXTERNAL_ARTIFACT_BASE64)) {
+            exit 0
+          }
+          if ([string]::IsNullOrWhiteSpace($env:EXTERNAL_EVIDENCE_JSON) -or [string]::IsNullOrWhiteSpace($env:EXTERNAL_ARTIFACT_BASE64)) {
+            throw 'external evidence JSON and artifact must be supplied together'
+          }
+          $evidenceRoot = Join-Path $env:RUNNER_TEMP 'external-evidence'
+          New-Item -ItemType Directory -Force -Path $evidenceRoot | Out-Null
+          [IO.File]::WriteAllText((Join-Path $evidenceRoot 'evidence.json'), $env:EXTERNAL_EVIDENCE_JSON, [Text.Encoding]::UTF8)
+          $artifactPath = [IO.Path]::GetFullPath((Join-Path $evidenceRoot $env:EXTERNAL_ARTIFACT_NAME))
+          $evidencePrefix = ([IO.Path]::GetFullPath($evidenceRoot)).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+          if (-not $artifactPath.StartsWith($evidencePrefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'external artifact name escapes the evidence directory' }
+          [IO.File]::WriteAllBytes($artifactPath, [Convert]::FromBase64String($env:EXTERNAL_ARTIFACT_BASE64))
+
       - name: Install exact Rust toolchain
         shell: bash
         run: |
@@ -88,9 +124,10 @@ jobs:
         run: |
           set +e
           pwsh -NoLogo -NoProfile -File control/scripts/run-agent-verification.ps1 \
-            -TaskSpec "$RUNNER_TEMP/agent-task-intent.json" \
+            -TaskIntent "$RUNNER_TEMP/agent-task-intent.json" \
             -TargetRoot "$GITHUB_WORKSPACE/target" \
-            -OutputPath "$RUNNER_TEMP/verification-report.json"
+            -OutputPath "$RUNNER_TEMP/verification-report.json" \
+            -ExternalEvidencePath "$RUNNER_TEMP/external-evidence"
           runner_exit=$?
           echo "runner_exit=$runner_exit" >> "$GITHUB_OUTPUT"
           exit 0

@@ -6,39 +6,57 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot).Path
-$intent = Get-Content -Raw -LiteralPath (Resolve-Path -LiteralPath $IntentPath).Path | ConvertFrom-Json
-$router = Get-Content -Raw -LiteralPath (Join-Path $RepositoryRoot '.agent/context/router.json') | ConvertFrom-Json
+$intentPath = (Resolve-Path -LiteralPath $IntentPath).Path
+$intent = Get-Content -Raw -LiteralPath $intentPath | ConvertFrom-Json
+
+function Require-Text([string]$Value, [string]$Name) {
+    if ([string]::IsNullOrWhiteSpace($Value)) { throw "Task Intent $Name is required" }
+}
+
+Require-Text ([string]$intent.task_id) 'task_id'
+Require-Text ([string]$intent.objective) 'objective'
+if ($null -eq $intent.acceptance_criteria -or @($intent.acceptance_criteria).Count -eq 0) {
+    throw 'Task Intent acceptance_criteria must be non-empty'
+}
+if ($null -eq $intent.non_negotiables) { throw 'Task Intent non_negotiables must be present' }
+if ($null -eq $intent.approved_protected_decisions) { throw 'Task Intent approved_protected_decisions must be present' }
+
 $commit = (& git -C $RepositoryRoot rev-parse HEAD 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'could not resolve Task Spec baseline commit' }
-
-function Test-Glob([string]$Path, [string]$Pattern) {
-    $escaped = [regex]::Escape($Pattern.Replace('\', '/')).Replace('\*\*', '.*').Replace('\*', '[^/]*').Replace('\?', '[^/]')
-    return [regex]::IsMatch($Path.Replace('\', '/'), "^$escaped$", [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw 'could not resolve Task Spec baseline commit'
 }
 
-$scopeHints = if ($intent.PSObject.Properties.Name -contains 'scope_hints') { @($intent.scope_hints | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) } else { @() }
+$scopeHints = if ($intent.PSObject.Properties.Name -contains 'scope_hints') {
+    @($intent.scope_hints | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+} else { @() }
 $includes = if ($scopeHints.Count -gt 0) { $scopeHints } else { @('**') }
-$excludes = if ($intent.PSObject.Properties.Name -contains 'scope_exclusions') { @($intent.scope_exclusions | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }) } else { @() }
-$modules = @($router.default_modules)
-$gates = @()
-foreach ($route in @($router.path_routes)) {
-    if (@($includes | Where-Object { Test-Glob $_ ([string]$route.path_pattern) }).Count -gt 0) {
-        $modules += @($route.modules)
-        $gates += @($route.mandatory_gates)
-    }
-}
-if ($gates.Count -eq 0) { $gates += 'acl-integrity' }
-$modules = @($modules | Select-Object -Unique)
-$gates = @($gates | Select-Object -Unique)
-$domains = @($intent.approved_protected_decisions | ForEach-Object { [string]$_.domain } | Select-Object -Unique)
-$risk = if ($intent.risk_floor) { [string]$intent.risk_floor } else { 'low' }
+$excludes = if ($intent.PSObject.Properties.Name -contains 'scope_exclusions') {
+    @($intent.scope_exclusions | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+} else { @() }
+
+$risk = if ($intent.PSObject.Properties.Name -contains 'risk_floor' -and $intent.risk_floor) {
+    [string]$intent.risk_floor
+} else { 'low' }
+$riskLevels = @('low', 'medium', 'high', 'critical')
+if ($risk -notin $riskLevels) { throw "Task Intent risk_floor is invalid: $risk" }
+
 $riskPolicy = Get-Content -Raw -LiteralPath (Join-Path $RepositoryRoot '.agent/verification/risk-policy.json') | ConvertFrom-Json
 $riskOrder = @('low', 'medium', 'high', 'critical')
-foreach ($domain in $domains) {
-    $domainRisk = [string]$riskPolicy.domain_defaults.$domain.risk_level
+foreach ($approval in @($intent.approved_protected_decisions)) {
+    $domain = [string]$approval.domain
+    $default = $riskPolicy.domain_defaults.PSObject.Properties[$domain]
+    if ($null -eq $default) { throw "Task Intent approval domain is not canonical: $domain" }
+    $domainRisk = [string]$default.Value.risk_level
     if ($riskOrder.IndexOf($domainRisk) -gt $riskOrder.IndexOf($risk)) { $risk = $domainRisk }
 }
-$approvedProtectedPaths = @($intent.approved_protected_decisions | ForEach-Object { $_.scope } | ForEach-Object { $_ } | Select-Object -Unique)
+
+$approvedProtectedPaths = @(
+    @($intent.approved_protected_decisions) |
+        ForEach-Object { @($_.scope) } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+        Select-Object -Unique
+)
+
 $compiled = [ordered]@{
     schema_version = '2.0.0'
     task_id = [string]$intent.task_id
@@ -51,13 +69,11 @@ $compiled = [ordered]@{
         exclude = @($excludes)
         approved_protected_paths = @($approvedProtectedPaths)
     }
-    protected_boundaries = $domains
-    required_policy_modules = $modules
-    required_verification_gates = $gates
     approved_protected_decisions = @($intent.approved_protected_decisions)
-    baseline = [ordered]@{commit = $commit; source = 'git'}
+    baseline = [ordered]@{ commit = $commit; source = 'git' }
 }
+
 $parent = Split-Path -Parent $OutputPath
 New-Item -ItemType Directory -Force -Path $parent | Out-Null
 $compiled | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $OutputPath -Encoding utf8
-Write-Output "[PASS] Task Spec compiled: $($compiled.task_id)"
+Write-Output "[PASS] Task Spec compiled from Task Intent: $($compiled.task_id)"

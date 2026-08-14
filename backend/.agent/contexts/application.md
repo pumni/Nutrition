@@ -1,5 +1,5 @@
 Context release: agent-context-2.0.0
-Derived from: `crates/application/src/analyze.rs`, `crates/application/src/revise.rs`, `crates/application/src/model.rs`, `crates/application/src/ports.rs`, `docs/FOUNDATION_DECISIONS.md`, `docs/archive/nutrition_backend_blueprint_v1.0/17_CLARIFICATION_CORRECTION_UX_SPEC.md`, `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
+Derived from: `crates/application/src/analyze.rs`, `crates/application/src/revise.rs`, `crates/application/src/model.rs`, `crates/application/src/ports.rs`, `docs/FOUNDATION_DECISIONS.md`
 Use when: changing `crates/application/**` analysis, clarification, correction, or ports.
 Do not infer: a new orchestration order, public request contract, clarification policy, or revision mutation rule.
 
@@ -7,4 +7,4 @@ Do not infer: a new orchestration order, public request contract, clarification 
 
 Food and portion evidence are separate ports. Explicit grams need no portion observation; other units require food-specific evidence. Completed revisions are append-only. Idempotency keys and request hashes replay the same immutable revision or return a conflict for a different body.
 
-Canonical gates: `cargo-fmt`, `cargo-clippy`, and `cargo-test`. Workflow/state tests are acceptance coverage within the canonical workspace test gate when named by the packet.
+Canonical gates: `cargo-fmt`, `cargo-clippy`, and `cargo-test`. Workflow/state tests are acceptance coverage within the canonical workspace test gate.

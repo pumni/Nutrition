@@ -1,18 +1,19 @@
 {
   "schema_version": "3.0.0",
   "modules_ref": ".agent/context/modules.json",
-  "default_modules": ["authority"],
+  "default_modules": [],
   "path_routes": [
     {"path_pattern": "crates/domain/**", "modules": ["domain"], "risk_tags": ["calculation", "domain-boundary"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]},
     {"path_pattern": "crates/application/**", "modules": ["application"], "risk_tags": ["orchestration", "revisions", "clarification"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]},
-    {"path_pattern": "crates/adapters/src/hosted_parser.rs", "modules": ["parser"], "risk_tags": ["provider", "privacy", "parser"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test", "schema-validation"]},
-    {"path_pattern": "schemas/**", "modules": ["parser"], "risk_tags": ["parser-contract", "versioning"], "mandatory_gates": ["schema-validation", "cargo-test"]},
+    {"path_pattern": "crates/adapters/src/hosted_parser.rs", "modules": ["parser"], "risk_tags": ["provider", "privacy", "parser"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test", "schema-validation", "benchmark-external"]},
+    {"path_pattern": "schemas/**", "modules": ["parser"], "risk_tags": ["parser-contract", "versioning"], "mandatory_gates": ["schema-validation", "cargo-test", "benchmark-external"]},
     {"path_pattern": "crates/persistence-postgres/**", "modules": ["persistence"], "risk_tags": ["database", "replay", "immutability"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test", "postgres-verify"]},
     {"path_pattern": "migrations/**", "modules": ["persistence"], "risk_tags": ["database", "migration"], "mandatory_gates": ["postgres-verify"]},
     {"path_pattern": "crates/api-http/**", "modules": ["api", "application"], "risk_tags": ["api", "auth", "privacy"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]},
     {"path_pattern": "crates/worker/**", "modules": ["worker", "persistence"], "risk_tags": ["lease", "retry", "outbox"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]},
     {"path_pattern": "fixtures/**", "modules": ["data-governance"], "risk_tags": ["test-only-evidence", "benchmark"], "mandatory_gates": ["cargo-test"]},
     {"path_pattern": "seeds/**", "modules": ["data-governance"], "risk_tags": ["release", "catalog"], "mandatory_gates": ["postgres-verify"]},
+    {"path_pattern": ".agent/authority/**", "modules": ["authority"], "risk_tags": ["authority", "protected-decision"], "mandatory_gates": ["acl-integrity"]},
     {"path_pattern": ".agent/**", "modules": ["verification-maintenance"], "risk_tags": ["governance", "context-drift"], "mandatory_gates": ["acl-self-test", "agent-runner-self-test", "agent-ci-policy", "acl-integrity"]},
     {"path_pattern": "AGENTS.md", "modules": ["verification-maintenance"], "risk_tags": ["governance", "entrypoint"], "mandatory_gates": ["acl-integrity"]},
     {"path_pattern": "scripts/**", "modules": ["verification-maintenance"], "risk_tags": ["verification", "governance"], "mandatory_gates": ["acl-integrity"]}

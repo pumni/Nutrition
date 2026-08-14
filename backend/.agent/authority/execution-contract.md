@@ -5,7 +5,7 @@ The implementation agent works inside a human-approved Task Spec and current rep
 ## Required protocol
 
 1. Read the Task Spec, the minimal routed context, and the canonical policies before writing.
-2. Choose and revise implementation sequencing from repository evidence; the Task Spec defines outcomes and constraints, not an implementation trajectory.
+2. Choose and revise implementation sequencing from repository evidence; persist a plan only when task complexity, handoff, or context continuity makes it useful. The Task Spec defines outcomes and constraints, not an implementation trajectory.
 3. Change only paths inside the scope envelope and respect protected-path authorization.
 4. Choose relevant files, private decomposition, tests, and debugging order inside the policy boundary.
 5. Use canonical gate IDs; task artifacts and reports refer to gates and evidence but never define commands.

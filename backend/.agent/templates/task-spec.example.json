@@ -14,9 +14,6 @@
     "exclude": ["crates/**", "migrations/**", "Cargo.toml", "Cargo.lock"],
     "approved_protected_paths": []
   },
-  "protected_boundaries": [],
-  "required_policy_modules": ["authority", "verification-maintenance"],
-  "required_verification_gates": ["acl-self-test", "agent-runner-self-test", "agent-ci-policy", "acl-integrity"],
   "approved_protected_decisions": [],
   "baseline": {
     "commit": "e1a4bc64862c69e34a68d328889bef52b06a916e",

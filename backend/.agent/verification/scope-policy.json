@@ -3,6 +3,7 @@
   "protected_path_patterns": [
     "Cargo.toml",
     "Cargo.lock",
+    "crates/*/Cargo.toml",
     "migrations/**",
     "deploy/**",
     ".github/workflows/**",

@@ -1,6 +1,6 @@
 param(
     [string]$RepositoryRoot,
-    [string]$CasesPath,
+    [Parameter(Mandatory = $true)][string]$CasesPath,
     [Parameter(Mandatory = $true)][string]$AdapterScript,
     [Parameter(Mandatory = $true)][string]$OutputDirectory,
     [string]$BaselineCommit,
@@ -12,8 +12,10 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) { $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path }
 else { $RepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot).Path }
-if ([string]::IsNullOrWhiteSpace($CasesPath)) { $CasesPath = Join-Path $RepositoryRoot '.agent/evals/behavioral-cases.json' }
-else { $CasesPath = (Resolve-Path -LiteralPath $CasesPath).Path }
+$CasesPath = (Resolve-Path -LiteralPath $CasesPath).Path
+if ($CasesPath.StartsWith($RepositoryRoot.TrimEnd('\','/') + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'behavioral case metadata must be outside the subject repository root'
+}
 $AdapterScript = (Resolve-Path -LiteralPath $AdapterScript).Path
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 if ([string]::IsNullOrWhiteSpace($BaselineCommit)) {
