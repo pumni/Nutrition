@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "preconditions": {
+    "behavioral_case_minimum": 15,
+    "scope_case_minimum": 6,
+    "protected_decision_case_required": true
+  },
+  "cases": [
+    {"name": "modern_task_spec_without_sequence", "kind": "modern_task_source", "expected": "pass", "source": ".agent/templates/task-spec.example.json"},
+    {
+      "name": "modern_task_sequence_is_rejected",
+      "kind": "modern_task_inline",
+      "expected": "fail",
+      "spec": {
+        "schema_version": "2.0.0",
+        "task_id": "ABLATION-002",
+        "objective": "Prove sequence is agent-owned",
+        "acceptance_criteria": ["A modern task has no architect sequence"],
+        "risk_level": "normal_internal",
+        "scope_envelope": {"include": [".agent/**"], "exclude": [], "approved_protected_paths": []},
+        "protected_boundaries": ["architecture"],
+        "required_policy_modules": ["verification"],
+        "required_verification_gates": ["acl-integrity"],
+        "approved_protected_decisions": [],
+        "baseline": {"commit": "f0bdfbab9588920947d9d5c9dda7a3c6922abbf2", "source": "git"},
+        "implementation_sequence": ["architect prescribed step"]
+      }
+    },
+    {"name": "agent_plan_owns_sequence", "kind": "agent_plan_source", "expected": "pass", "source": ".agent/templates/agent-plan.example.json"},
+    {"name": "agent_plan_revises_after_evidence", "kind": "agent_plan_revision", "expected": "pass", "source": ".agent/templates/agent-plan.example.json", "revised_implementation_steps": ["Inspect new evidence", "Revise implementation hypothesis", "Run canonical verification"]},
+    {"name": "legacy_packet_remains_compatible_during_migration", "kind": "legacy_packet_source", "expected": "pass", "source": ".agent/templates/task-packet.example.json"}
+  ]
+}

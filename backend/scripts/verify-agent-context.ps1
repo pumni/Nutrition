@@ -150,6 +150,7 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/evals/context-routing-cases.json",
         ".agent/evals/scope-envelope-cases.json",
         ".agent/evals/behavioral-cases.json",
+        ".agent/evals/sequence-ablation-cases.json",
         ".agent/evals/runner-cases.json",
         ".agent/contracts/external-evidence.schema.json",
         ".agent/contracts/ci-attestation.schema.json",
@@ -590,6 +591,53 @@ function Assert-ScopeEnvelopeFixtures([string]$Root) {
         $expectedPass = [string]$case.expected -eq "pass"
         if ($observedPass -ne $expectedPass) { Fail "scope envelope fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
         Write-Output "[PASS] Scope envelope fixture: $($case.name)"
+    }
+}
+
+function Assert-SequenceAblationFixtures([string]$Root) {
+    $document = Load-Json (Get-RepoPath $Root ".agent/evals/sequence-ablation-cases.json")
+    Assert-ExactProperties $document @("schema_version", "preconditions", "cases") "sequence ablation fixtures"
+    if ($document.schema_version -ne "1.0.0") { Fail "sequence ablation fixture schema_version must be 1.0.0" }
+    $preconditions = $document.preconditions
+    Assert-ExactProperties $preconditions @("behavioral_case_minimum", "scope_case_minimum", "protected_decision_case_required") "sequence ablation preconditions"
+    $behavioralCases = Load-Json (Get-RepoPath $Root ".agent/evals/behavioral-cases.json")
+    $scopeCases = Load-Json (Get-RepoPath $Root ".agent/evals/scope-envelope-cases.json")
+    $protectedCases = @(($behavioralCases.cases | Where-Object { $_.category -eq "protected_decision" }))
+    if (@($behavioralCases.cases).Count -lt [int]$preconditions.behavioral_case_minimum) { Fail "sequence ablation precondition failed: behavioral evals are not operational" }
+    if (@($scopeCases.cases).Count -lt [int]$preconditions.scope_case_minimum) { Fail "sequence ablation precondition failed: scope envelope evals are not operational" }
+    if ($preconditions.protected_decision_case_required -eq $true -and $protectedCases.Count -eq 0) { Fail "sequence ablation precondition failed: protected-decision eval is missing" }
+    $cases = @($document.cases)
+    if ($cases.Count -lt 5) { Fail "sequence ablation fixtures require at least five cases" }
+    foreach ($case in $cases) {
+        $observedPass = $false
+        $failureText = ""
+        try {
+            switch ([string]$case.kind) {
+                "modern_task_source" { Assert-TaskSpecV2Object $Root (Load-Json (Get-RepoPath $Root ([string]$case.source))) }
+                "modern_task_inline" { Assert-TaskSpecV2Object $Root $case.spec }
+                "agent_plan_source" { Assert-AgentPlanObject $Root (Load-Json (Get-RepoPath $Root ([string]$case.source))) }
+                "agent_plan_revision" {
+                    $plan = Load-Json (Get-RepoPath $Root ([string]$case.source))
+                    Assert-AgentPlanObject $Root $plan
+                    $revised = ($plan | ConvertTo-Json -Depth 30 | ConvertFrom-Json)
+                    $originalSteps = (@($plan.implementation_steps) -join "|")
+                    $revised.implementation_steps = @($case.revised_implementation_steps)
+                    if ((@($revised.implementation_steps) -join "|") -eq $originalSteps) { Fail "agent plan revision did not change implementation steps" }
+                    Assert-AgentPlanObject $Root $revised
+                    if ($revised.task_id -ne $plan.task_id -or $revised.task_spec_sha256 -ne $plan.task_spec_sha256) { Fail "agent plan revision changed task authority binding" }
+                }
+                "legacy_packet_source" {
+                    $packet = Load-Json (Get-RepoPath $Root ([string]$case.source))
+                    if (@($packet.implementation_sequence).Count -eq 0) { Fail "legacy task packet compatibility fixture lost implementation_sequence" }
+                }
+                default { Fail "unknown sequence ablation fixture kind: $($case.kind)" }
+            }
+            $observedPass = $true
+        }
+        catch { $failureText = [string]$_.Exception.Message }
+        $expectedPass = [string]$case.expected -eq "pass"
+        if ($observedPass -ne $expectedPass) { Fail "sequence ablation fixture '$($case.name)' expected $([string]$expectedPass) but observed $([string]$observedPass): $failureText" }
+        Write-Output "[PASS] Sequence ablation fixture: $($case.name)"
     }
 }
 
@@ -1251,6 +1299,7 @@ function Assert-Integrity([string]$Root) {
     $profiles = Assert-Profiles $Root
     Assert-ContextRouting $Root
     Assert-ScopeEnvelopeFixtures $Root
+    Assert-SequenceAblationFixtures $Root
     Assert-SourceRegister $Root
     Assert-SourceLock $Root
     Assert-VerificationRegistry $Root

@@ -19,6 +19,7 @@
     {"path": ".agent/evals/implementation-report-cases.json", "sha256": "ad0f70119b295cb9013ff0b5b2ef79f3f6c2a8e72f241375fd5ead030e1785c2"},
     {"path": ".agent/evals/risk-policy-cases.json", "sha256": "9abb79786a34da2e776d8e0cf99d9705e6a62071ca04ed704dab45b6bff90b06"},
     {"path": ".agent/evals/scope-envelope-cases.json", "sha256": "3c60d42da5c36a9769c7cd21b85ddc64a35aef253bf694b6c8553558ef4ea680"},
+    {"path": ".agent/evals/sequence-ablation-cases.json", "sha256": "30b0dcaab39b86bfb6e17d0bd865d6d16a69d3762497365832b5c55b500a918c"},
     {"path": ".agent/evals/task-spec-v2-cases.json", "sha256": "9fa216e71bad051333862aa9fde944f8f66d6a4b350d5bd4a35b96ece56ae75a"},
     {"path": ".agent/maps/ci-policy.json", "sha256": "8f7109c3892d7db41293f4f9c119fa304f0c97d6d4df859d944d0ddb6ac6e9f3"},
     {"path": ".agent/maps/verification-map.json", "sha256": "cd7d53495441c237eac6cdd9cee92878f5224305db9d86336241e0d6f7a436ec"},
@@ -68,7 +69,7 @@
     {"path": "schemas/parsed-meal-0.1.0.json", "sha256": "97038755c8e8ebac4212ceca828e4687f8ef9f47fbd160ad6e04cc8d502b3d21"},
     {"path": "scripts/run-agent-verification.ps1", "sha256": "3f6bcc876c56cba032d30d1b405a3756a3ae5baaae8899a0188a219d8cef1a41"},
     {"path": "scripts/verify-agent-behavior.ps1", "sha256": "6f7032e4d2f280e149bfa7a909ec86857b910ee9fffbe7b26c3354fa686a8e30"},
-    {"path": "scripts/verify-agent-context.ps1", "sha256": "d5c401f3ab5edfb5e3454a2181f429cd5cee38a7eed15a7cdbec5b8c4a2cebce"},
+    {"path": "scripts/verify-agent-context.ps1", "sha256": "b9b12f57a11786c4bbd73a498869dcaa718cfc7821b1cd3368baceef81e1cba1"},
     {"path": "scripts/verify-postgres.ps1", "sha256": "601e07b9cd7d54486f834c7cad984a3f9f495b911302dafe527d7bbb170bd603"},
     {"path": "scripts/verify.ps1", "sha256": "c6790821493f2cc9e3d46c4e58e28451d9ba4d947101320a129cf8afbc705a43"},
     {"path": "seeds/0001_foundation_fixture.sql", "sha256": "457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84"}
