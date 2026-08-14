@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://pumni.example/schemas/task-packet.schema.json",
-  "title": "Architect Authored Task Packet",
+  "$id": "https://pumni.example/schemas/legacy-task-packet.schema.json",
+  "title": "Transitional v1 Task Packet",
+  "description": "Compatibility-only contract for explicitly named legacy packets during migration.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "task_id", "objective", "decision_authority", "executor_role", "context_profile", "required_baseline_commit", "allowed_paths", "forbidden_paths", "create_files", "modify_files", "delete_files", "implementation_sequence", "decision_points", "impacts", "acceptance_criteria", "verification", "escalation_conditions", "completion_report_required"],
@@ -16,49 +17,14 @@
     "allowed_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "forbidden_paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "create_files": {"type": "array", "items": {"type": "string", "minLength": 1}},
-    "modify_files": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["path", "changes"],
-        "properties": {
-          "path": {"type": "string", "minLength": 1},
-          "changes": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
-        }
-      }
-    },
+    "modify_files": {"type": "array", "additionalItems": false, "items": {"type": "object", "additionalProperties": false, "required": ["path", "changes"], "properties": {"path": {"type": "string", "minLength": 1}, "changes": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}}},
     "delete_files": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "implementation_sequence": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-    "decision_points": {"type": "array", "maxItems": 0, "items": {}},
-    "impacts": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["runtime_behavior", "domain_behavior", "api", "database", "dependencies", "behavior_versions"],
-      "properties": {
-        "runtime_behavior": {"enum": ["none", "specified_change"]},
-        "domain_behavior": {"enum": ["none", "specified_change"]},
-        "api": {"enum": ["none", "specified_change"]},
-        "database": {"enum": ["none", "specified_change"]},
-        "dependencies": {"enum": ["none", "specified_change"]},
-        "behavior_versions": {"enum": ["none", "specified_change"]}
-      }
-    },
+    "decision_points": {"type": "array", "maxItems": 0},
+    "impacts": {"type": "object", "additionalProperties": {"type": "string"}},
     "impact_spec": {"type": "object"},
     "acceptance_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-    "verification": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["gate", "required"],
-        "properties": {
-          "gate": {"type": "string", "minLength": 1},
-          "required": {"type": "boolean"}
-        }
-      }
-    },
+    "verification": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["gate", "required"], "properties": {"gate": {"type": "string", "minLength": 1}, "required": {"type": "boolean"}}}},
     "escalation_conditions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "completion_report_required": {"const": true}
   }

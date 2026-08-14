@@ -8,7 +8,7 @@
   "modules": [
     {
       "name": "base-policy",
-      "context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/maps/crate-map.json", ".agent/maps/change-impact-map.json", ".agent/maps/verification-map.json"],
+      "context_files": [".agent/authority/executor-contract.md", ".agent/authority/decision-policy.md", ".agent/invariants/architecture.md", ".agent/invariants/security-privacy.md", ".agent/policies/crate-boundaries.json", ".agent/policies/change-impact-policy.json", ".agent/generated/crate-graph.json", ".agent/maps/verification-map.json"],
       "mandatory_gates": ["acl-integrity", "foundation-verify"],
       "risk_tags": ["authority", "architecture", "security"]
     },

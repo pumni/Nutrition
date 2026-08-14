@@ -173,9 +173,10 @@ The initial governance artifacts are
 
 ## AI coding context layer
 
-`AGENTS.md` is the repository entrypoint for coding agents. An architect authors the task packet;
-the coding agent is implementation-only and must not make design decisions. The ACL is repository
-governance and does not alter nutrition runtime behavior.
+`AGENTS.md` is the repository entrypoint for coding agents. An architect authors the modern Task
+Spec; the coding agent operates with policy-bounded implementation autonomy and must not make
+protected project decisions. The ACL is repository governance and does not alter nutrition runtime
+behavior.
 
 Run the context self-test, the default ACL verification, and the full foundation verification:
 
@@ -185,5 +186,6 @@ Run the context self-test, the default ACL verification, and the full foundation
 .\scripts\verify.ps1
 ```
 
-Architects can use the [task packet example](.agent/templates/task-packet.example.json) as the
-machine-readable starting point.
+Modern work starts from the [Task Spec example](.agent/templates/task-spec.example.json). The
+[legacy task packet example](.agent/templates/legacy-task-packet.example.json) is retained only for
+explicit compatibility checks.

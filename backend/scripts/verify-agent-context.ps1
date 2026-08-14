@@ -125,18 +125,19 @@ function Assert-RequiredAclFiles([string]$Root) {
         ".agent/contexts/verification.md",
         ".agent/context/presets.json",
         ".agent/context/router.json",
-        ".agent/maps/crate-map.json",
-        ".agent/maps/change-impact-map.json",
+        ".agent/policies/crate-boundaries.json",
+        ".agent/policies/change-impact-policy.json",
+        ".agent/generated/crate-graph.json",
         ".agent/maps/verification-map.json",
         ".agent/maps/source-register.json",
         ".agent/profiles/context-profiles.json",
-        ".agent/contracts/task-packet.schema.json",
+        ".agent/contracts/legacy-task-packet.schema.json",
         ".agent/contracts/task-spec.schema.json",
         ".agent/contracts/agent-plan.schema.json",
         ".agent/contracts/execution-state.schema.json",
         ".agent/contracts/verification-report.schema.json",
         ".agent/contracts/implementation-report.schema.json",
-        ".agent/templates/task-packet.example.json",
+        ".agent/templates/legacy-task-packet.example.json",
         ".agent/templates/task-spec.example.json",
         ".agent/templates/agent-plan.example.json",
         ".agent/templates/execution-state.example.json",
@@ -317,7 +318,7 @@ function Assert-SourceLock([string]$Root) {
 }
 
 function Assert-Template([string]$Root) {
-    $template = Load-Json (Get-RepoPath $Root ".agent/templates/task-packet.example.json")
+    $template = Load-Json (Get-RepoPath $Root ".agent/templates/legacy-task-packet.example.json")
     if (@($template.decision_points).Count -ne 0) { Fail "task packet template decision_points must be empty" }
     if (@($template.verification | Where-Object gate -eq "agent-runner-self-test").Count -ne 1) { Fail "task packet template must declare agent-runner-self-test" }
     $verificationReport = Load-Json (Get-RepoPath $Root ".agent/templates/verification-report.example.json")

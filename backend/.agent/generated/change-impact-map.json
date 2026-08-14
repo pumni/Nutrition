@@ -13,11 +13,11 @@
     },
     {
       "path": ".agent/authority/executor-contract.md",
-      "sha256": "9bfde587b6dcdfd630191ce3e684b7e1a638d0612e2addc58230b692b9f83d3f"
+      "sha256": "5693ba565391b6195e3e8b893369f8e56b2e47789e661a1b824088544f9ac41a"
     },
     {
       "path": ".agent/context/presets.json",
-      "sha256": "e7869e0c4a6d9f513e361763c4ee0b8018d06030ba5c63cfb27a317d4be0d81c"
+      "sha256": "2f6cd326970d7e62b0298e1b1375c31707d6602bdb71d46900f5b622b1b470a6"
     },
     {
       "path": ".agent/context/router.json",
@@ -44,8 +44,8 @@
       "sha256": "9ca4ca47847d200d50c383c8be696fb4f3f69eea83f7bf09fe9f9f05666d32d4"
     },
     {
-      "path": ".agent/contracts/task-packet.schema.json",
-      "sha256": "7569f16571793e9659b2f7c35d95cfc500a8799d581f064acebb503bae7d726e"
+      "path": ".agent/contracts/legacy-task-packet.schema.json",
+      "sha256": "73d34ae6fc29be013c8879a66099382103813e197144c3daf75cf2f93d3d893f"
     },
     {
       "path": ".agent/contracts/task-spec.schema.json",
@@ -89,7 +89,7 @@
     },
     {
       "path": ".agent/evals/sequence-ablation-cases.json",
-      "sha256": "30b0dcaab39b86bfb6e17d0bd865d6d16a69d3762497365832b5c55b500a918c"
+      "sha256": "42a55f4ad1dea3087db1c622d36bae29b81a104c6bba0fdc67b7d9e99157c746"
     },
     {
       "path": ".agent/evals/task-spec-v2-cases.json",
@@ -101,15 +101,23 @@
     },
     {
       "path": ".agent/maps/source-register.json",
-      "sha256": "f86ec047ea311fb0c4e0a95f3320123b646982a3141907f556b94f903e11dc91"
+      "sha256": "ca1b0eb77c470354ce3b9267ad377b2dd0d8629d8a8e6f7402610733655546d8"
     },
     {
       "path": ".agent/maps/verification-map.json",
       "sha256": "870789b3a9945307f5a6d4ac49e7a2b3c37acdcdaafbb63d571bc6a2c2b895c1"
     },
     {
+      "path": ".agent/policies/change-impact-policy.json",
+      "sha256": "df003c95748ea2895a8d8cb65d94450bed5cfb01ceca7d8200ef49294751f7be"
+    },
+    {
+      "path": ".agent/policies/crate-boundaries.json",
+      "sha256": "937f142edd73fe00261ec2f146b382768ac0461bdea785ea34c382fb577554ca"
+    },
+    {
       "path": ".agent/profiles/context-profiles.json",
-      "sha256": "9853a3d2a095dc33f0c9de252769e346db3ea7c338337fa2ea318ce0c833f77f"
+      "sha256": "5ceb7be3ebf97591261055fc584b621a6105cbe17a5e2790b9c3f92516b12723"
     },
     {
       "path": ".agent/templates/agent-plan.example.json",
@@ -118,6 +126,10 @@
     {
       "path": ".agent/templates/execution-state.example.json",
       "sha256": "b7da94400420a1cc510926aba13fc09f900be28fee0e16f636d103108d8096c6"
+    },
+    {
+      "path": ".agent/templates/legacy-task-packet.example.json",
+      "sha256": "31ac12739aacb867f8a41314011dd17b3d3453e479485a4179c2e446d79c66db"
     },
     {
       "path": ".agent/templates/task-spec.example.json",
@@ -305,7 +317,7 @@
     },
     {
       "path": "scripts/verify-agent-context.ps1",
-      "sha256": "6d8b28171d4c4306b4f2437e160706408d7ff32e8537bbea80dc134d3aae6c21"
+      "sha256": "6a6995e7e32d23bea9eba61cdb1c771f474099132c72a4489c035ccac510414b"
     },
     {
       "path": "scripts/verify-agent-facts.ps1",

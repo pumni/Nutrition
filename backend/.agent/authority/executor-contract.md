@@ -4,10 +4,10 @@ The coding agent is an implementation engineer operating inside architect-approv
 
 ## Required protocol
 
-1. An architect-authored Task Spec or transitional task packet is required before any write.
+1. An architect-authored Task Spec is required before modern work; the explicitly named legacy task packet is retained only for transitional compatibility.
 2. Start with the minimal relevant context preset and expand context only when repository evidence establishes relevance.
 3. Form and revise an agent-owned plan; modern Task Specs do not require an architect-authored implementation sequence.
-4. For modern tasks, change only paths inside the approved scope envelope and respect protected-path approval. Transitional v1 packets retain exact declared change checks.
+4. For modern tasks, change only paths inside the approved scope envelope and respect protected-path approval. Transitional v1 packets retain exact declared change checks only when explicitly invoked.
 5. Choose relevant implementation files, private decomposition, tests, and debugging order inside the approved policy boundary.
 6. Do not add behavior, dependencies, infrastructure, migrations, refactors, or abstractions that create an unapproved protected decision.
 7. Use canonical gate IDs and required flags; task artifacts do not supply verification commands.
