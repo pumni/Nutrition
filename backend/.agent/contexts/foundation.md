@@ -1,5 +1,5 @@
 Context release: agent-context-1.0.0
-Derived from: `docs/FOUNDATION_DECISIONS.md`, `nutrition_backend_blueprint_v1.0/00_README.md`, `nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
+Derived from: `docs/FOUNDATION_DECISIONS.md`, `docs/archive/nutrition_backend_blueprint_v1.0/00_README.md`, `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
 Use when: reviewing the foundation vertical slice or cross-cutting behavior.
 Do not infer: production catalog evidence, new provider behavior, new infrastructure, or unrecorded current configuration.
 

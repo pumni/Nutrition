@@ -18,6 +18,6 @@ Every task packet must make its decision points explicit. A completed packet has
 
 Sources:
 
-- `Nutrition_backend_agent_context_layer_plan/task_packets/P02_AUTHORITY_INVARIANTS.md`
+- `docs/archive/Nutrition_backend_agent_context_layer_plan/task_packets/P02_AUTHORITY_INVARIANTS.md`
 - `docs/FOUNDATION_DECISIONS.md`
-- `nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
+- `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`

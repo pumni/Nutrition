@@ -1,5 +1,5 @@
 Context release: agent-context-1.0.0
-Derived from: `crates/persistence-postgres/src/analysis_repository.rs`, `crates/persistence-postgres/src/catalog_repository.rs`, `crates/persistence-postgres/src/portion_repository.rs`, `crates/persistence-postgres/src/parser_telemetry.rs`, `crates/persistence-postgres/src/ops_repository.rs`, `migrations`, `docs/FOUNDATION_DECISIONS.md`, `nutrition_backend_blueprint_v1.0/04_DATABASE_ARCHITECTURE_AND_ERD.md`, `nutrition_backend_blueprint_v1.0/18_SOURCE_ADAPTER_CONTRACT.md`, `nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
+Derived from: `crates/persistence-postgres/src/analysis_repository.rs`, `crates/persistence-postgres/src/catalog_repository.rs`, `crates/persistence-postgres/src/portion_repository.rs`, `crates/persistence-postgres/src/parser_telemetry.rs`, `crates/persistence-postgres/src/ops_repository.rs`, `migrations`, `docs/FOUNDATION_DECISIONS.md`, `docs/archive/nutrition_backend_blueprint_v1.0/04_DATABASE_ARCHITECTURE_AND_ERD.md`, `docs/archive/nutrition_backend_blueprint_v1.0/18_SOURCE_ADAPTER_CONTRACT.md`, `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
 Use when: changing `crates/persistence-postgres/**` or `migrations/**`.
 Do not infer: schema changes, migration edits, transaction boundaries, weaker immutability, or unversioned replay dependencies.
 

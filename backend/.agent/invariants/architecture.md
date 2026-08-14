@@ -11,5 +11,5 @@ Sources:
 
 - `docs/FOUNDATION_DECISIONS.md`
 - `docs/RISK_REGISTER.md`
-- `nutrition_backend_blueprint_v1.0/00_README.md`
-- `nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`
+- `docs/archive/nutrition_backend_blueprint_v1.0/00_README.md`
+- `docs/archive/nutrition_backend_blueprint_v1.0/12_ARCHITECTURE_DECISION_RECORDS.md`

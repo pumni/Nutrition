@@ -26,6 +26,6 @@ After escalation, do not continue implementation, do not create a workaround, an
 
 Sources:
 
-- `Nutrition_backend_agent_context_layer_plan/task_packets/P02_AUTHORITY_INVARIANTS.md`
+- `docs/archive/Nutrition_backend_agent_context_layer_plan/task_packets/P02_AUTHORITY_INVARIANTS.md`
 - `docs/FOUNDATION_DECISIONS.md`
 - `docs/SECURITY_AND_OPERATIONS.md`
