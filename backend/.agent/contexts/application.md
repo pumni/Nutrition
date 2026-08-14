@@ -7,4 +7,4 @@ Do not infer: a new orchestration order, public request contract, clarification 
 
 Food and portion evidence are separate ports. Explicit grams need no portion observation; other units require food-specific evidence. Completed revisions are append-only. Idempotency keys and request hashes replay the same immutable revision or return a conflict for a different body.
 
-Required gates: `cargo-fmt`, `cargo-clippy`, `cargo-test`, and the workflow/state tests named by the packet.
+Canonical gates: `cargo-fmt`, `cargo-clippy`, and `cargo-test`. Workflow/state tests are acceptance coverage within the canonical workspace test gate when named by the packet.

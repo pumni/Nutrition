@@ -7,4 +7,4 @@ The worker supports `WORKER_MODE=idle`, `run-once`, and `loop`. Jobs use `FOR UP
 
 Graceful shutdown and bounded batches are part of the worker reliability boundary. External side effects require idempotency and explicit packet scope.
 
-Required gates: `cargo-fmt`, `cargo-clippy`, `cargo-test`, worker mode/lease/outbox integration tests, and PostgreSQL verification when database-backed job semantics change.
+Canonical gates: `cargo-fmt`, `cargo-clippy`, and `cargo-test`. Worker mode/lease/outbox tests run under the canonical test gate; add `postgres-verify` when database-backed job semantics change.

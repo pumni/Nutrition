@@ -7,4 +7,4 @@ Do not infer: new nutrition rules, rounding policy, evidence semantics, or a beh
 
 Use `rust_decimal::Decimal` for domain arithmetic and preserve missing/zero/trace semantics. Lower and upper mass bounds are propagated into nutrient results. Intermediate values are not rounded. Domain dependencies remain limited to domain-safe crates; provider, HTTP, SQLx, and Tokio dependencies are forbidden.
 
-Required gates: `cargo-fmt`, `cargo-clippy`, `cargo-test`, named calculator/golden tests, and a behavior-version check when semantics change.
+Canonical gates: `cargo-fmt`, `cargo-clippy`, and `cargo-test`. Named calculator/golden tests and behavior-version decisions are packet acceptance or decision criteria, not additional executable gate definitions.

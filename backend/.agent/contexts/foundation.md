@@ -7,4 +7,4 @@ The current slice is explicit parser selection (`PARSER_MODE=fixture|hosted`), f
 
 The fixture parser is a bounded local/test adapter. Hosted parsing is provider-neutral, fail-closed, and never silently falls back to fixture mode. Food identity, exact-name retrieval, portion evidence, composition selection, release pinning, and analysis persistence use PostgreSQL. The calculator uses `rust_decimal::Decimal`, does not round intermediate values, and has no network, database, or LLM dependency.
 
-Important gates include formatting, Clippy, workspace tests, JSON and sensitive-log checks, Docker Compose validation, and PostgreSQL verification when database-backed behavior is changed.
+The canonical `foundation-verify` gate covers formatting, Clippy, workspace tests, JSON and sensitive-log checks, and Docker Compose validation. Add `postgres-verify` when database-backed behavior is changed.

@@ -7,4 +7,4 @@ Do not infer: provider-specific tools, nutrition facts from model output, IDs or
 
 Only the specified transient or schema retry is allowed. Semantic and permanent failures are terminal `parser_unavailable`; hosted mode does not switch to fixture mode. Telemetry stores operational metadata and output hash only.
 
-Required gates: `cargo-fmt`, `cargo-clippy`, `cargo-test`, hosted parser tests, schema validation, and the benchmark gate when parser behavior, prompt, schema, or provider behavior changes.
+Canonical gates: `cargo-fmt`, `cargo-clippy`, `cargo-test`, and `schema-validation`. Hosted parser tests run under `cargo-test`; add `benchmark-external` when parser behavior, prompt, schema, or provider behavior changes and the packet names that release gate.

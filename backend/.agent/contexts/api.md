@@ -7,4 +7,4 @@ The API composes Axum routes with application services, adapters, and PostgreSQL
 
 Request bodies are capped at 16 KiB. Create and correction idempotency keys are scoped as defined by the foundation contract. API and tracing logs exclude meal text, authorization headers, raw text, and database URLs.
 
-Required gates: `cargo-fmt`, `cargo-clippy`, `cargo-test`, API smoke/contract tests for endpoint behavior, and PostgreSQL verification when ownership or persistence routes change.
+Canonical gates: `cargo-fmt`, `cargo-clippy`, and `cargo-test`. API smoke/contract tests are covered by the applicable canonical test gate; add `postgres-verify` when ownership or persistence routes change.

@@ -7,4 +7,4 @@ The PostgreSQL adapter owns catalog and portion evidence lookup, analysis/revisi
 
 Idempotency keys are stored with request hashes and immutable response revisions. Applied migrations are not edited; schema changes are forward migrations and require the packet's database verification.
 
-Required gates: `cargo-fmt`, `cargo-clippy`, `cargo-test`, and `scripts/verify-postgres.ps1` for database or migration changes.
+Canonical gates: `cargo-fmt`, `cargo-clippy`, and `cargo-test`; add `postgres-verify` for database or migration changes.

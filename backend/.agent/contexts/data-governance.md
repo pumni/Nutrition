@@ -7,4 +7,4 @@ Source release flow is acquire, verify, parse, validate, map, report, approve, t
 
 The foundation fixture catalog and Vietnamese meal benchmark are test artifacts. Unknown food is not force-matched, and fixture data must not be mistaken for production evidence. Changes to fixtures or seeds require provenance, release, and verification evidence in the packet.
 
-Relevant gates include JSON validation, foundation verification, catalog/replay tests named by the packet, and benchmark evaluation where behavior is measured.
+Verification evidence may use canonical IDs such as `foundation-verify`, `cargo-test`, `schema-validation`, and `benchmark-external` when the packet acceptance criteria require those checks.
