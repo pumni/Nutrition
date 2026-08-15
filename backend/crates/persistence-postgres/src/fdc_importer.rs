@@ -201,7 +201,8 @@ async fn stage_import(
     }
 
     ensure_core_macronutrients(tx).await?;
-    let catalog_release_id = create_staged_catalog_release(tx, prepared, dataset_release_id).await?;
+    let catalog_release_id =
+        create_staged_catalog_release(tx, prepared, dataset_release_id).await?;
     stage_reviewed_selection(tx, prepared, dataset_release_id, catalog_release_id).await?;
     Ok(import_report(
         prepared,
@@ -230,13 +231,11 @@ async fn existing_catalog_release(
     tx: &mut Transaction<'_, Postgres>,
     version: &str,
 ) -> Result<Option<Uuid>, FdcFoundationImportError> {
-    sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM catalog.catalog_release WHERE version = $1",
-    )
-    .bind(version)
-    .fetch_optional(&mut **tx)
-    .await
-    .map_err(FdcFoundationImportError::Query)
+    sqlx::query_scalar::<_, Uuid>("SELECT id FROM catalog.catalog_release WHERE version = $1")
+        .bind(version)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(FdcFoundationImportError::Query)
 }
 
 async fn create_staged_catalog_release(
