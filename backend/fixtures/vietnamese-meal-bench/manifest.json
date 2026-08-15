@@ -1,6 +1,6 @@
 {
   "benchmark": "VietnameseMealBench",
-  "version": "foundation-0.4.0",
+  "version": "foundation-0.5.0",
   "status": "development-only",
   "language": "vi-VN",
   "license": "internal-test-fixtures",
@@ -47,6 +47,7 @@
     "slice_regressions_block_release": true
   },
   "notes": [
+    "Expected parse decisions describe parser extraction only; expected analysis decisions describe downstream food/portion/evidence resolution.",
     "Development and public-test expected outputs are annotations, not production nutrition evidence.",
     "Public-test cases in this release are pending independent human adjudication.",
     "Sealed-test and challenge answers must remain outside the repository and are not loaded by the CI report harness.",

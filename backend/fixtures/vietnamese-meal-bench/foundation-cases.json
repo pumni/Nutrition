@@ -3,7 +3,8 @@
     "sample_id": "vmb-foundation-0001",
     "text": "100 g trứng gà luộc",
     "locale": "vi-VN",
-    "expected_decision": "resolve",
+    "expected_parse_decision": "parsed",
+    "expected_analysis_decision": "resolve",
     "expected_parse": {
       "items": [
         {"food_phrase": "trứng gà luộc", "quantity": "100", "unit": "g", "preparation": ["luộc"], "modifiers": [], "negated": false}
@@ -25,7 +26,8 @@
     "sample_id": "vmb-foundation-0002",
     "text": "100 g trứng gà luộc, 150 g cơm trắng",
     "locale": "vi-VN",
-    "expected_decision": "resolve",
+    "expected_parse_decision": "parsed",
+    "expected_analysis_decision": "resolve",
     "expected_parse": {
       "items": [
         {"food_phrase": "trứng gà luộc", "quantity": "100", "unit": "g", "preparation": ["luộc"], "modifiers": [], "negated": false},
@@ -48,7 +50,8 @@
     "sample_id": "vmb-foundation-0003",
     "text": "100 g món không tồn tại",
     "locale": "vi-VN",
-    "expected_decision": "insufficient",
+    "expected_parse_decision": "parse_rejected",
+    "expected_analysis_decision": "insufficient",
     "expected_parse": {
       "items": [],
       "clarification_dimension": null,
@@ -63,7 +66,8 @@
     "sample_id": "vmb-foundation-0004",
     "text": "2 quả trứng gà luộc, 1 bát cơm trắng",
     "locale": "vi-VN",
-    "expected_decision": "resolve",
+    "expected_parse_decision": "parsed",
+    "expected_analysis_decision": "resolve",
     "expected_parse": {
       "items": [
         {"food_phrase": "trứng gà luộc", "quantity": "2", "unit": "quả", "preparation": ["luộc"], "modifiers": [], "negated": false},
@@ -91,7 +95,8 @@
     "sample_id": "vmb-foundation-0005",
     "text": "1 ly cơm trắng",
     "locale": "vi-VN",
-    "expected_decision": "needs_clarification",
+    "expected_parse_decision": "parsed",
+    "expected_analysis_decision": "needs_clarification",
     "expected_parse": {
       "items": [
         {"food_phrase": "cơm trắng", "quantity": "1", "unit": "ly", "preparation": [], "modifiers": [], "negated": false}

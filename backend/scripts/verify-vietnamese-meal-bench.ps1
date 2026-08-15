@@ -11,7 +11,8 @@ $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
 $errors = [System.Collections.Generic.List[string]]::new()
 $caseIds = [System.Collections.Generic.HashSet[string]]::new()
 $tagCounts = @{}
-$decisionCounts = @{}
+$parseDecisionCounts = @{}
+$analysisDecisionCounts = @{}
 $annotationCounts = @{}
 $splitReports = [ordered]@{}
 $loadedCaseCount = 0
@@ -62,18 +63,27 @@ foreach ($splitName in @("development", "public_test")) {
         if ([string]$case.locale -ne "vi-VN") {
             $errors.Add("case $sampleId must use locale vi-VN")
         }
-        if ([string]$case.expected_decision -notin @("resolve", "needs_clarification", "insufficient")) {
-            $errors.Add("case $sampleId has an invalid expected_decision")
+        if ($null -ne $case.expected_decision) {
+            $errors.Add("case $sampleId uses legacy expected_decision; split parse and analysis decisions")
+        }
+        if ([string]$case.expected_parse_decision -notin @("parsed", "parse_rejected")) {
+            $errors.Add("case $sampleId has an invalid expected_parse_decision")
+        }
+        if ([string]$case.expected_analysis_decision -notin @("resolve", "needs_clarification", "insufficient")) {
+            $errors.Add("case $sampleId has an invalid expected_analysis_decision")
         }
         if ($null -eq $case.expected_parse) {
             $errors.Add("case $sampleId is missing expected_parse")
             continue
         }
         $items = @($case.expected_parse.items)
-        if ([string]$case.expected_decision -eq "insufficient" -and $items.Count -gt 0) {
+        if ([string]$case.expected_parse_decision -eq "parse_rejected" -and $items.Count -gt 0) {
+            $errors.Add("parse_rejected case $sampleId must not contain resolved items")
+        }
+        if ([string]$case.expected_analysis_decision -eq "insufficient" -and $items.Count -gt 0) {
             $errors.Add("insufficient case $sampleId must not contain resolved items")
         }
-        if ([string]$case.expected_decision -eq "needs_clarification" -and
+        if ([string]$case.expected_analysis_decision -eq "needs_clarification" -and
             [string]::IsNullOrWhiteSpace([string]$case.expected_parse.clarification_dimension)) {
             $errors.Add("clarification case $sampleId must declare clarification_dimension")
         }
@@ -90,9 +100,12 @@ foreach ($splitName in @("development", "public_test")) {
             if (-not $tagCounts.ContainsKey($tagKey)) { $tagCounts[$tagKey] = 0 }
             $tagCounts[$tagKey]++
         }
-        $decisionKey = [string]$case.expected_decision
-        if (-not $decisionCounts.ContainsKey($decisionKey)) { $decisionCounts[$decisionKey] = 0 }
-        $decisionCounts[$decisionKey]++
+        $parseDecisionKey = [string]$case.expected_parse_decision
+        if (-not $parseDecisionCounts.ContainsKey($parseDecisionKey)) { $parseDecisionCounts[$parseDecisionKey] = 0 }
+        $parseDecisionCounts[$parseDecisionKey]++
+        $analysisDecisionKey = [string]$case.expected_analysis_decision
+        if (-not $analysisDecisionCounts.ContainsKey($analysisDecisionKey)) { $analysisDecisionCounts[$analysisDecisionKey] = 0 }
+        $analysisDecisionCounts[$analysisDecisionKey]++
         $annotationKey = [string]$case.adjudication_status
         if ([string]::IsNullOrWhiteSpace($annotationKey)) {
             $errors.Add("case $sampleId is missing adjudication_status")
@@ -135,7 +148,8 @@ $report = [ordered]@{
     splits = $splitReports
     coverage = [ordered]@{
         tags = Convert-CountsToOrderedMap $tagCounts
-        expected_decisions = Convert-CountsToOrderedMap $decisionCounts
+        expected_parse_decisions = Convert-CountsToOrderedMap $parseDecisionCounts
+        expected_analysis_decisions = Convert-CountsToOrderedMap $analysisDecisionCounts
         annotation_status = Convert-CountsToOrderedMap $annotationCounts
     }
     release = [ordered]@{
