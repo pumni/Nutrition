@@ -41,7 +41,7 @@ Source data is imported into a staged catalog release. Validation precedes expli
 an active release is never edited in place. Activation requires the validation report hash to match
 the staged release manifest, complete energy/provenance evidence, approved source mappings, and an
 explicit reviewer approval reference; the previous source and catalog releases remain available
-for rollback.
+for rollback. Rollback creates a new staged snapshot rather than mutating a superseded release.
 
 The two foods and two contextual portion observations in the foundation fixture are synthetic
 engineering data. Their nutrient values and mass ranges must not be represented as a curated

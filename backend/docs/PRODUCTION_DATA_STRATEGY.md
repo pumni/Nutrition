@@ -106,7 +106,9 @@ eligibility is explicitly true. It also verifies that every selected composition
 complete `fdc_energy_v1` evidence, production eligibility, an approved source mapping, and an
 active catalog name. Only then does one transaction publish the staged profiles, activate their
 food identities and catalog release, supersede the prior catalog/source pointers, and retain the
-previous release as the rollback target. The importer itself never invokes activation.
+previous release as the rollback target. A rollback never reactivates a superseded row: it creates
+a new staged immutable snapshot of the validated prior release and sends that snapshot through the
+same activation gate. The importer itself never invokes activation.
 
 ## Nutrient mapping policy
 
