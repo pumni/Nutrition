@@ -20,7 +20,7 @@ jobs:
   verify:
     name: verify backend
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
 
     steps:
       - name: Checkout
@@ -48,6 +48,10 @@ jobs:
       - name: Run PostgreSQL integration verification
         shell: pwsh
         run: ./scripts/verify-postgres.ps1
+
+      - name: Run staged FDC importer verification
+        shell: pwsh
+        run: ./scripts/verify-fdc-importer.ps1
 
       - name: Clean PostgreSQL verification resources
         if: always()
