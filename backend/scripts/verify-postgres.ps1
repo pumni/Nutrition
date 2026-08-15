@@ -30,8 +30,16 @@ try {
     $env:AUTH_MODE = "development"
     $env:PARSER_MODE = "fixture"
     cargo build -p api-http
-    $apiPath = (Resolve-Path ".\target\debug\api-http.exe").Path
-    $apiProcess = Start-Process -FilePath $apiPath -PassThru -WindowStyle Hidden
+    $apiBinaryName = if ($IsWindows) { "api-http.exe" } else { "api-http" }
+    $apiPath = (Resolve-Path (Join-Path ".\target\debug" $apiBinaryName)).Path
+    $processArguments = @{
+        FilePath = $apiPath
+        PassThru = $true
+    }
+    if ($IsWindows) {
+        $processArguments.WindowStyle = "Hidden"
+    }
+    $apiProcess = Start-Process @processArguments
     try {
         $ready = $false
         for ($attempt = 0; $attempt -lt 20; $attempt++) {
