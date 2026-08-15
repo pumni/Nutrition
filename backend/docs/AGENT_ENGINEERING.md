@@ -12,11 +12,11 @@ The agent reads the minimal modules selected by `.agent/context/router.json`, in
 
 ## Task, scope, and risk
 
-Human intent contains the objective, acceptance criteria, non-negotiables, coarse scope hints, and explicit protected approvals. The trusted compiler binds the current baseline, scope ceiling, approvals, and risk floor. The agent discovers relevant modules during read-only investigation; verification derives modules and atomic gates from the actual diff. Risk describes blast radius; authorization is separate: `unprotected`, `approved_protected_change`, or `requires_human_decision`. Agent execution state may raise risk with repository evidence but never lower the compiled floor.
+Human Task Intent contains the objective, acceptance criteria, non-negotiables, coarse scope hints, and explicit protected approvals. The trusted prepare phase binds the baseline, scope ceiling, approvals, and risk floor into a compiled Task Spec. The agent discovers relevant modules and owns implementation sequencing during read-only investigation; verification derives modules, gates, and effective risk from the actual diff. Human-approved means Task Intent and protected approvals; machine-bound means the compiled execution envelope; observed means the final diff; verifier-derived means gates and risk.
 
 ## Verification and evidence
 
-The trusted runner owns executable gate definitions and writes bounded verification evidence outside the target worktree. Implementation reports contain only gate IDs, statuses, and evidence references. Behavioral evals run real adapter trials in disposable worktrees; graders inspect final environment state rather than trusting self-reported success.
+The trusted runner consumes the prepared Task Spec, validates the baseline-to-target relationship, owns executable gate definitions, and writes bounded verification evidence outside the target worktree. Implementation reports contain only gate IDs, statuses, and evidence references. Behavioral evals run real adapter trials in disposable worktrees; graders inspect final environment state rather than trusting self-reported success.
 
 ## Freshness and maintenance
 

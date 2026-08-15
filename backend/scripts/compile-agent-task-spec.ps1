@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$IntentPath,
     [Parameter(Mandatory = $true)][string]$RepositoryRoot,
+    [Parameter(Mandatory = $true)][string]$BaselineCommit,
     [Parameter(Mandatory = $true)][string]$OutputPath
 )
 
@@ -21,9 +22,9 @@ if ($null -eq $intent.acceptance_criteria -or @($intent.acceptance_criteria).Cou
 if ($null -eq $intent.non_negotiables) { throw 'Task Intent non_negotiables must be present' }
 if ($null -eq $intent.approved_protected_decisions) { throw 'Task Intent approved_protected_decisions must be present' }
 
-$commit = (& git -C $RepositoryRoot rev-parse HEAD 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-fA-F]{40}$') {
-    throw 'could not resolve Task Spec baseline commit'
+$commit = (& git -C $RepositoryRoot rev-parse "$BaselineCommit^{commit}" 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $BaselineCommit -notmatch '^[0-9a-fA-F]{40}$' -or $commit -notmatch '^[0-9a-fA-F]{40}$' -or $commit -ine $BaselineCommit) {
+    throw 'Task Spec baseline commit must be an existing full commit SHA'
 }
 
 $scopeHints = if ($intent.PSObject.Properties.Name -contains 'scope_hints') {
@@ -44,9 +45,9 @@ $riskPolicy = Get-Content -Raw -LiteralPath (Join-Path $RepositoryRoot '.agent/v
 $riskOrder = @('low', 'medium', 'high', 'critical')
 foreach ($approval in @($intent.approved_protected_decisions)) {
     $domain = [string]$approval.domain
-    $default = $riskPolicy.domain_defaults.PSObject.Properties[$domain]
-    if ($null -eq $default) { throw "Task Intent approval domain is not canonical: $domain" }
-    $domainRisk = [string]$default.Value.risk_level
+    $domainProperty = $riskPolicy.protected_domains.PSObject.Properties[$domain]
+    if ($null -eq $domainProperty) { throw "Task Intent approval domain is not canonical: $domain" }
+    $domainRisk = [string]$domainProperty.Value
     if ($riskOrder.IndexOf($domainRisk) -gt $riskOrder.IndexOf($risk)) { $risk = $domainRisk }
 }
 

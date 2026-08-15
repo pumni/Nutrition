@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "task_id": "ACL-EXAMPLE-001",
+  "task_id": "TASK-EXAMPLE-001",
   "gate": "benchmark-external",
   "evidence_kind": "vietnamese-meal-benchmark",
   "subject_commit": "da04e773a214e8f8232db149d1f35f3f0bd61ce1",

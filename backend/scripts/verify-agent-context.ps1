@@ -47,13 +47,10 @@ function Assert-RequiredFiles([string]$Root) {
         '.agent/contexts/api.md', '.agent/contexts/worker.md', '.agent/contexts/data-governance.md', '.agent/contexts/verification.md',
         '.agent/context/modules.json', '.agent/context/router.json',
         '.agent/maps/verification-map.json', '.agent/maps/source-register.json', '.agent/verification/risk-policy.json', '.agent/verification/scope-policy.json',
-        '.agent/contracts/task-intent.schema.json', '.agent/contracts/task-spec.schema.json', '.agent/contracts/agent-plan.schema.json', '.agent/contracts/execution-state.schema.json',
+        '.agent/contracts/task-intent.schema.json', '.agent/contracts/task-spec.schema.json',
         '.agent/contracts/verification-report.schema.json', '.agent/contracts/implementation-report.schema.json', '.agent/contracts/external-evidence.schema.json', '.agent/contracts/ci-attestation.schema.json',
-        '.agent/templates/task-intent.example.json', '.agent/templates/task-spec.example.json', '.agent/templates/agent-plan.example.json', '.agent/templates/execution-state.example.json',
-        '.agent/templates/verification-report.example.json', '.agent/templates/implementation-report.example.md', '.agent/templates/external-evidence.example.json', '.agent/templates/ci-attestation.example.json',
-        '.agent/evals/README.md', '.agent/evals/implementation-report-cases.json', '.agent/evals/ci-cases.json',
-        '.agent/evals/tasks/README.md', '.agent/evals/graders/README.md',
-        'scripts/compile-agent-task-spec.ps1', 'scripts/verify-agent-context.ps1', 'scripts/run-agent-verification.ps1', 'scripts/verify-agent-behavior.ps1',
+        '.agent/evals/README.md',
+        'scripts/compile-agent-task-spec.ps1', 'scripts/prepare-agent-task.ps1', 'scripts/verify-agent-context.ps1', 'scripts/run-agent-verification.ps1', 'scripts/verify-agent-behavior.ps1',
         '.github/workflows/agent-context-integrity.yml', '.github/workflows/agent-task-attest.yml'
     )
     foreach ($path in $required) { if (-not (Test-Path -LiteralPath (Get-RepoPath $Root $path) -PathType Leaf)) { Fail "required active file is missing: $path" } }
@@ -61,10 +58,10 @@ function Assert-RequiredFiles([string]$Root) {
 
 function Assert-Manifest([string]$Root) {
     $manifest = Load-Json (Get-RepoPath $Root '.agent/manifest.json')
-    Assert-ExactProperties $manifest @('schema_version','context_release','contract_release','verifier_release','verification_registry_release','runner_release','verification_report_release','implementation_report_release','ci_release','ci_attestation_contract_release','project','authority','budgets','paths') 'manifest'
+    Assert-ExactProperties $manifest @('schema_version','verifier_release','verification_registry_release','runner_release','ci_release','ci_attestation_contract_release','project','authority','budgets','paths') 'manifest'
     if ([string]$manifest.schema_version -ne '1.0.0') { Fail 'manifest schema_version mismatch' }
     $expected = @{
-        context_release='agent-context-2.0.0'; contract_release='agent-contract-2.0.0'; verifier_release='agent-verifier-3.0.0'; verification_registry_release='agent-gates-3.0.0'; runner_release='agent-runner-2.0.0'; verification_report_release='agent-verification-report-3.0.0'; implementation_report_release='agent-implementation-report-2.0.0'; ci_release='agent-ci-2.0.0'; ci_attestation_contract_release='agent-ci-attestation-2.0.0'
+        verifier_release='agent-verifier-3.0.0'; verification_registry_release='agent-gates-3.0.0'; runner_release='agent-runner-2.0.0'; ci_release='agent-ci-2.0.0'; ci_attestation_contract_release='agent-ci-attestation-2.0.0'
     }
     foreach ($key in $expected.Keys) { if ([string]$manifest.$key -ne $expected[$key]) { Fail "manifest $key release mismatch" } }
     if ([string]$manifest.project.repository -ne 'pumni/Nutrition_backend') { Fail 'manifest repository mismatch' }
@@ -111,14 +108,13 @@ function Assert-ContextRouting([string]$Root, [string[]]$KnownGates) {
 }
 
 function Assert-RiskPolicy([string]$Root) {
-    $policy = Load-Json (Get-RepoPath $Root '.agent/verification/risk-policy.json'); Assert-ExactProperties $policy @('schema_version','classification_authority','agent_artifacts_may_reclassify','risk_levels','authorization_states','protected_decision_domains','rules','escalation_policy','domain_defaults') 'risk policy'; if ($policy.schema_version -ne '2.0.0' -or $policy.classification_authority -ne 'task_spec_floor' -or $policy.agent_artifacts_may_reclassify -ne $true) { Fail 'risk policy classification model is invalid' }
-    foreach ($level in @($policy.risk_levels)) { if ($level.id -notin $script:RiskLevels) { Fail "unknown risk level: $($level.id)" } }
-    foreach ($state in @($policy.authorization_states)) { if ($state -notin $script:AuthorizationStates) { Fail "unknown authorization state: $state" } }
-    foreach ($domain in @($policy.protected_decision_domains)) { if ($domain -notin $script:ProtectedDomains) { Fail "unknown protected domain: $domain" } }
-    foreach ($property in $policy.domain_defaults.PSObject.Properties) { if ($property.Name -notin $script:ProtectedDomains) { Fail "risk policy default has unknown domain: $($property.Name)" }; if ($property.Value.risk_level -notin $script:RiskLevels -or $property.Value.authorization -notin $script:AuthorizationStates) { Fail "risk policy default is invalid: $($property.Name)" } }
+    $policy = Load-Json (Get-RepoPath $Root '.agent/verification/risk-policy.json'); Assert-ExactProperties $policy @('schema_version','risk_levels','protected_domains') 'risk policy'; if ($policy.schema_version -ne '2.0.0') { Fail 'risk policy schema mismatch' }
+    foreach ($level in @($policy.risk_levels)) { if ($level -notin $script:RiskLevels) { Fail "unknown risk level: $level" } }
+    foreach ($property in $policy.protected_domains.PSObject.Properties) { if ($property.Name -notin $script:ProtectedDomains) { Fail "risk policy has unknown protected domain: $($property.Name)" }; if ($property.Value -notin $script:RiskLevels) { Fail "risk policy domain risk is invalid: $($property.Name)" } }
+    foreach ($domain in $script:ProtectedDomains) { if (-not (Has-Property $policy.protected_domains $domain)) { Fail "risk policy is missing protected domain: $domain" } }
 }
 function Assert-ScopePolicy([string]$Root) {
-    $policy=Load-Json (Get-RepoPath $Root '.agent/verification/scope-policy.json'); if ($policy.schema_version -ne '2.0.0' -or $policy.approval_source -ne 'task_spec.scope_envelope.approved_protected_paths' -or $policy.protected_scope_requires_approval -ne $true) { Fail 'scope policy is invalid' }; if ($policy.PSObject.Properties.Name -contains ('exact_'+'file_mode_risks')) { Fail 'scope policy contains removed exact-file abstraction' }
+    $policy=Load-Json (Get-RepoPath $Root '.agent/verification/scope-policy.json'); Assert-ExactProperties $policy @('schema_version','protected_path_patterns','approval_source','protected_scope_requires_approval') 'scope policy'; if ($policy.schema_version -ne '2.0.0' -or $policy.approval_source -ne 'task_spec.scope_envelope.approved_protected_paths' -or $policy.protected_scope_requires_approval -ne $true) { Fail 'scope policy is invalid' }; [void](Assert-StringArray $policy.protected_path_patterns 'scope protected path patterns' $true)
 }
 
 function Assert-TaskSpecV2([string]$Root, $Spec) {
@@ -131,12 +127,11 @@ function Assert-TaskSpecV2([string]$Root, $Spec) {
 function Assert-Contracts([string]$Root, [string[]]$KnownGates) {
     $taskSchema=Load-Json (Get-RepoPath $Root '.agent/contracts/task-spec.schema.json'); if ($taskSchema.properties.schema_version.const -ne '2.0.0') { Fail 'Task Spec contract release mismatch' }
     $reportSchema=Load-Json (Get-RepoPath $Root '.agent/contracts/implementation-report.schema.json'); if ($reportSchema.properties.schema_version.const -ne '2.0.0') { Fail 'implementation report schema release mismatch' }; $verification=$reportSchema.properties.verification.items; if (@($verification.required) -join ',' -ne 'gate_id,status,evidence_ref') { Fail 'implementation report verification shape is not strict v2' }; if ($reportSchema | ConvertTo-Json -Depth 20 | Select-String -Pattern 'command|oneOf') { Fail 'implementation report contract contains command truth or dual mode' }
-    foreach ($pair in @(@('.agent/contracts/agent-plan.schema.json','2.0.0'),@('.agent/contracts/execution-state.schema.json','2.0.0'),@('.agent/contracts/verification-report.schema.json','2.0.0'))) { $schema=Load-Json (Get-RepoPath $Root $pair[0]); if ($schema.properties.schema_version.const -ne $pair[1]) { Fail "contract release mismatch: $($pair[0])" } }
-    $task=Load-Json (Get-RepoPath $Root '.agent/templates/task-spec.example.json'); Assert-TaskSpecV2 $Root $task
-    $intent=Load-Json (Get-RepoPath $Root '.agent/templates/task-intent.example.json'); Assert-ExactProperties $intent @('task_id','objective','acceptance_criteria','non_negotiables','scope_hints','scope_exclusions','risk_floor','approved_protected_decisions') 'Task intent'; [void](Assert-StringArray $intent.acceptance_criteria 'Task intent acceptance_criteria' $true); if ($intent.risk_floor -and $intent.risk_floor -notin $script:RiskLevels) { Fail 'Task intent risk_floor is invalid' }
-    $plan=Load-Json (Get-RepoPath $Root '.agent/templates/agent-plan.example.json'); if ($plan.schema_version -ne '2.0.0') { Fail 'agent plan template release mismatch' }
-    $state=Load-Json (Get-RepoPath $Root '.agent/templates/execution-state.example.json'); if ($state.schema_version -ne '2.0.0' -or @($state.verification_references | Where-Object { -not (Has-Property $_ 'gate_id') }).Count -gt 0) { Fail 'execution state template is invalid' }
-    $reportCases=Load-Json (Get-RepoPath $Root '.agent/evals/implementation-report-cases.json'); if ($reportCases.schema_version -ne '2.0.0') { Fail 'implementation report eval schema mismatch' }; foreach ($case in @($reportCases.cases)) { $json=$case.report | ConvertTo-Json -Depth 30; $hasCommand=$json -match '"command"'; if (($case.expected -eq 'pass') -and $hasCommand) { Fail "positive report fixture contains command: $($case.name)" }; if (($case.expected -eq 'fail') -and -not $hasCommand) { Fail "negative report fixture lost command rejection: $($case.name)" } }
+    $schema=Load-Json (Get-RepoPath $Root '.agent/contracts/verification-report.schema.json'); if ($schema.properties.schema_version.const -ne '2.0.0') { Fail 'verification report contract release mismatch' }
+    $intentPath = Get-RepoPath $Root '.agent/templates/task-intent.example.json'
+    if (Test-Path -LiteralPath $intentPath -PathType Leaf) { $intent=Load-Json $intentPath; Assert-ExactProperties $intent @('task_id','objective','acceptance_criteria','non_negotiables','scope_hints','scope_exclusions','risk_floor','approved_protected_decisions') 'Task intent'; [void](Assert-StringArray $intent.acceptance_criteria 'Task intent acceptance_criteria' $true); if ($intent.risk_floor -and $intent.risk_floor -notin $script:RiskLevels) { Fail 'Task intent risk_floor is invalid' } }
+    $evidenceExample = Get-RepoPath $Root '.agent/templates/external-evidence.example.json'
+    if (Test-Path -LiteralPath $evidenceExample -PathType Leaf) { $evidence=Load-Json $evidenceExample; if ($evidence.schema_version -ne '1.0.0') { Fail 'external evidence example schema mismatch' } }
 }
 
 function Assert-ContextText([string]$Root) {
@@ -147,10 +142,10 @@ function Assert-ContextText([string]$Root) {
 
 function Assert-CiPolicy([string]$Root) {
     $ciPolicy=Load-Json (Get-RepoPath $Root '.agent/maps/ci-policy.json'); if ($ciPolicy.schema_version -ne '2.0.0' -or $ciPolicy.release -ne 'agent-ci-2.0.0') { Fail 'CI policy release mismatch' }
-    $attestation=Load-Json (Get-RepoPath $Root '.agent/contracts/ci-attestation.schema.json'); if ($attestation.properties.schema_version.const -ne '2.0.0' -or $attestation.properties.release.const -ne 'agent-ci-attestation-2.0.0' -or $attestation.properties.runner_release.const -ne 'agent-runner-2.0.0' -or $attestation.properties.verifier_release.const -ne 'agent-verifier-3.0.0') { Fail 'CI attestation contract release mismatch' }
+    $attestation=Load-Json (Get-RepoPath $Root '.agent/contracts/ci-attestation.schema.json'); if ($attestation.properties.schema_version.const -ne '2.0.0' -or $attestation.properties.release.const -ne 'agent-ci-attestation-2.0.0' -or $attestation.properties.runner_release.const -ne 'agent-runner-2.0.0' -or $attestation.properties.verifier_release.const -ne 'agent-verifier-3.0.0' -or $attestation.required -notcontains 'baseline_sha') { Fail 'CI attestation contract release or baseline binding is invalid' }
     $integrity=Get-RepoPath $Root '.github/workflows/agent-context-integrity.yml'; $attest=Get-RepoPath $Root '.github/workflows/agent-task-attest.yml'; foreach ($path in @($integrity,$attest)) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail "CI workflow missing: $path" } }
     $text=Get-Content -Raw $integrity; foreach ($required in @('verify-agent-context.ps1 -SelfTest','run-agent-verification.ps1 -SelfTest','verify-agent-context.ps1 -CiPolicy')) { if ($text -notmatch [regex]::Escape($required)) { Fail "integrity workflow missing check: $required" } }; if ($text -match '(?m)contents:\s*write') { Fail 'integrity workflow grants contents write' }
-    $attestText=Get-Content -Raw $attest; if ($attestText -notmatch 'workflow_dispatch') { Fail 'attestation workflow is not dispatch-only' }; if ($attestText -match '(?m)pull_request_target|workflow_run') { Fail 'attestation workflow has an unsafe trigger' }
+    $attestText=Get-Content -Raw $attest; if ($attestText -notmatch 'workflow_dispatch' -or $attestText -notmatch 'baseline_sha' -or $attestText -notmatch 'prepare-agent-task.ps1' -or $attestText -notmatch '-TaskSpec') { Fail 'attestation workflow is missing explicit prepare/verify baseline binding' }; if ($attestText -match '(?m)pull_request_target|workflow_run') { Fail 'attestation workflow has an unsafe trigger' }
     foreach ($workflow in @($text,$attestText)) { foreach ($match in [regex]::Matches($workflow, 'uses:\s*[^\s]+@([^\s#]+)')) { if ($match.Groups[1].Value -notmatch '^[0-9a-fA-F]{40}$') { Fail 'CI action reference is not pinned to a full commit' } } }
 }
 

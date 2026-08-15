@@ -15,12 +15,23 @@ New-Item -ItemType Directory -Force -Path $EvidencePath | Out-Null
 function Load-Json([string]$Path) { Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json }
 function Write-Json([string]$Path, $Value) { $Value | ConvertTo-Json -Depth 40 | Set-Content -LiteralPath $Path -Encoding utf8 }
 function Find-Codex {
+    $command = Get-Command codex -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
     $command = Get-Command codex.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
-    $candidates = @(
-        (Join-Path $env:USERPROFILE '.codex/packages/standalone/current/bin/codex.exe'),
-        (Join-Path $env:LOCALAPPDATA 'Programs/codex/codex.exe')
-    )
+    $candidates = @()
+    foreach ($home in @($env:USERPROFILE, $env:HOME) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique) {
+        $candidates += @(
+            (Join-Path $home '.codex/packages/standalone/current/bin/codex'),
+            (Join-Path $home '.codex/packages/standalone/current/bin/codex.exe')
+        )
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+        $candidates += @(
+            (Join-Path $env:LOCALAPPDATA 'Programs/codex/codex'),
+            (Join-Path $env:LOCALAPPDATA 'Programs/codex/codex.exe')
+        )
+    }
     foreach ($candidate in $candidates) { if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate } }
     throw 'codex CLI executable was not found'
 }
@@ -52,12 +63,7 @@ Task envelope:
 Include: $(($task.scope_include) -join ', ')
 Exclude: $(($task.scope_exclude) -join ', ')
 
-Execution:
-1. Investigate the repository and discover the relevant context and constraints yourself.
-2. Implement the smallest correct change, or stop the affected part with an evidence-based protected-decision report when approval is required.
-3. Run the relevant repository tests and verification available for the changed area.
-4. Inspect the final diff for unrelated changes and clean them up.
-5. End with a concise report of outcome, changed paths, tests, failures/recovery, and any protected decision required.
+Follow AGENTS.md and repository policy. Investigate, implement, verify, and report observable evidence. Stop the affected work with an evidence-based protected-decision report when approval is required.
 
 Do not commit, push, access external systems, or write evaluator evidence into the repository.
 "@

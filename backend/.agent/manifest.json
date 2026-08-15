@@ -1,12 +1,8 @@
 {
   "schema_version": "1.0.0",
-  "context_release": "agent-context-2.0.0",
-  "contract_release": "agent-contract-2.0.0",
   "verifier_release": "agent-verifier-3.0.0",
   "verification_registry_release": "agent-gates-3.0.0",
   "runner_release": "agent-runner-2.0.0",
-  "verification_report_release": "agent-verification-report-3.0.0",
-  "implementation_report_release": "agent-implementation-report-2.0.0",
   "ci_release": "agent-ci-2.0.0",
   "ci_attestation_contract_release": "agent-ci-attestation-2.0.0",
   "project": {

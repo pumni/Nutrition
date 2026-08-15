@@ -187,5 +187,5 @@ Run the context self-test, the default context verification, and the full founda
 ```
 
 Modern work starts from the [Task Intent example](.agent/templates/task-intent.example.json). The
-trusted runner compiles it into a Task Spec, discovers relevant context from repository evidence,
-and derives applicable gates from the final diff.
+trusted prepare phase binds it to a baseline and writes a compiled Task Spec outside the worktree;
+the agent discovers relevant context, and verification derives applicable gates from the final diff.

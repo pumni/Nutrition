@@ -1,17 +1,22 @@
 [CmdletBinding()]
 param(
-    [string]$TaskIntent,
+    [string]$TaskSpec,
     [string]$TargetRoot,
+    [string]$TargetCommit,
     [string]$OutputPath,
     [string]$ExternalEvidencePath,
-    [string]$ExecutionStatePath,
     [switch]$SelfTest
 )
 
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 $script:ControlRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$script:PowerShellExe = if (Test-Path -LiteralPath (Join-Path $PSHOME 'pwsh.exe')) { Join-Path $PSHOME 'pwsh.exe' } else { (Get-Command powershell.exe).Source }
+$script:PowerShellExe = $null
+foreach ($name in @('pwsh', 'powershell', 'pwsh.exe', 'powershell.exe')) {
+    $command = Get-Command $name -ErrorAction SilentlyContinue
+    if ($null -ne $command) { $script:PowerShellExe = $command.Source; break }
+}
+if ([string]::IsNullOrWhiteSpace($script:PowerShellExe)) { throw 'no PowerShell executable was found (pwsh or powershell)' }
 
 function Fail([string]$Message) { throw "[FAIL] $Message" }
 function Normalize([string]$Path) { $value = $Path.Replace('\', '/'); if ($value.StartsWith('./')) { $value = $value.Substring(2) }; return $value }
@@ -69,6 +74,16 @@ function Get-TargetHead([string]$Root) {
     if ($LASTEXITCODE -ne 0 -or $head -notmatch '^[0-9a-fA-F]{40}$') { Fail "could not resolve target HEAD: $head" }
     return $head
 }
+function Assert-Baseline([string]$Root, [string]$Baseline, [string]$ExpectedTarget) {
+    if ($Baseline -notmatch '^[0-9a-fA-F]{40}$') { Fail 'compiled Task Spec baseline is not a full commit SHA' }
+    $resolved = (& git -C $Root rev-parse "$Baseline^{commit}" 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $resolved -ne $Baseline) { Fail 'compiled Task Spec baseline does not exist in TargetRoot' }
+    $target = Get-TargetHead $Root
+    if ($ExpectedTarget -and ($ExpectedTarget -notmatch '^[0-9a-fA-F]{40}$' -or $ExpectedTarget -ine $target)) { Fail "TargetRoot HEAD does not match TargetCommit: expected $ExpectedTarget, actual $target" }
+    & git -C $Root merge-base --is-ancestor $Baseline $target 2>$null
+    if ($LASTEXITCODE -ne 0) { Fail "baseline $Baseline is not an ancestor of target $target" }
+    return $target
+}
 function Get-ChangeRecords([string]$Root, [string]$Baseline) {
     $records = @()
     $lines = (& git -C $Root diff --name-status --no-renames $Baseline -- 2>&1 | Out-String).Trim() -split "`r?`n" | Where-Object { $_ }
@@ -104,7 +119,7 @@ function Get-DerivedRequirements([string]$Root, $Records) {
         }
         if (-not $matched) { $modules += 'verification' }
     }
-    if (@($Records).Count -eq 0) { $gates += 'acl-integrity' }
+    if (@($Records).Count -eq 0) { $gates += 'context-integrity' }
     return [pscustomobject]@{
         modules = @($modules | Select-Object -Unique)
         gates = @($gates | Select-Object -Unique)
@@ -124,7 +139,7 @@ function Get-ScopeViolations([string]$Root, $Spec, $Records) {
     }
     return @($violations | Sort-Object -Unique)
 }
-function Get-RiskAssessment($Spec, $Records, $Escalations, $Derived) {
+function Get-RiskAssessment($Spec, $Records, $Derived) {
     $levels = @('low', 'medium', 'high', 'critical')
     $level = [string]$Spec.risk_level
     $evidence = @('change-records', 'scope-verification', 'derived-path-requirements')
@@ -137,10 +152,6 @@ function Get-RiskAssessment($Spec, $Records, $Escalations, $Derived) {
     foreach ($tag in @($Derived.risk_tags)) {
         if ($tag -in @('database', 'migration', 'api', 'auth', 'privacy', 'provider', 'release')) { $candidate = 'high' } else { $candidate = 'medium' }
         if ($levels.IndexOf($candidate) -gt $levels.IndexOf($level)) { $level = $candidate }
-    }
-    foreach ($escalation in @($Escalations)) {
-        if ($levels.IndexOf([string]$escalation.risk_level) -gt $levels.IndexOf($level)) { $level = [string]$escalation.risk_level }
-        $evidence += @($escalation.evidence_refs | ForEach-Object { 'agent:' + [string]$_ })
     }
     return [pscustomobject]@{ level = $level; escalated = ($levels.IndexOf($level) -gt $levels.IndexOf([string]$Spec.risk_level)); evidence_refs = @($evidence | Sort-Object -Unique) }
 }
@@ -193,7 +204,8 @@ function Invoke-Gate($Gate, [string]$GateId, [string]$TargetRoot, [string]$Evide
 function Write-Json([string]$Path, $Value) { $Value | ConvertTo-Json -Depth 40 | Set-Content -LiteralPath $Path -Encoding utf8 }
 function Invoke-RunnerSelfTest {
     $registry = Assert-Registry $script:ControlRoot
-    if (-not $registry.ContainsKey('acl-integrity')) { Fail 'canonical registry self-test gate is missing' }
+    if (-not $registry.ContainsKey('context-integrity')) { Fail 'canonical registry self-test gate is missing' }
+    if ([string]::IsNullOrWhiteSpace($script:PowerShellExe)) { Fail 'portable PowerShell discovery failed' }
     Write-Output '[PASS] canonical gate registry self-test'
     $temp = Join-Path ([IO.Path]::GetTempPath()) ('agent-runner-selftest-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force $temp | Out-Null
@@ -204,33 +216,22 @@ function Invoke-RunnerSelfTest {
 
 if ($SelfTest) { try { Invoke-RunnerSelfTest; exit 0 } catch { Write-Error $_.Exception.Message; exit 1 } }
 try {
-    if ([string]::IsNullOrWhiteSpace($TaskIntent)) { Fail '-TaskIntent is required unless -SelfTest is used' }
+    if ([string]::IsNullOrWhiteSpace($TaskSpec)) { Fail '-TaskSpec is required unless -SelfTest is used' }
     if ([string]::IsNullOrWhiteSpace($TargetRoot)) { Fail '-TargetRoot is required unless -SelfTest is used' }
     $target = (Resolve-Path -LiteralPath $TargetRoot).Path
-    $intentPath = (Resolve-Path -LiteralPath $TaskIntent).Path
+    $specPath = (Resolve-Path -LiteralPath $TaskSpec).Path
     $output = Assert-Outside $OutputPath $target 'OutputPath'
     $externalRoot = if ($ExternalEvidencePath) { Assert-Outside $ExternalEvidencePath $target 'ExternalEvidencePath' } else { $null }
     $evidence = Join-Path ([IO.Path]::GetTempPath()) ('agent-verification-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force $evidence | Out-Null
-    $compiledSpecPath = Join-Path $evidence 'compiled-task-spec.json'
-    $compileLog = Join-Path $evidence 'task-spec-compile.log'
-    $compile = Invoke-Process $script:PowerShellExe @('-NoLogo','-NoProfile','-File',(Join-Path $script:ControlRoot 'scripts/compile-agent-task-spec.ps1'),'-IntentPath',$intentPath,'-RepositoryRoot',$target,'-OutputPath',$compiledSpecPath) $script:ControlRoot $compileLog
-    if ($compile.exit_code -ne 0) { Fail 'CONTEXT_INTEGRITY_FAILED: Task Spec compilation failed' }
-    $spec = Load-Json $compiledSpecPath
+    $spec = Load-Json $specPath
     $script:CurrentTaskId = [string]$spec.task_id
-    $specHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $compiledSpecPath).Hash.ToLowerInvariant()
+    $specHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $specPath).Hash.ToLowerInvariant()
     $registry = Assert-Registry $script:ControlRoot
     $preflightLog = Join-Path $evidence 'task-spec-preflight.log'
-    $preflight = Invoke-Process $script:PowerShellExe @('-NoLogo','-NoProfile','-File',(Join-Path $script:ControlRoot 'scripts/verify-agent-context.ps1'),'-TaskSpec',$compiledSpecPath,'-RepositoryRoot',$target) $script:ControlRoot $preflightLog
+    $preflight = Invoke-Process $script:PowerShellExe @('-NoLogo','-NoProfile','-File',(Join-Path $script:ControlRoot 'scripts/verify-agent-context.ps1'),'-TaskSpec',$specPath,'-RepositoryRoot',$target) $script:ControlRoot $preflightLog
     if ($preflight.exit_code -ne 0) { Fail 'CONTEXT_INTEGRITY_FAILED: Task Spec preflight failed' }
-    $escalations = @()
-    if ($ExecutionStatePath) {
-        $statePath = (Resolve-Path -LiteralPath $ExecutionStatePath).Path
-        if (-not $statePath.StartsWith($target.TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { Fail 'ExecutionStatePath must be inside TargetRoot' }
-        $state = Load-Json $statePath
-        if ($state.schema_version -ne '2.0.0') { Fail 'execution state schema version is invalid' }
-        foreach ($escalation in @($state.risk_escalations)) { if ([string]$escalation.risk_level -notin @('low','medium','high','critical') -or [string]::IsNullOrWhiteSpace([string]$escalation.reason) -or @($escalation.evidence_refs).Count -eq 0) { Fail 'execution state contains an invalid risk escalation' }; $escalations += $escalation }
-    }
+    $targetHead = Assert-Baseline $target ([string]$spec.baseline.commit) $TargetCommit
     $records = @(Get-ChangeRecords $target ([string]$spec.baseline.commit))
     $scopeViolations = Get-ScopeViolations $target $spec $records
     $derived = Get-DerivedRequirements $target $records
@@ -242,14 +243,14 @@ try {
         $gateIndex++
     }
     $failed = @($gateResults | Where-Object status -ne 'pass')
-    $riskAssessment = Get-RiskAssessment $spec $records $escalations $derived
+    $riskAssessment = Get-RiskAssessment $spec $records $derived
     $report = [ordered]@{
         schema_version = '2.0.0'
         task_id = [string]$spec.task_id
         task_spec_sha256 = $specHash
         releases = [ordered]@{ runner_release = 'agent-runner-2.0.0'; verifier_release = 'agent-verifier-3.0.0'; verification_registry_release = 'agent-gates-3.0.0' }
         control_plane = [ordered]@{ root = $script:ControlRoot; head_commit = (& git -C $script:ControlRoot rev-parse HEAD).Trim(); file_hashes = @{ 'scripts/run-agent-verification.ps1' = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $script:ControlRoot 'scripts/run-agent-verification.ps1')).Hash.ToLowerInvariant() } }
-        target = [ordered]@{ root = $target; baseline_commit = [string]$spec.baseline.commit; head_commit = Get-TargetHead $target }
+        target = [ordered]@{ root = $target; baseline_commit = [string]$spec.baseline.commit; head_commit = $targetHead }
         change_records = @($records)
         derived_context_modules = @($derived.modules)
         derived_risk_tags = @($derived.risk_tags)

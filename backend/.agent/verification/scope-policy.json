@@ -13,7 +13,5 @@
     "schemas/**"
   ],
   "approval_source": "task_spec.scope_envelope.approved_protected_paths",
-  "risk_levels": ["low", "medium", "high", "critical"],
-  "authorization_states": ["unprotected", "approved_protected_change", "requires_human_decision"],
   "protected_scope_requires_approval": true
 }

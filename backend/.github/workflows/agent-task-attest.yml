@@ -3,12 +3,16 @@ name: Agent Task Attestation
 on:
   workflow_dispatch:
     inputs:
+      baseline_sha:
+        description: Exact trusted baseline commit SHA used to prepare the compiled Task Spec
+        required: true
+        type: string
       target_sha:
         description: Exact target commit SHA to verify
         required: true
         type: string
       task_intent_json:
-        description: Human task intent JSON compiled by the trusted runner
+        description: Human task intent JSON for the trusted prepare phase
         required: true
         type: string
       external_evidence_json:
@@ -47,9 +51,11 @@ jobs:
       - name: Validate target SHA
         shell: bash
         env:
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
           TARGET_SHA: ${{ inputs.target_sha }}
         run: |
           set -euo pipefail
+          [[ "$BASELINE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
           [[ "$TARGET_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
 
       - name: Checkout trusted control
@@ -71,11 +77,14 @@ jobs:
       - name: Verify checkout heads
         shell: bash
         env:
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
           TARGET_SHA: ${{ inputs.target_sha }}
         run: |
           set -euo pipefail
           test "$(git -C control rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git -C target rev-parse HEAD)" = "$TARGET_SHA"
+          git -C control cat-file -e "$BASELINE_SHA^{commit}"
+          git -C control merge-base --is-ancestor "$BASELINE_SHA" "$TARGET_SHA"
 
       - name: Write immutable task intent
         shell: pwsh
@@ -85,6 +94,17 @@ jobs:
           $specPath = Join-Path $env:RUNNER_TEMP 'agent-task-intent.json'
           $bytes = [Text.Encoding]::UTF8.GetBytes($env:TASK_INTENT_JSON)
           [IO.File]::WriteAllBytes($specPath, $bytes)
+
+      - name: Prepare compiled Task Spec from trusted baseline
+        shell: pwsh
+        env:
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
+        run: |
+          & "$env:GITHUB_WORKSPACE/control/scripts/prepare-agent-task.ps1" `
+            -TaskIntent (Join-Path $env:RUNNER_TEMP 'agent-task-intent.json') `
+            -RepositoryRoot "$env:GITHUB_WORKSPACE/control" `
+            -BaselineCommit $env:BASELINE_SHA `
+            -OutputPath (Join-Path $env:RUNNER_TEMP 'compiled-task-spec.json')
 
       - name: Prepare optional external evidence
         shell: pwsh
@@ -120,12 +140,14 @@ jobs:
         continue-on-error: true
         shell: bash
         env:
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
           TARGET_SHA: ${{ inputs.target_sha }}
         run: |
           set +e
           pwsh -NoLogo -NoProfile -File control/scripts/run-agent-verification.ps1 \
-            -TaskIntent "$RUNNER_TEMP/agent-task-intent.json" \
+            -TaskSpec "$RUNNER_TEMP/compiled-task-spec.json" \
             -TargetRoot "$GITHUB_WORKSPACE/target" \
+            -TargetCommit "$TARGET_SHA" \
             -OutputPath "$RUNNER_TEMP/verification-report.json" \
             -ExternalEvidencePath "$RUNNER_TEMP/external-evidence"
           runner_exit=$?
@@ -135,17 +157,21 @@ jobs:
       - name: Create CI attestation
         shell: pwsh
         env:
+          BASELINE_SHA: ${{ inputs.baseline_sha }}
           TARGET_SHA: ${{ inputs.target_sha }}
         run: |
           $reportPath = Join-Path $env:RUNNER_TEMP 'verification-report.json'
           $attestationPath = Join-Path $env:RUNNER_TEMP 'ci-attestation.json'
           if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) { throw 'trusted verification report is missing' }
           $report = Get-Content -Raw -LiteralPath $reportPath | ConvertFrom-Json
+          if ([string]$report.target.baseline_commit -ine $env:BASELINE_SHA) { throw 'verification report baseline does not match the requested baseline SHA' }
+          if ([string]$report.target.head_commit -ine $env:TARGET_SHA) { throw 'verification report target does not match the requested target SHA' }
           $manifest = Get-Content -Raw -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'control/.agent/manifest.json') | ConvertFrom-Json
           $attestation = [ordered]@{
             schema_version = '2.0.0'
             release = 'agent-ci-attestation-2.0.0'
             task_id = [string]$report.task_id
+            baseline_sha = $env:BASELINE_SHA
             target_sha = $env:TARGET_SHA
             control_sha = [string]$report.control_plane.head_commit
             task_spec_sha256 = [string]$report.task_spec_sha256

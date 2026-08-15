@@ -1,56 +1,17 @@
 {
   "schema_version": "2.0.0",
-  "classification_authority": "task_spec_floor",
-  "agent_artifacts_may_reclassify": true,
-  "risk_levels": [
-    {"id": "low", "ordinal": 0, "mode": "read_only_or_internal", "blast_radius": "low"},
-    {"id": "medium", "ordinal": 1, "mode": "implementation_within_scope", "blast_radius": "bounded"},
-    {"id": "high", "ordinal": 2, "mode": "boundary_aware", "blast_radius": "material"},
-    {"id": "critical", "ordinal": 3, "mode": "protected_decision", "blast_radius": "systemic"}
-  ],
-  "authorization_states": [
-    "unprotected",
-    "approved_protected_change",
-    "requires_human_decision"
-  ],
-  "protected_decision_domains": [
-    "product_domain_behavior",
-    "architectural_boundary",
-    "public_api_contract",
-    "database_migration_intent",
-    "security_privacy_policy",
-    "llm_provider_boundary",
-    "behavior_version_semantics",
-    "production_provider_infrastructure",
-    "canonical_publication",
-    "release_policy",
-    "architecturally_significant_dependency_changes"
-  ],
-  "rules": {
-    "fail_closed_on_unknown_risk": true,
-    "prevent_risk_downgrade": true,
-    "protected_change_requires_explicit_authorization": true,
-    "human_decision_required_without_approval": true,
-    "risk_escalation_requires_repository_evidence": true
-  },
-  "escalation_policy": {
-    "database_migration_intent": "critical",
+  "risk_levels": ["low", "medium", "high", "critical"],
+  "protected_domains": {
+    "product_domain_behavior": "critical",
+    "architectural_boundary": "high",
     "public_api_contract": "critical",
+    "database_migration_intent": "critical",
     "security_privacy_policy": "critical",
     "llm_provider_boundary": "critical",
-    "architectural_boundary": "high"
-  },
-  "domain_defaults": {
-    "product_domain_behavior": {"risk_level": "critical", "authorization": "requires_human_decision"},
-    "architectural_boundary": {"risk_level": "high", "authorization": "requires_human_decision"},
-    "public_api_contract": {"risk_level": "critical", "authorization": "requires_human_decision"},
-    "database_migration_intent": {"risk_level": "critical", "authorization": "requires_human_decision"},
-    "security_privacy_policy": {"risk_level": "critical", "authorization": "requires_human_decision"},
-    "llm_provider_boundary": {"risk_level": "critical", "authorization": "requires_human_decision"},
-    "behavior_version_semantics": {"risk_level": "high", "authorization": "requires_human_decision"},
-    "production_provider_infrastructure": {"risk_level": "critical", "authorization": "requires_human_decision"},
-    "canonical_publication": {"risk_level": "high", "authorization": "requires_human_decision"},
-    "release_policy": {"risk_level": "high", "authorization": "requires_human_decision"},
-    "architecturally_significant_dependency_changes": {"risk_level": "high", "authorization": "requires_human_decision"}
+    "behavior_version_semantics": "high",
+    "production_provider_infrastructure": "critical",
+    "canonical_publication": "high",
+    "release_policy": "high",
+    "architecturally_significant_dependency_changes": "high"
   }
 }

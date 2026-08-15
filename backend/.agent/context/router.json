@@ -13,10 +13,10 @@
     {"path_pattern": "crates/worker/**", "modules": ["worker", "persistence"], "risk_tags": ["lease", "retry", "outbox"], "mandatory_gates": ["cargo-fmt", "cargo-clippy", "cargo-test"]},
     {"path_pattern": "fixtures/**", "modules": ["data-governance"], "risk_tags": ["test-only-evidence", "benchmark"], "mandatory_gates": ["cargo-test"]},
     {"path_pattern": "seeds/**", "modules": ["data-governance"], "risk_tags": ["release", "catalog"], "mandatory_gates": ["postgres-verify"]},
-    {"path_pattern": ".agent/authority/**", "modules": ["authority"], "risk_tags": ["authority", "protected-decision"], "mandatory_gates": ["acl-integrity"]},
-    {"path_pattern": ".agent/**", "modules": ["verification-maintenance"], "risk_tags": ["governance", "context-drift"], "mandatory_gates": ["acl-self-test", "agent-runner-self-test", "agent-ci-policy", "acl-integrity"]},
-    {"path_pattern": "AGENTS.md", "modules": ["verification-maintenance"], "risk_tags": ["governance", "entrypoint"], "mandatory_gates": ["acl-integrity"]},
-    {"path_pattern": "scripts/**", "modules": ["verification-maintenance"], "risk_tags": ["verification", "governance"], "mandatory_gates": ["acl-integrity"]}
+    {"path_pattern": ".agent/authority/**", "modules": ["authority"], "risk_tags": ["authority", "protected-decision"], "mandatory_gates": ["context-integrity"]},
+    {"path_pattern": ".agent/**", "modules": ["verification-maintenance"], "risk_tags": ["governance", "context-drift"], "mandatory_gates": ["context-self-test", "agent-runner-self-test", "agent-ci-policy", "context-integrity"]},
+    {"path_pattern": "AGENTS.md", "modules": ["verification-maintenance"], "risk_tags": ["governance", "entrypoint"], "mandatory_gates": ["context-integrity"]},
+    {"path_pattern": "scripts/**", "modules": ["verification-maintenance"], "risk_tags": ["verification", "governance"], "mandatory_gates": ["context-integrity"]}
   ],
   "expansion_policy": {
     "allow_additional_modules": true,
