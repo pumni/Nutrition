@@ -443,11 +443,13 @@ fn required_nutrients() -> Vec<NutrientCode> {
 fn validate_auth_mode(environment: AppEnvironment, auth_mode: &str) -> Result<(), String> {
     match auth_mode {
         "development" if environment.allows_development_adapters() => Ok(()),
-        "development" => {
-            Err("AUTH_MODE=development is forbidden when APP_ENV is staging or production".to_owned())
-        }
-        "oidc" => Err("AUTH_MODE=oidc is not implemented; production authentication remains blocked"
-            .to_owned()),
+        "development" => Err(
+            "AUTH_MODE=development is forbidden when APP_ENV is staging or production".to_owned(),
+        ),
+        "oidc" => Err(
+            "AUTH_MODE=oidc is not implemented; production authentication remains blocked"
+                .to_owned(),
+        ),
         _ => Err("AUTH_MODE must be development or oidc".to_owned()),
     }
 }
