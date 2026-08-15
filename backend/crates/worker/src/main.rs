@@ -12,7 +12,8 @@ async fn main() {
         .json()
         .init();
 
-    let config = WorkerConfig::from_env();
+    let environment = AppEnvironment::from_env();
+    let config = WorkerConfig::from_env(environment);
     let pool = persistence_postgres::connect(&config.database_url, config.database_pool_size)
         .await
         .expect("worker could not connect to PostgreSQL");
@@ -23,6 +24,10 @@ async fn main() {
         info!("database migrations applied");
     }
     if env::var("RUN_FOUNDATION_SEED").as_deref() == Ok("true") {
+        assert!(
+            environment.allows_development_adapters(),
+            "RUN_FOUNDATION_SEED=true is forbidden when APP_ENV is staging or production"
+        );
         persistence_postgres::seed_foundation_fixture(&pool)
             .await
             .expect("foundation fixture seed failed");
@@ -46,6 +51,35 @@ async fn sqlx_healthcheck(pool: &sqlx::PgPool) {
         .expect("database health check failed");
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AppEnvironment {
+    Local,
+    Ci,
+    Staging,
+    Production,
+}
+
+impl AppEnvironment {
+    fn from_env() -> Self {
+        let value = env::var("APP_ENV").expect("APP_ENV is required");
+        Self::parse(&value).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "local" => Ok(Self::Local),
+            "ci" => Ok(Self::Ci),
+            "staging" => Ok(Self::Staging),
+            "production" => Ok(Self::Production),
+            _ => Err("APP_ENV must be local, ci, staging, or production".to_owned()),
+        }
+    }
+
+    const fn allows_development_adapters(self) -> bool {
+        matches!(self, Self::Local | Self::Ci)
+    }
+}
+
 #[derive(Clone, Copy)]
 enum WorkerMode {
     Idle,
@@ -63,18 +97,36 @@ struct WorkerConfig {
 }
 
 impl WorkerConfig {
-    fn from_env() -> Self {
+    fn from_env(environment: AppEnvironment) -> Self {
         let mode = match env::var("WORKER_MODE").as_deref() {
             Ok("run-once") => WorkerMode::RunOnce,
             Ok("loop") => WorkerMode::Loop,
-            Ok("idle") | Err(_) => WorkerMode::Idle,
+            Ok("idle") => WorkerMode::Idle,
+            Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
+                WorkerMode::Idle
+            }
+            Err(env::VarError::NotPresent) => {
+                panic!("WORKER_MODE is required when APP_ENV is staging or production")
+            }
+            Err(env::VarError::NotUnicode(_)) => panic!("WORKER_MODE must be valid Unicode"),
             Ok(value) => panic!("unsupported WORKER_MODE: {value}"),
+        };
+        let worker_id = match env::var("WORKER_ID") {
+            Ok(value) if !value.trim().is_empty() => value,
+            Ok(_) => panic!("WORKER_ID must not be empty"),
+            Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
+                "worker-local".to_owned()
+            }
+            Err(env::VarError::NotPresent) => {
+                panic!("WORKER_ID is required when APP_ENV is staging or production")
+            }
+            Err(env::VarError::NotUnicode(_)) => panic!("WORKER_ID must be valid Unicode"),
         };
         Self {
             database_url: env::var("DATABASE_URL")
                 .expect("DATABASE_URL is required for the worker process"),
             database_pool_size: env_u32("WORKER_DATABASE_POOL_SIZE", 4, 1, 32),
-            worker_id: env::var("WORKER_ID").unwrap_or_else(|_| "worker-local".to_owned()),
+            worker_id,
             batch_size: i64::from(env_u32("WORKER_BATCH_SIZE", 20, 1, 100)),
             poll_interval: Duration::from_millis(u64::from(env_u32(
                 "WORKER_POLL_INTERVAL_MS",
@@ -136,5 +188,29 @@ async fn run_loop(pool: &PgPool, config: &WorkerConfig) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppEnvironment;
+
+    #[test]
+    fn environment_policy_is_explicit() {
+        assert_eq!(AppEnvironment::parse("local"), Ok(AppEnvironment::Local));
+        assert_eq!(AppEnvironment::parse("ci"), Ok(AppEnvironment::Ci));
+        assert_eq!(
+            AppEnvironment::parse("staging"),
+            Ok(AppEnvironment::Staging)
+        );
+        assert_eq!(
+            AppEnvironment::parse("production"),
+            Ok(AppEnvironment::Production)
+        );
+        assert!(AppEnvironment::Local.allows_development_adapters());
+        assert!(AppEnvironment::Ci.allows_development_adapters());
+        assert!(!AppEnvironment::Staging.allows_development_adapters());
+        assert!(!AppEnvironment::Production.allows_development_adapters());
+        assert!(AppEnvironment::parse("prod").is_err());
     }
 }

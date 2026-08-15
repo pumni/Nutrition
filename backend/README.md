@@ -48,6 +48,7 @@ Or run the provider-independent verification contract:
 ```powershell
 docker compose -f deploy/compose.yaml up -d postgres
 
+$env:APP_ENV = "local"
 $env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
 $env:RUN_MIGRATIONS = "true"
 $env:RUN_FOUNDATION_SEED = "true"
@@ -60,6 +61,7 @@ evidence.
 ## Run the foundation API
 
 ```powershell
+$env:APP_ENV = "local"
 $env:APP_BIND_ADDR = "127.0.0.1:8080"
 $env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
 $env:AUTH_MODE = "development"
@@ -68,10 +70,11 @@ $env:RUST_LOG = "info"
 cargo run -p api-http
 ```
 
-`AUTH_MODE=development` accepts only `Authorization: Bearer dev:<uuid>` and exists for local/CI
-contract testing. Any other auth mode fails startup until a production OIDC adapter is provided.
-`PARSER_MODE` is also required: `fixture` is local/CI only, while `hosted` requires an approved
-provider configuration and never silently falls back to fixture behavior.
+`APP_ENV` is required and must be `local`, `ci`, `staging`, or `production`.
+`AUTH_MODE=development`, `PARSER_MODE=fixture`, and the foundation fixture seed are accepted only
+for `local` and `ci`. Staging and production fail closed if a development-only adapter is selected.
+Production authentication remains intentionally blocked until the OIDC adapter is implemented.
+See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the complete runtime configuration matrix.
 
 Hosted mode uses a provider-neutral HTTPS envelope:
 
@@ -137,6 +140,7 @@ and immutability guards.
 Apply migrations locally:
 
 ```powershell
+$env:APP_ENV = "local"
 $env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
 $env:RUN_MIGRATIONS = "true"
 cargo run -p worker
@@ -148,6 +152,13 @@ Run the full PostgreSQL integration, API smoke, replay, and immutability suite:
 
 ```powershell
 .\scripts\verify-postgres.ps1
+```
+
+When production container targets are present, verify their build, non-root runtime identity, and
+containerized API readiness with:
+
+```powershell
+.\scripts\verify-containers.ps1
 ```
 
 ## Repository boundaries
