@@ -148,12 +148,12 @@ async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
         expected_sha256: hex::encode(Sha256::digest(conflicting_fixture.as_bytes())),
         ..request
     };
-    let error = import_fdc_foundation_json(
-        &pool,
-        conflicting_fixture.as_bytes(),
-        &conflicting_request,
-    )
-    .await
-    .expect_err("same release version with different artifact must fail closed");
-    assert!(matches!(error, FdcFoundationImportError::ReleaseConflict(_)));
+    let error =
+        import_fdc_foundation_json(&pool, conflicting_fixture.as_bytes(), &conflicting_request)
+            .await
+            .expect_err("same release version with different artifact must fail closed");
+    assert!(matches!(
+        error,
+        FdcFoundationImportError::ReleaseConflict(_)
+    ));
 }
