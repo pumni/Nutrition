@@ -9,7 +9,8 @@ use std::{
 use thiserror::Error;
 use uuid::Uuid;
 
-pub const FDC_FOUNDATION_IMPORTER_VERSION: &str = "fdc-foundation-json-0.1.0";
+pub const FDC_FOUNDATION_IMPORTER_VERSION: &str = "fdc-foundation-json-0.2.0";
+pub const FDC_ENERGY_MAPPING_POLICY_VERSION: &str = "fdc_energy_v1";
 const FDC_DATASET_CODE: &str = "usda_fdc";
 const FDC_SOURCE_DOWNLOAD_URL: &str =
     "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip";
@@ -34,6 +35,10 @@ pub struct FdcFoundationImportReport {
     pub selected_record_count: usize,
     pub source_sha256: String,
     pub schema_fingerprint: String,
+    pub energy_atwater_specific_count: usize,
+    pub energy_atwater_general_count: usize,
+    pub energy_missing_count: usize,
+    pub unexpected_legacy_energy_count: usize,
     pub replayed: bool,
 }
 
@@ -59,10 +64,25 @@ struct RawFood {
 
 struct StagedNutrient {
     internal_code: &'static str,
+    source_nutrient_id: u64,
+    source_method: Option<&'static str>,
     amount: Decimal,
     minimum: Option<Decimal>,
     maximum: Option<Decimal>,
     method_code: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct EnergySummary {
+    atwater_specific: usize,
+    atwater_general: usize,
+    missing_energy: usize,
+    unexpected_legacy: usize,
+}
+
+struct EnergyExtraction {
+    selected: Option<StagedNutrient>,
+    unexpected_legacy_count: usize,
 }
 
 struct PreparedImport {
@@ -73,6 +93,7 @@ struct PreparedImport {
     schema_fingerprint: String,
     selection_fingerprint: String,
     catalog_release_version: String,
+    energy_summary: EnergySummary,
 }
 
 /// Imports a pinned USDA FDC Foundation Foods JSON artifact into raw provenance storage and
@@ -118,11 +139,29 @@ fn prepare_import(
     let selected_ids = reviewed_selection(&request.include_fdc_ids)?;
     let foods = parse_source_foods(source_bytes)?;
     validate_selection_exists(&foods, &selected_ids)?;
+    let mut energy_summary = EnergySummary::default();
     for food in foods
         .iter()
         .filter(|food| selected_ids.contains(&food.fdc_id))
     {
         extract_unambiguous_macronutrients(food)?;
+        let energy = extract_energy(food)?;
+        match energy
+            .selected
+            .as_ref()
+            .map(|value| value.source_nutrient_id)
+        {
+            Some(2048) => energy_summary.atwater_specific += 1,
+            Some(2047) => energy_summary.atwater_general += 1,
+            None => energy_summary.missing_energy += 1,
+            Some(source_nutrient_id) => {
+                return Err(FdcFoundationImportError::InvalidInput(format!(
+                    "FDC ID {} selected unsupported energy nutrient {}",
+                    food.fdc_id, source_nutrient_id
+                )));
+            }
+        }
+        energy_summary.unexpected_legacy += energy.unexpected_legacy_count;
     }
 
     let schema_fingerprint = sha256_hex(FDC_SCHEMA_CONTRACT.as_bytes());
@@ -148,6 +187,7 @@ fn prepare_import(
         schema_fingerprint,
         selection_fingerprint,
         catalog_release_version,
+        energy_summary,
     })
 }
 
@@ -200,10 +240,17 @@ async fn stage_import(
         ));
     }
 
-    ensure_core_macronutrients(tx).await?;
+    ensure_core_nutrients(tx).await?;
     let catalog_release_id =
         create_staged_catalog_release(tx, prepared, dataset_release_id).await?;
-    stage_reviewed_selection(tx, prepared, dataset_release_id, catalog_release_id).await?;
+    stage_reviewed_selection(
+        tx,
+        prepared,
+        request,
+        dataset_release_id,
+        catalog_release_id,
+    )
+    .await?;
     Ok(import_report(
         prepared,
         dataset_release_id,
@@ -252,7 +299,13 @@ async fn create_staged_catalog_release(
         "selected_fdc_ids": prepared.selected_ids.iter().copied().collect::<Vec<_>>(),
         "selected_count": prepared.selected_ids.len(),
         "raw_record_count": prepared.foods.len(),
-        "energy_policy": "pending_issue_22",
+        "energy_policy": FDC_ENERGY_MAPPING_POLICY_VERSION,
+        "energy_mapping": {
+            "atwater_specific_2048_count": prepared.energy_summary.atwater_specific,
+            "atwater_general_2047_count": prepared.energy_summary.atwater_general,
+            "missing_energy_count": prepared.energy_summary.missing_energy,
+            "unexpected_legacy_1008_count": prepared.energy_summary.unexpected_legacy
+        },
         "production_eligible": false
     });
     let catalog_checksum = sha256_hex(&serde_json::to_vec(&manifest)?);
@@ -274,6 +327,7 @@ async fn create_staged_catalog_release(
 async fn stage_reviewed_selection(
     tx: &mut Transaction<'_, Postgres>,
     prepared: &PreparedImport,
+    request: &FdcFoundationImportRequest,
     dataset_release_id: Uuid,
     catalog_release_id: Uuid,
 ) -> Result<(), FdcFoundationImportError> {
@@ -282,7 +336,7 @@ async fn stage_reviewed_selection(
         .iter()
         .filter(|food| prepared.selected_ids.contains(&food.fdc_id))
     {
-        stage_selected_food(tx, dataset_release_id, catalog_release_id, food).await?;
+        stage_selected_food(tx, request, dataset_release_id, catalog_release_id, food).await?;
     }
     Ok(())
 }
@@ -301,6 +355,10 @@ fn import_report(
         selected_record_count: prepared.selected_ids.len(),
         source_sha256: prepared.source_sha256.clone(),
         schema_fingerprint: prepared.schema_fingerprint.clone(),
+        energy_atwater_specific_count: prepared.energy_summary.atwater_specific,
+        energy_atwater_general_count: prepared.energy_summary.atwater_general,
+        energy_missing_count: prepared.energy_summary.missing_energy,
+        unexpected_legacy_energy_count: prepared.energy_summary.unexpected_legacy,
         replayed,
     }
 }
@@ -586,28 +644,34 @@ async fn store_raw_records(
     Ok(())
 }
 
-async fn ensure_core_macronutrients(
+async fn ensure_core_nutrients(
     tx: &mut Transaction<'_, Postgres>,
 ) -> Result<(), FdcFoundationImportError> {
-    for (code, name, group_code) in [
-        ("protein_g", "Protein", "macronutrient/protein"),
-        ("fat_g", "Fat", "macronutrient/fat"),
+    for (code, name, unit, group_code, is_energy_component) in [
+        ("energy_kcal", "Energy", "kcal", "energy", false),
+        ("protein_g", "Protein", "g", "macronutrient/protein", true),
+        ("fat_g", "Fat", "g", "macronutrient/fat", true),
         (
             "carbohydrate_g",
             "Carbohydrate",
+            "g",
             "macronutrient/carbohydrate",
+            true,
         ),
     ] {
         sqlx::query(
             "INSERT INTO composition.nutrient
-                (id, code, preferred_name, canonical_unit, nutrient_group, external_identifiers)
-             VALUES ($1, $2, $3, 'g', $4, '{}'::jsonb)
+                (id, code, preferred_name, canonical_unit, nutrient_group,
+                 external_identifiers, is_energy_component)
+             VALUES ($1, $2, $3, $4, $5, '{}'::jsonb, $6)
              ON CONFLICT (code) DO NOTHING",
         )
         .bind(Uuid::now_v7())
         .bind(code)
         .bind(name)
+        .bind(unit)
         .bind(group_code)
+        .bind(is_energy_component)
         .execute(&mut **tx)
         .await?;
     }
@@ -616,6 +680,7 @@ async fn ensure_core_macronutrients(
 
 async fn stage_selected_food(
     tx: &mut Transaction<'_, Postgres>,
+    request: &FdcFoundationImportRequest,
     dataset_release_id: Uuid,
     catalog_release_id: Uuid,
     food: &RawFood,
@@ -625,7 +690,7 @@ async fn stage_selected_food(
     ensure_food_mapping(tx, source_record_id, food_id).await?;
     let food_name_id = ensure_food_name(tx, source_record_id, food_id, food).await?;
     add_name_to_release(tx, catalog_release_id, food_name_id).await?;
-    let profile_id = ensure_staged_profile(tx, source_record_id, food_id, food).await?;
+    let profile_id = ensure_staged_profile(tx, source_record_id, food_id, request, food).await?;
     add_profile_to_release(tx, catalog_release_id, profile_id).await
 }
 
@@ -748,23 +813,26 @@ async fn ensure_staged_profile(
     tx: &mut Transaction<'_, Postgres>,
     source_record_id: Uuid,
     food_id: Uuid,
+    request: &FdcFoundationImportRequest,
     food: &RawFood,
 ) -> Result<Uuid, FdcFoundationImportError> {
     if let Some(id) = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM composition.composition_profile
           WHERE food_id = $1 AND source_record_id = $2
             AND basis_amount = 100 AND basis_unit = 'g' AND edible_basis
+            AND method_metadata->>'importer_version' = $3
           ORDER BY created_at
           LIMIT 1",
     )
     .bind(food_id)
     .bind(source_record_id)
+    .bind(FDC_FOUNDATION_IMPORTER_VERSION)
     .fetch_optional(&mut **tx)
     .await?
     {
         return Ok(id);
     }
-    create_staged_profile(tx, food_id, source_record_id, food).await
+    create_staged_profile(tx, food_id, source_record_id, request, food).await
 }
 
 async fn add_profile_to_release(
@@ -787,15 +855,35 @@ async fn create_staged_profile(
     tx: &mut Transaction<'_, Postgres>,
     food_id: Uuid,
     source_record_id: Uuid,
+    request: &FdcFoundationImportRequest,
     food: &RawFood,
 ) -> Result<Uuid, FdcFoundationImportError> {
-    let nutrients = extract_unambiguous_macronutrients(food)?;
+    let energy = extract_energy(food)?;
+    let energy_mapping = json!({
+        "policy_version": FDC_ENERGY_MAPPING_POLICY_VERSION,
+        "status": if energy.selected.is_some() { "complete" } else { "incomplete" },
+        "source_nutrient_id": energy
+            .selected
+            .as_ref()
+            .map(|value| value.source_nutrient_id),
+        "source_method": energy
+            .selected
+            .as_ref()
+            .and_then(|value| value.source_method),
+        "unexpected_legacy_1008_count": energy.unexpected_legacy_count
+    });
+    let mut nutrients = extract_unambiguous_macronutrients(food)?;
+    if let Some(energy) = energy.selected {
+        nutrients.push(energy);
+    }
     let profile_id = Uuid::now_v7();
     let method_metadata = json!({
         "source": FDC_DATASET_CODE,
+        "source_release": request.release_version,
+        "source_published_date": request.source_published_date,
         "fdc_id": food.fdc_id,
         "importer_version": FDC_FOUNDATION_IMPORTER_VERSION,
-        "energy_policy": "pending_issue_22",
+        "energy_mapping": energy_mapping,
         "production_eligible": false
     });
     sqlx::query(
@@ -811,9 +899,20 @@ async fn create_staged_profile(
     .execute(&mut **tx)
     .await?;
 
+    insert_staged_values(tx, profile_id, request, food, nutrients).await?;
+    Ok(profile_id)
+}
+
+async fn insert_staged_values(
+    tx: &mut Transaction<'_, Postgres>,
+    profile_id: Uuid,
+    request: &FdcFoundationImportRequest,
+    food: &RawFood,
+    nutrients: Vec<StagedNutrient>,
+) -> Result<(), FdcFoundationImportError> {
     let nutrient_ids = sqlx::query_as::<_, (String, Uuid)>(
         "SELECT code, id FROM composition.nutrient
-          WHERE code IN ('protein_g', 'fat_g', 'carbohydrate_g')",
+          WHERE code IN ('energy_kcal', 'protein_g', 'fat_g', 'carbohydrate_g')",
     )
     .fetch_all(&mut **tx)
     .await?
@@ -827,22 +926,50 @@ async fn create_staged_profile(
                 nutrient.internal_code
             ))
         })?;
+        let source_nutrient_id = i64::try_from(nutrient.source_nutrient_id).map_err(|_| {
+            FdcFoundationImportError::InvalidInput(format!(
+                "source nutrient ID {} exceeds PostgreSQL bigint",
+                nutrient.source_nutrient_id
+            ))
+        })?;
+        let unit = if nutrient.internal_code == "energy_kcal" {
+            "kcal"
+        } else {
+            "g"
+        };
+        let source_metadata = json!({
+            "source": FDC_DATASET_CODE,
+            "source_release": request.release_version,
+            "source_food_id": food.fdc_id,
+            "source_nutrient_id": nutrient.source_nutrient_id,
+            "source_method": nutrient.source_method,
+            "importer_version": FDC_FOUNDATION_IMPORTER_VERSION,
+            "energy_mapping_policy": if nutrient.internal_code == "energy_kcal" {
+                Some(FDC_ENERGY_MAPPING_POLICY_VERSION)
+            } else {
+                None
+            }
+        });
         sqlx::query(
             "INSERT INTO composition.composition_value
                 (profile_id, nutrient_id, amount, unit, minimum_amount, maximum_amount,
-                 value_status, method_code)
-             VALUES ($1, $2, $3, 'g', $4, $5, 'compiled', $6)",
+                 value_status, method_code, source_nutrient_id, source_method, source_metadata)
+             VALUES ($1, $2, $3, $4, $5, $6, 'compiled', $7, $8, $9, $10)",
         )
         .bind(profile_id)
         .bind(nutrient_id)
         .bind(nutrient.amount)
+        .bind(unit)
         .bind(nutrient.minimum)
         .bind(nutrient.maximum)
         .bind(nutrient.method_code)
+        .bind(source_nutrient_id)
+        .bind(nutrient.source_method)
+        .bind(source_metadata)
         .execute(&mut **tx)
         .await?;
     }
-    Ok(profile_id)
+    Ok(())
 }
 
 fn extract_unambiguous_macronutrients(
@@ -900,6 +1027,89 @@ fn extract_macronutrient(
         )));
     }
     let item = matches[0];
+    staged_nutrient_from_item(
+        food,
+        item,
+        source_nutrient_id,
+        internal_code,
+        expected_unit,
+        None,
+    )
+}
+
+fn extract_energy(food: &RawFood) -> Result<EnergyExtraction, FdcFoundationImportError> {
+    let food_nutrients = food
+        .payload
+        .get("foodNutrients")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            FdcFoundationImportError::InvalidInput(format!(
+                "FDC ID {} has no foodNutrients array",
+                food.fdc_id
+            ))
+        })?;
+
+    let specific = extract_energy_candidate(food, food_nutrients, 2048, "atwater_specific")?;
+    let general = extract_energy_candidate(food, food_nutrients, 2047, "atwater_general")?;
+    let unexpected_legacy_count = food_nutrients
+        .iter()
+        .filter(|item| {
+            item.get("nutrient")
+                .and_then(|nutrient| nutrient.get("id"))
+                .and_then(Value::as_u64)
+                == Some(1008)
+        })
+        .count();
+
+    Ok(EnergyExtraction {
+        selected: specific.or(general),
+        unexpected_legacy_count,
+    })
+}
+
+fn extract_energy_candidate(
+    food: &RawFood,
+    food_nutrients: &[Value],
+    source_nutrient_id: u64,
+    source_method: &'static str,
+) -> Result<Option<StagedNutrient>, FdcFoundationImportError> {
+    let matches = food_nutrients
+        .iter()
+        .filter(|item| {
+            item.get("nutrient")
+                .and_then(|nutrient| nutrient.get("id"))
+                .and_then(Value::as_u64)
+                == Some(source_nutrient_id)
+        })
+        .collect::<Vec<_>>();
+    if matches.len() > 1 {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "FDC ID {} contains duplicate energy nutrient {}",
+            food.fdc_id, source_nutrient_id
+        )));
+    }
+    let Some(item) = matches.first().copied() else {
+        return Ok(None);
+    };
+    staged_nutrient_from_item(
+        food,
+        item,
+        source_nutrient_id,
+        "energy_kcal",
+        "kcal",
+        Some(source_method),
+    )
+    .map(Some)
+}
+
+fn staged_nutrient_from_item(
+    food: &RawFood,
+    item: &Value,
+    source_nutrient_id: u64,
+    internal_code: &'static str,
+    expected_unit: &str,
+    source_method: Option<&'static str>,
+) -> Result<StagedNutrient, FdcFoundationImportError> {
     validate_nutrient_unit(food.fdc_id, source_nutrient_id, item, expected_unit)?;
     let amount = required_nonnegative_amount(food.fdc_id, source_nutrient_id, item)?;
     let minimum = decimal_field(item, "min")?;
@@ -919,6 +1129,8 @@ fn extract_macronutrient(
         .map(ToOwned::to_owned);
     Ok(StagedNutrient {
         internal_code,
+        source_nutrient_id,
+        source_method,
         amount,
         minimum,
         maximum,
@@ -990,7 +1202,10 @@ fn decimal_field(value: &Value, field: &str) -> Result<Option<Decimal>, FdcFound
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_unambiguous_macronutrients, parse_source_foods, reviewed_selection};
+    use super::{
+        extract_energy, extract_unambiguous_macronutrients, parse_source_foods, reviewed_selection,
+    };
+    use serde_json::{Value, json};
     use std::collections::BTreeSet;
 
     const MINIMAL: &str = r#"{
@@ -1008,7 +1223,7 @@ mod tests {
     }"#;
 
     #[test]
-    fn parses_foundation_shape_and_ignores_unresolved_energy() {
+    fn parses_foundation_shape_and_preserves_specific_energy_provenance() {
         let foods = parse_source_foods(MINIMAL.as_bytes()).expect("fixture must parse");
         let nutrients = extract_unambiguous_macronutrients(&foods[0])
             .expect("unambiguous macro nutrients must map");
@@ -1020,7 +1235,89 @@ mod tests {
             codes,
             BTreeSet::from(["carbohydrate_g", "fat_g", "protein_g"])
         );
-        assert!(!codes.contains("energy_kcal"));
+        let energy = extract_energy(&foods[0])
+            .expect("specific energy must parse")
+            .selected
+            .expect("specific energy must be selected");
+        assert_eq!(energy.internal_code, "energy_kcal");
+        assert_eq!(energy.source_nutrient_id, 2048);
+        assert_eq!(energy.source_method, Some("atwater_specific"));
+        assert_eq!(energy.amount.to_string(), "99");
+    }
+
+    #[test]
+    fn energy_policy_prefers_specific_and_falls_back_to_general() {
+        let both = energy_food(&json!([
+            nutrient(2048, "KCAL", &json!(52)),
+            nutrient(2047, "KCAL", &json!(53))
+        ]));
+        let specific = extract_energy(&both)
+            .expect("valid energy candidates must parse")
+            .selected
+            .expect("specific energy must win");
+        assert_eq!(specific.source_nutrient_id, 2048);
+        assert_eq!(specific.source_method, Some("atwater_specific"));
+
+        let general = energy_food(&json!([nutrient(2047, "KCAL", &json!(53))]));
+        let general = extract_energy(&general)
+            .expect("general energy must parse")
+            .selected
+            .expect("general energy must be selected");
+        assert_eq!(general.source_nutrient_id, 2047);
+        assert_eq!(general.source_method, Some("atwater_general"));
+    }
+
+    #[test]
+    fn energy_policy_marks_missing_and_legacy_values_incomplete() {
+        let legacy = extract_energy(&energy_food(&json!([nutrient(1008, "KCAL", &json!(50))])))
+            .expect("legacy energy is reportable");
+        assert!(legacy.selected.is_none());
+        assert_eq!(legacy.unexpected_legacy_count, 1);
+
+        let missing =
+            extract_energy(&energy_food(&json!([]))).expect("missing energy is reportable");
+        assert!(missing.selected.is_none());
+        assert_eq!(missing.unexpected_legacy_count, 0);
+    }
+
+    #[test]
+    fn energy_policy_fails_closed_on_malformed_or_duplicate_candidates() {
+        let malformed_specific = energy_food(&json!([
+            nutrient(2048, "KCAL", &json!("malformed")),
+            nutrient(2047, "KCAL", &json!(53))
+        ]));
+        assert!(extract_energy(&malformed_specific).is_err());
+
+        let duplicate_specific = energy_food(&json!([
+            nutrient(2048, "KCAL", &json!(52)),
+            nutrient(2048, "KCAL", &json!(53))
+        ]));
+        assert!(extract_energy(&duplicate_specific).is_err());
+
+        let invalid_unit = energy_food(&json!([nutrient(2048, "G", &json!(52))]));
+        assert!(extract_energy(&invalid_unit).is_err());
+    }
+
+    fn nutrient(id: u64, unit: &str, amount: &Value) -> Value {
+        json!({
+            "amount": amount,
+            "nutrient": {"id": id, "unitName": unit}
+        })
+    }
+
+    fn energy_food(food_nutrients: &Value) -> super::RawFood {
+        let payload = json!({
+            "FoundationFoods": [{
+                "fdcId": 900_000_099,
+                "dataType": "Foundation",
+                "description": "Synthetic energy policy food",
+                "foodNutrients": food_nutrients
+            }]
+        });
+        let bytes = serde_json::to_vec(&payload).expect("synthetic energy JSON must serialize");
+        parse_source_foods(&bytes)
+            .expect("synthetic energy food must parse")
+            .remove(0)
     }
 
     #[test]

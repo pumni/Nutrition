@@ -1,6 +1,6 @@
 # Production nutrition data strategy
 
-Status: proposed M1 source policy  
+Status: accepted policy; release activation evidence pending
 Reviewed: 2026-08-15
 
 ## Objective
@@ -116,6 +116,25 @@ Source values that use a materially different definition or calculation method m
 under the same internal code merely because their labels look similar. Mapping exceptions belong in
 versioned importer policy and the validation report.
 
+### FDC Foundation energy mapping v1
+
+The accepted `fdc_energy_v1` policy maps USDA Foundation Foods energy as follows:
+
+1. prefer nutrient `2048` (Atwater Specific Factor), with method provenance
+   `atwater_specific`;
+2. fall back to nutrient `2047` (Atwater General Factor), with method provenance
+   `atwater_general`;
+3. leave the profile incomplete when neither value is valid.
+
+Nutrient `1008` is prohibited for the April 2026 Foundation Foods release and is never a fallback.
+Malformed or duplicate `2048` values, invalid units, and other candidate anomalies fail closed rather
+than silently selecting a less-specific value. The importer does not derive energy from
+macronutrients or from an LLM/provider.
+
+Every imported composition value retains its source nutrient ID and source method, while the profile
+retains the source release, importer version, and `fdc_energy_v1` policy identifier. Validation
+evidence reports counts for `2048`, `2047`, missing energy, and unexpected `1008` records.
+
 ## Food identity policy
 
 External source identifiers are provenance identifiers, not public API identifiers.
@@ -139,7 +158,7 @@ policy. The selected profile and source release remain part of the persisted beh
 production activation remains blocked until:
 
 - the April 2026 Foundation Foods JSON artifact is acquired and SHA-256 recorded;
-- importer/schema versions are implemented under #6;
+- importer/schema versions and `fdc_energy_v1` are implemented under #6;
 - the selected subset and nutrient mappings pass validation;
 - an impact report is reviewed;
 - a rollback target is recorded;

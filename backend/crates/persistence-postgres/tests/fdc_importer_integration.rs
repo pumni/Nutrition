@@ -34,6 +34,19 @@ const FOUNDATION_FIXTURE: &str = r#"{
   ]
 }"#;
 
+type StagedProfileState = (
+    String,
+    String,
+    i64,
+    i64,
+    Option<i64>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
 async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
@@ -48,7 +61,7 @@ async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
     assert_dataset_release(&pool, &report).await;
     assert_raw_records(&pool, &report).await;
     assert_staged_catalog(&pool, &report).await;
-    assert_staged_profile(&pool, &report).await;
+    assert_staged_profile(&pool, &report, &release_version).await;
     assert_idempotent_replay(&pool, &request, &report).await;
     assert_release_conflict(&pool, &request).await;
 }
@@ -80,6 +93,10 @@ fn assert_initial_import(report: &FdcFoundationImportReport) {
     assert!(!report.replayed);
     assert_eq!(report.raw_record_count, 2);
     assert_eq!(report.selected_record_count, 1);
+    assert_eq!(report.energy_atwater_specific_count, 1);
+    assert_eq!(report.energy_atwater_general_count, 0);
+    assert_eq!(report.energy_missing_count, 0);
+    assert_eq!(report.unexpected_legacy_energy_count, 0);
 }
 
 async fn assert_dataset_release(pool: &PgPool, report: &FdcFoundationImportReport) {
@@ -138,12 +155,22 @@ async fn assert_staged_catalog(pool: &PgPool, report: &FdcFoundationImportReport
     assert_eq!(membership_counts, (1, 1, 0));
 }
 
-async fn assert_staged_profile(pool: &PgPool, report: &FdcFoundationImportReport) {
-    let profile_state: (String, String, i64, i64) = sqlx::query_as(
+async fn assert_staged_profile(
+    pool: &PgPool,
+    report: &FdcFoundationImportReport,
+    release_version: &str,
+) {
+    let profile_state: StagedProfileState = sqlx::query_as(
         "SELECT p.status,
                 p.quality_grade,
                 count(v.*),
-                count(v.*) FILTER (WHERE n.code = 'energy_kcal')
+                count(v.*) FILTER (WHERE n.code = 'energy_kcal'),
+                max(v.source_nutrient_id) FILTER (WHERE n.code = 'energy_kcal'),
+                max(v.source_method) FILTER (WHERE n.code = 'energy_kcal'),
+                max(p.method_metadata->'energy_mapping'->>'policy_version'),
+                max(v.source_metadata->>'source_release') FILTER (WHERE n.code = 'energy_kcal'),
+                max(v.source_metadata->>'importer_version') FILTER (WHERE n.code = 'energy_kcal'),
+                max(v.source_metadata->>'energy_mapping_policy') FILTER (WHERE n.code = 'energy_kcal')
            FROM catalog.catalog_release_profile rp
            JOIN composition.composition_profile p ON p.id = rp.profile_id
            LEFT JOIN composition.composition_value v ON v.profile_id = p.id
@@ -157,8 +184,17 @@ async fn assert_staged_profile(pool: &PgPool, report: &FdcFoundationImportReport
     .expect("staged profile must be readable");
     assert_eq!(profile_state.0, "in_review");
     assert_eq!(profile_state.1, "U");
-    assert_eq!(profile_state.2, 3);
-    assert_eq!(profile_state.3, 0);
+    assert_eq!(profile_state.2, 4);
+    assert_eq!(profile_state.3, 1);
+    assert_eq!(profile_state.4, Some(2048));
+    assert_eq!(profile_state.5.as_deref(), Some("atwater_specific"));
+    assert_eq!(profile_state.6.as_deref(), Some("fdc_energy_v1"));
+    assert_eq!(profile_state.7.as_deref(), Some(release_version));
+    assert_eq!(
+        profile_state.8.as_deref(),
+        Some("fdc-foundation-json-0.2.0")
+    );
+    assert_eq!(profile_state.9.as_deref(), Some("fdc_energy_v1"));
 }
 
 async fn assert_idempotent_replay(

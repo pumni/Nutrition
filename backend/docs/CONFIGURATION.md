@@ -87,7 +87,7 @@ When enabled, all of the following are required:
 
 The pinned artifact checksum is verified before any database write. All source records in the artifact are stored in `raw.source_food_record`, while only the reviewed `FDC_IMPORT_INCLUDE_IDS` selection receives staged food/name/profile evidence. Re-importing the same release/checksum/selection is idempotent. A checksum conflict for the same upstream release fails closed.
 
-The current importer intentionally stages only the unambiguous protein, fat, and carbohydrate mappings. Energy remains blocked by the protected domain decision in #22, so imported profiles remain `in_review`, quality `U`, and non-production-eligible.
+The importer stages unambiguous macronutrients plus Foundation energy under `fdc_energy_v1`: nutrient `2048` (Atwater Specific) is preferred and `2047` (Atwater General) is the fallback. Nutrient `1008` is never used for the April 2026 Foundation release. Profiles with missing energy remain incomplete; malformed or duplicate energy candidates fail closed. Imported values retain source nutrient ID/method metadata, while profiles remain `in_review`, quality `U`, and non-production-eligible until the validation/reviewer/activation gates are complete.
 
 Do not place source artifacts or real credentials in the repository. The import file should be supplied by the controlled data-ingestion environment.
 
@@ -104,5 +104,5 @@ This contract makes unsafe configuration fail closed; it does not claim producti
 - production API authentication remains blocked until #10 implements OIDC;
 - fixture catalog data remains prohibited in staging/production;
 - hosted parser production enablement remains gated by #8, #9, and privacy/legal review;
-- FDC source staging remains non-publishing until #22 and the source/reviewer gates from #5–#6 are resolved;
+- FDC source staging remains non-publishing until the `fdc_energy_v1` validation and source/reviewer gates from #5–#6 are resolved;
 - Vietnamese source rights and portion evidence remain gated by #5 and #7.
