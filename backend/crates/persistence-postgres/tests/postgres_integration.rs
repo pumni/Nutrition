@@ -242,13 +242,12 @@ async fn worker_claim_retry_and_outbox_delivery_are_bounded() {
         .await
         .expect("outbox batch must deliver");
     assert!(delivered > 0);
-    let fixture_published: bool = sqlx::query_scalar(
-        "SELECT published_at IS NOT NULL FROM ops.outbox_event WHERE id = $1",
-    )
-    .bind(outbox_id)
-    .fetch_one(&pool)
-    .await
-    .expect("outbox fixture delivery must be readable");
+    let fixture_published: bool =
+        sqlx::query_scalar("SELECT published_at IS NOT NULL FROM ops.outbox_event WHERE id = $1")
+            .bind(outbox_id)
+            .fetch_one(&pool)
+            .await
+            .expect("outbox fixture delivery must be readable");
     assert!(fixture_published);
 }
 
