@@ -16,7 +16,8 @@ pub use catalog_activation::{
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
 pub use fdc_importer::{
     FDC_ENERGY_MAPPING_POLICY_VERSION, FDC_FOUNDATION_IMPORTER_VERSION, FdcFoundationImportError,
-    FdcFoundationImportReport, FdcFoundationImportRequest, import_fdc_foundation_json,
+    FdcFoundationImportReport, FdcFoundationImportRequest, FdcFoundationValidationReport,
+    FdcFoundationValidationRequest, import_fdc_foundation_json, validate_fdc_foundation_json,
 };
 pub use ops_repository::{ClaimedJob, claim_jobs, complete_job, deliver_outbox_batch, fail_job};
 pub use parser_telemetry::PostgresParserTelemetrySink;

@@ -1,6 +1,6 @@
 # Production nutrition data strategy
 
-Status: accepted policy; release activation evidence pending
+Status: accepted policy; artifact evidence captured, release validation blocked
 Reviewed: 2026-08-15
 
 ## Objective
@@ -183,3 +183,10 @@ The decision above was based on the official USDA FoodData Central licensing, da
 and download documentation and the FAO/INFOODS Vietnam food-composition directory, reviewed on
 2026-08-15. Those external facts should be captured again in the release evidence when a concrete
 artifact is approved so a future release is not dependent on this document alone.
+
+The concrete April 2026 artifact evidence is recorded in
+[`releases/fdc-foundation-2026-04-validation.md`](releases/fdc-foundation-2026-04-validation.md)
+and its deterministic JSON report. The report records the approved, release-specific null-tail
+adapter and remains intentionally blocked because there is no reviewed production selection or
+named reviewer approval. No source record is silently discarded and no catalog activation is
+authorized by this evidence.

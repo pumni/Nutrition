@@ -68,6 +68,8 @@ async fn run_fdc_foundation_import(
         source_published_date: required_env("FDC_IMPORT_SOURCE_PUBLISHED_DATE"),
         object_uri: required_env("FDC_IMPORT_OBJECT_URI"),
         expected_sha256: required_env("FDC_IMPORT_EXPECTED_SHA256"),
+        source_archive_sha256: optional_env("FDC_IMPORT_SOURCE_ARCHIVE_SHA256"),
+        preprocessing_policy_version: optional_env("FDC_IMPORT_PREPROCESSING_POLICY"),
         include_fdc_ids: parse_fdc_ids(&required_env("FDC_IMPORT_INCLUDE_IDS"))?,
         created_by: required_env("FDC_IMPORT_CREATED_BY"),
     };
@@ -103,6 +105,10 @@ fn parse_fdc_ids(value: &str) -> Result<Vec<u64>, String> {
 
 fn required_env(name: &str) -> String {
     env::var(name).unwrap_or_else(|_| panic!("{name} is required"))
+}
+
+fn optional_env(name: &str) -> Option<String> {
+    env::var(name).ok().filter(|value| !value.trim().is_empty())
 }
 
 fn env_bool(name: &str, default: bool) -> bool {

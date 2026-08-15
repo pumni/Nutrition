@@ -1,6 +1,7 @@
 use persistence_postgres::{
-    FdcFoundationImportError, FdcFoundationImportReport, FdcFoundationImportRequest, connect,
-    import_fdc_foundation_json, migrate,
+    FdcFoundationImportError, FdcFoundationImportReport, FdcFoundationImportRequest,
+    FdcFoundationValidationRequest, connect, import_fdc_foundation_json, migrate,
+    validate_fdc_foundation_json,
 };
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
@@ -53,6 +54,21 @@ async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
     let pool = setup_database().await;
     let release_version = format!("integration-{}", Uuid::now_v7());
     let request = build_import_request(&release_version);
+    let validation_request = FdcFoundationValidationRequest {
+        release_version: request.release_version.clone(),
+        source_published_date: request.source_published_date.clone(),
+        object_uri: request.object_uri.clone(),
+        source_payload_filename: None,
+        source_archive_sha256: None,
+        expected_sha256: request.expected_sha256.clone(),
+        reviewed_fdc_ids: request.include_fdc_ids.clone(),
+        preprocessing_policy_version: None,
+    };
+    let validation =
+        validate_fdc_foundation_json(FOUNDATION_FIXTURE.as_bytes(), &validation_request);
+    assert_eq!(validation.validation_status, "passed");
+    assert_eq!(validation.selected_record_count, 1);
+    assert_eq!(validation.selected_energy_atwater_specific_count, 1);
 
     let report = import_fdc_foundation_json(&pool, FOUNDATION_FIXTURE.as_bytes(), &request)
         .await
@@ -84,6 +100,8 @@ fn build_import_request(release_version: &str) -> FdcFoundationImportRequest {
         source_published_date: "2026-04-30".to_owned(),
         object_uri: format!("fixture://fdc/{release_version}.json"),
         expected_sha256: hex::encode(Sha256::digest(FOUNDATION_FIXTURE.as_bytes())),
+        source_archive_sha256: None,
+        preprocessing_policy_version: None,
         include_fdc_ids: vec![900_000_001],
         created_by: "0198f100-0000-7000-8000-000000000098".to_owned(),
     }
