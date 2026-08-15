@@ -65,8 +65,18 @@ struct StagedNutrient {
     method_code: Option<String>,
 }
 
-/// Imports a pinned USDA FoodData Central Foundation Foods JSON artifact into raw provenance
-/// storage and creates a non-published staged catalog selection.
+struct PreparedImport {
+    created_by: Uuid,
+    foods: Vec<RawFood>,
+    selected_ids: BTreeSet<u64>,
+    source_sha256: String,
+    schema_fingerprint: String,
+    selection_fingerprint: String,
+    catalog_release_version: String,
+}
+
+/// Imports a pinned USDA FDC Foundation Foods JSON artifact into raw provenance storage and
+/// creates a non-published staged catalog selection.
 ///
 /// This function deliberately does not activate a dataset or catalog release and does not publish
 /// composition profiles. Energy is also deliberately omitted until the protected policy decision
@@ -81,30 +91,27 @@ pub async fn import_fdc_foundation_json(
     source_bytes: &[u8],
     request: &FdcFoundationImportRequest,
 ) -> Result<FdcFoundationImportReport, FdcFoundationImportError> {
+    let prepared = prepare_import(source_bytes, request)?;
+    let mut tx = pool.begin().await?;
+    let report = stage_import(&mut tx, request, &prepared).await?;
+    tx.commit().await?;
+    Ok(report)
+}
+
+fn prepare_import(
+    source_bytes: &[u8],
+    request: &FdcFoundationImportRequest,
+) -> Result<PreparedImport, FdcFoundationImportError> {
+    validate_request_metadata(request)?;
     let expected_sha256 = normalize_sha256(&request.expected_sha256)?;
-    let actual_sha256 = sha256_hex(source_bytes);
-    if expected_sha256 != actual_sha256 {
+    let source_sha256 = sha256_hex(source_bytes);
+    if expected_sha256 != source_sha256 {
         return Err(FdcFoundationImportError::ChecksumMismatch {
             expected: expected_sha256,
-            actual: actual_sha256,
+            actual: source_sha256,
         });
     }
 
-    if request.release_version.trim().is_empty() {
-        return Err(FdcFoundationImportError::InvalidInput(
-            "release_version must not be empty".to_owned(),
-        ));
-    }
-    if request.source_published_date.trim().is_empty() {
-        return Err(FdcFoundationImportError::InvalidInput(
-            "source_published_date must not be empty".to_owned(),
-        ));
-    }
-    if request.object_uri.trim().is_empty() {
-        return Err(FdcFoundationImportError::InvalidInput(
-            "object_uri must not be empty".to_owned(),
-        ));
-    }
     let created_by = request.created_by.parse::<Uuid>().map_err(|_| {
         FdcFoundationImportError::InvalidInput("created_by must be a UUID".to_owned())
     })?;
@@ -120,63 +127,130 @@ pub async fn import_fdc_foundation_json(
 
     let schema_fingerprint = sha256_hex(FDC_SCHEMA_CONTRACT.as_bytes());
     let selection_fingerprint = selection_fingerprint(&selected_ids);
+    let release_fingerprint = sha256_hex(
+        format!(
+            "{}:{selection_fingerprint}:{FDC_FOUNDATION_IMPORTER_VERSION}",
+            request.release_version
+        )
+        .as_bytes(),
+    );
     let catalog_release_version = format!(
         "usda-fdc-foundation-{}-{}",
         request.release_version,
-        &selection_fingerprint[..12]
+        &release_fingerprint[..12]
     );
 
-    let mut tx = pool.begin().await?;
-    let dataset_id = ensure_fdc_dataset(&mut tx).await?;
+    Ok(PreparedImport {
+        created_by,
+        foods,
+        selected_ids,
+        source_sha256,
+        schema_fingerprint,
+        selection_fingerprint,
+        catalog_release_version,
+    })
+}
+
+fn validate_request_metadata(
+    request: &FdcFoundationImportRequest,
+) -> Result<(), FdcFoundationImportError> {
+    for (field, value) in [
+        ("release_version", request.release_version.as_str()),
+        (
+            "source_published_date",
+            request.source_published_date.as_str(),
+        ),
+        ("object_uri", request.object_uri.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            return Err(FdcFoundationImportError::InvalidInput(format!(
+                "{field} must not be empty"
+            )));
+        }
+    }
+    Ok(())
+}
+
+async fn stage_import(
+    tx: &mut Transaction<'_, Postgres>,
+    request: &FdcFoundationImportRequest,
+    prepared: &PreparedImport,
+) -> Result<FdcFoundationImportReport, FdcFoundationImportError> {
+    let dataset_id = ensure_fdc_dataset(tx).await?;
     let dataset_release_id = ensure_dataset_release(
-        &mut tx,
+        tx,
         dataset_id,
-        &foods,
+        &prepared.foods,
         request,
-        &actual_sha256,
-        &schema_fingerprint,
+        &prepared.source_sha256,
+        &prepared.schema_fingerprint,
     )
     .await?;
-    store_raw_records(&mut tx, dataset_release_id, &foods).await?;
+    store_raw_records(tx, dataset_release_id, &prepared.foods).await?;
+    mark_dataset_release_imported(tx, dataset_release_id).await?;
+
+    if let Some(existing_catalog_release_id) =
+        existing_catalog_release(tx, &prepared.catalog_release_version).await?
+    {
+        return Ok(import_report(
+            prepared,
+            dataset_release_id,
+            existing_catalog_release_id,
+            true,
+        ));
+    }
+
+    ensure_core_macronutrients(tx).await?;
+    let catalog_release_id = create_staged_catalog_release(tx, prepared, dataset_release_id).await?;
+    stage_reviewed_selection(tx, prepared, dataset_release_id, catalog_release_id).await?;
+    Ok(import_report(
+        prepared,
+        dataset_release_id,
+        catalog_release_id,
+        false,
+    ))
+}
+
+async fn mark_dataset_release_imported(
+    tx: &mut Transaction<'_, Postgres>,
+    dataset_release_id: Uuid,
+) -> Result<(), FdcFoundationImportError> {
     sqlx::query(
         "UPDATE raw.dataset_release
             SET status = 'imported', imported_at = COALESCE(imported_at, now())
           WHERE id = $1 AND status IN ('discovered', 'validated', 'imported')",
     )
     .bind(dataset_release_id)
-    .execute(&mut *tx)
+    .execute(&mut **tx)
     .await?;
+    Ok(())
+}
 
-    if let Some(existing_catalog_release_id) =
-        sqlx::query_scalar::<_, Uuid>("SELECT id FROM catalog.catalog_release WHERE version = $1")
-            .bind(&catalog_release_version)
-            .fetch_optional(&mut *tx)
-            .await?
-    {
-        tx.commit().await?;
-        return Ok(FdcFoundationImportReport {
-            dataset_release_id,
-            catalog_release_id: existing_catalog_release_id,
-            catalog_release_version,
-            raw_record_count: foods.len(),
-            selected_record_count: selected_ids.len(),
-            source_sha256: actual_sha256,
-            schema_fingerprint,
-            replayed: true,
-        });
-    }
+async fn existing_catalog_release(
+    tx: &mut Transaction<'_, Postgres>,
+    version: &str,
+) -> Result<Option<Uuid>, FdcFoundationImportError> {
+    sqlx::query_scalar::<_, Uuid>("SELECT id FROM catalog.catalog_release WHERE version = $1")
+        .bind(version)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(FdcFoundationImportError::Query)
+}
 
-    ensure_core_macronutrients(&mut tx).await?;
+async fn create_staged_catalog_release(
+    tx: &mut Transaction<'_, Postgres>,
+    prepared: &PreparedImport,
+    dataset_release_id: Uuid,
+) -> Result<Uuid, FdcFoundationImportError> {
     let catalog_release_id = Uuid::now_v7();
     let manifest = json!({
         "source": FDC_DATASET_CODE,
         "source_dataset_release_id": dataset_release_id,
-        "source_release_version": request.release_version,
         "importer_version": FDC_FOUNDATION_IMPORTER_VERSION,
-        "selection_sha256": selection_fingerprint,
-        "selected_fdc_ids": selected_ids.iter().copied().collect::<Vec<_>>(),
-        "selected_count": selected_ids.len(),
-        "raw_record_count": foods.len(),
+        "selection_sha256": prepared.selection_fingerprint,
+        "selected_fdc_ids": prepared.selected_ids.iter().copied().collect::<Vec<_>>(),
+        "selected_count": prepared.selected_ids.len(),
+        "raw_record_count": prepared.foods.len(),
         "energy_policy": "pending_issue_22",
         "production_eligible": false
     });
@@ -187,31 +261,47 @@ pub async fn import_fdc_foundation_json(
          VALUES ($1, $2, 'staged', $3, $4, $5)",
     )
     .bind(catalog_release_id)
-    .bind(&catalog_release_version)
+    .bind(&prepared.catalog_release_version)
     .bind(&manifest)
     .bind(catalog_checksum)
-    .bind(created_by)
-    .execute(&mut *tx)
+    .bind(prepared.created_by)
+    .execute(&mut **tx)
     .await?;
+    Ok(catalog_release_id)
+}
 
-    for food in foods
+async fn stage_reviewed_selection(
+    tx: &mut Transaction<'_, Postgres>,
+    prepared: &PreparedImport,
+    dataset_release_id: Uuid,
+    catalog_release_id: Uuid,
+) -> Result<(), FdcFoundationImportError> {
+    for food in prepared
+        .foods
         .iter()
-        .filter(|food| selected_ids.contains(&food.fdc_id))
+        .filter(|food| prepared.selected_ids.contains(&food.fdc_id))
     {
-        stage_selected_food(&mut tx, dataset_release_id, catalog_release_id, food).await?;
+        stage_selected_food(tx, dataset_release_id, catalog_release_id, food).await?;
     }
+    Ok(())
+}
 
-    tx.commit().await?;
-    Ok(FdcFoundationImportReport {
+fn import_report(
+    prepared: &PreparedImport,
+    dataset_release_id: Uuid,
+    catalog_release_id: Uuid,
+    replayed: bool,
+) -> FdcFoundationImportReport {
+    FdcFoundationImportReport {
         dataset_release_id,
         catalog_release_id,
-        catalog_release_version,
-        raw_record_count: foods.len(),
-        selected_record_count: selected_ids.len(),
-        source_sha256: actual_sha256,
-        schema_fingerprint,
-        replayed: false,
-    })
+        catalog_release_version: prepared.catalog_release_version.clone(),
+        raw_record_count: prepared.foods.len(),
+        selected_record_count: prepared.selected_ids.len(),
+        source_sha256: prepared.source_sha256.clone(),
+        schema_fingerprint: prepared.schema_fingerprint.clone(),
+        replayed,
+    }
 }
 
 fn normalize_sha256(value: &str) -> Result<String, FdcFoundationImportError> {
@@ -378,32 +468,69 @@ async fn ensure_dataset_release(
         .fetch_optional(&mut **tx)
         .await?
     {
-        if existing_checksum != source_sha256 {
-            return Err(FdcFoundationImportError::ReleaseConflict(format!(
-                "release {} already has checksum {}, not {}",
-                request.release_version, existing_checksum, source_sha256
-            )));
-        }
-        if existing_schema != schema_fingerprint {
-            return Err(FdcFoundationImportError::ReleaseConflict(format!(
-                "release {} already has schema fingerprint {}, not {}",
-                request.release_version, existing_schema, schema_fingerprint
-            )));
-        }
-        let current_count = i64::try_from(foods.len()).map_err(|_| {
-            FdcFoundationImportError::InvalidInput("FDC record count exceeds i64".to_owned())
-        })?;
-        if existing_count != current_count {
-            return Err(FdcFoundationImportError::ReleaseConflict(format!(
-                "release {} already has record count {}, not {}",
-                request.release_version, existing_count, current_count
-            )));
-        }
+        validate_existing_release(
+            &request.release_version,
+            source_sha256,
+            schema_fingerprint,
+            foods.len(),
+            &existing_checksum,
+            &existing_schema,
+            existing_count,
+        )?;
         return Ok(id);
     }
 
+    create_dataset_release(
+        tx,
+        dataset_id,
+        foods.len(),
+        request,
+        source_sha256,
+        schema_fingerprint,
+    )
+    .await
+}
+
+fn validate_existing_release(
+    release_version: &str,
+    source_sha256: &str,
+    schema_fingerprint: &str,
+    food_count: usize,
+    existing_checksum: &str,
+    existing_schema: &str,
+    existing_count: i64,
+) -> Result<(), FdcFoundationImportError> {
+    if existing_checksum != source_sha256 {
+        return Err(FdcFoundationImportError::ReleaseConflict(format!(
+            "release {release_version} already has checksum {existing_checksum}, not {source_sha256}"
+        )));
+    }
+    if existing_schema != schema_fingerprint {
+        return Err(FdcFoundationImportError::ReleaseConflict(format!(
+            "release {release_version} already has schema fingerprint {existing_schema}, not {schema_fingerprint}"
+        )));
+    }
+    let current_count = i64::try_from(food_count).map_err(|_| {
+        FdcFoundationImportError::InvalidInput("FDC record count exceeds i64".to_owned())
+    })?;
+    if existing_count != current_count {
+        return Err(FdcFoundationImportError::ReleaseConflict(format!(
+            "release {release_version} already has record count {existing_count}, not {current_count}"
+        )));
+    }
+    Ok(())
+}
+
+async fn create_dataset_release(
+    tx: &mut Transaction<'_, Postgres>,
+    dataset_id: Uuid,
+    food_count: usize,
+    request: &FdcFoundationImportRequest,
+    source_sha256: &str,
+    schema_fingerprint: &str,
+) -> Result<Uuid, FdcFoundationImportError> {
     let id = Uuid::now_v7();
-    let record_count = i64::try_from(foods.len()).map_err(|_| {
+    let record_count = i64::try_from(food_count).map_err(|_| {
         FdcFoundationImportError::InvalidInput("FDC record count exceeds i64".to_owned())
     })?;
     let metadata = json!({
@@ -493,15 +620,35 @@ async fn stage_selected_food(
     catalog_release_id: Uuid,
     food: &RawFood,
 ) -> Result<(), FdcFoundationImportError> {
-    let source_record_id: Uuid = sqlx::query_scalar(
+    let source_record_id = source_record_id(tx, dataset_release_id, food.fdc_id).await?;
+    let food_id = ensure_food_entity(tx, food.fdc_id).await?;
+    ensure_food_mapping(tx, source_record_id, food_id).await?;
+    let food_name_id = ensure_food_name(tx, source_record_id, food_id, food).await?;
+    add_name_to_release(tx, catalog_release_id, food_name_id).await?;
+    let profile_id = ensure_staged_profile(tx, source_record_id, food_id, food).await?;
+    add_profile_to_release(tx, catalog_release_id, profile_id).await
+}
+
+async fn source_record_id(
+    tx: &mut Transaction<'_, Postgres>,
+    dataset_release_id: Uuid,
+    fdc_id: u64,
+) -> Result<Uuid, FdcFoundationImportError> {
+    sqlx::query_scalar(
         "SELECT id FROM raw.source_food_record WHERE dataset_release_id = $1 AND external_id = $2",
     )
     .bind(dataset_release_id)
-    .bind(food.fdc_id.to_string())
+    .bind(fdc_id.to_string())
     .fetch_one(&mut **tx)
-    .await?;
+    .await
+    .map_err(FdcFoundationImportError::Query)
+}
 
-    let semantic_key = format!("usda-fdc:{}", food.fdc_id);
+async fn ensure_food_entity(
+    tx: &mut Transaction<'_, Postgres>,
+    fdc_id: u64,
+) -> Result<Uuid, FdcFoundationImportError> {
+    let semantic_key = format!("usda-fdc:{fdc_id}");
     sqlx::query(
         "INSERT INTO catalog.food_entity (id, semantic_key, entity_kind, lifecycle_status)
          VALUES ($1, $2, 'basic_food', 'draft')
@@ -511,12 +658,18 @@ async fn stage_selected_food(
     .bind(&semantic_key)
     .execute(&mut **tx)
     .await?;
-    let food_id: Uuid =
-        sqlx::query_scalar("SELECT id FROM catalog.food_entity WHERE semantic_key = $1")
-            .bind(&semantic_key)
-            .fetch_one(&mut **tx)
-            .await?;
+    sqlx::query_scalar("SELECT id FROM catalog.food_entity WHERE semantic_key = $1")
+        .bind(semantic_key)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(FdcFoundationImportError::Query)
+}
 
+async fn ensure_food_mapping(
+    tx: &mut Transaction<'_, Postgres>,
+    source_record_id: Uuid,
+    food_id: Uuid,
+) -> Result<(), FdcFoundationImportError> {
     sqlx::query(
         "INSERT INTO catalog.food_mapping
             (id, source_record_id, food_id, mapping_method, mapping_version, confidence,
@@ -534,8 +687,16 @@ async fn stage_selected_food(
     .bind(FDC_FOUNDATION_IMPORTER_VERSION)
     .execute(&mut **tx)
     .await?;
+    Ok(())
+}
 
-    let food_name_id = if let Some(id) = sqlx::query_scalar::<_, Uuid>(
+async fn ensure_food_name(
+    tx: &mut Transaction<'_, Postgres>,
+    source_record_id: Uuid,
+    food_id: Uuid,
+    food: &RawFood,
+) -> Result<Uuid, FdcFoundationImportError> {
+    if let Some(id) = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM catalog.food_name
           WHERE food_id = $1 AND source_record_id = $2 AND locale = 'en-US' AND name = $3
           ORDER BY created_at
@@ -547,24 +708,31 @@ async fn stage_selected_food(
     .fetch_optional(&mut **tx)
     .await?
     {
-        id
-    } else {
-        let id = Uuid::now_v7();
-        sqlx::query(
-            "INSERT INTO catalog.food_name
-                (id, food_id, locale, name, normalized_name, name_type, source_record_id,
-                 is_curated, search_weight)
-             VALUES ($1, $2, 'en-US', $3, $4, 'preferred', $5, false, 0)",
-        )
-        .bind(id)
-        .bind(food_id)
-        .bind(&food.description)
-        .bind(food.description.to_lowercase())
-        .bind(source_record_id)
-        .execute(&mut **tx)
-        .await?;
-        id
-    };
+        return Ok(id);
+    }
+
+    let id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO catalog.food_name
+            (id, food_id, locale, name, normalized_name, name_type, source_record_id,
+             is_curated, search_weight)
+         VALUES ($1, $2, 'en-US', $3, $4, 'preferred', $5, false, 0)",
+    )
+    .bind(id)
+    .bind(food_id)
+    .bind(&food.description)
+    .bind(food.description.to_lowercase())
+    .bind(source_record_id)
+    .execute(&mut **tx)
+    .await?;
+    Ok(id)
+}
+
+async fn add_name_to_release(
+    tx: &mut Transaction<'_, Postgres>,
+    catalog_release_id: Uuid,
+    food_name_id: Uuid,
+) -> Result<(), FdcFoundationImportError> {
     sqlx::query(
         "INSERT INTO catalog.catalog_release_food_name (catalog_release_id, food_name_id)
          VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -573,8 +741,16 @@ async fn stage_selected_food(
     .bind(food_name_id)
     .execute(&mut **tx)
     .await?;
+    Ok(())
+}
 
-    let profile_id = if let Some(id) = sqlx::query_scalar::<_, Uuid>(
+async fn ensure_staged_profile(
+    tx: &mut Transaction<'_, Postgres>,
+    source_record_id: Uuid,
+    food_id: Uuid,
+    food: &RawFood,
+) -> Result<Uuid, FdcFoundationImportError> {
+    if let Some(id) = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM composition.composition_profile
           WHERE food_id = $1 AND source_record_id = $2 AND basis_code = 'edible_grams'
           ORDER BY created_at
@@ -585,10 +761,16 @@ async fn stage_selected_food(
     .fetch_optional(&mut **tx)
     .await?
     {
-        id
-    } else {
-        create_staged_profile(tx, food_id, source_record_id, food).await?
-    };
+        return Ok(id);
+    }
+    create_staged_profile(tx, food_id, source_record_id, food).await
+}
+
+async fn add_profile_to_release(
+    tx: &mut Transaction<'_, Postgres>,
+    catalog_release_id: Uuid,
+    profile_id: Uuid,
+) -> Result<(), FdcFoundationImportError> {
     sqlx::query(
         "INSERT INTO catalog.catalog_release_profile (catalog_release_id, profile_id)
          VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -683,74 +865,105 @@ fn extract_unambiguous_macronutrients(
     ];
     let mut values = Vec::with_capacity(definitions.len());
     for (source_nutrient_id, internal_code, expected_unit) in definitions {
-        let matches = food_nutrients
-            .iter()
-            .filter(|item| {
-                item.get("nutrient")
-                    .and_then(|nutrient| nutrient.get("id"))
-                    .and_then(Value::as_u64)
-                    == Some(source_nutrient_id)
-            })
-            .collect::<Vec<_>>();
-        if matches.len() != 1 {
-            return Err(FdcFoundationImportError::InvalidInput(format!(
-                "FDC ID {} must contain exactly one source nutrient {} for {}",
-                food.fdc_id, source_nutrient_id, internal_code
-            )));
-        }
-        let item = matches[0];
-        let unit = item
-            .get("nutrient")
-            .and_then(|nutrient| nutrient.get("unitName"))
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                FdcFoundationImportError::InvalidInput(format!(
-                    "FDC ID {} nutrient {} has no unitName",
-                    food.fdc_id, source_nutrient_id
-                ))
-            })?;
-        if !unit.eq_ignore_ascii_case(expected_unit) {
-            return Err(FdcFoundationImportError::InvalidInput(format!(
-                "FDC ID {} nutrient {} uses unit {}, expected {}",
-                food.fdc_id, source_nutrient_id, unit, expected_unit
-            )));
-        }
-        let amount = decimal_field(item, "amount")?.ok_or_else(|| {
-            FdcFoundationImportError::InvalidInput(format!(
-                "FDC ID {} nutrient {} has no amount",
-                food.fdc_id, source_nutrient_id
-            ))
-        })?;
-        if amount.is_sign_negative() {
-            return Err(FdcFoundationImportError::InvalidInput(format!(
-                "FDC ID {} nutrient {} has a negative amount",
-                food.fdc_id, source_nutrient_id
-            )));
-        }
-        let minimum = decimal_field(item, "min")?;
-        let maximum = decimal_field(item, "max")?;
-        if let (Some(minimum), Some(maximum)) = (minimum, maximum) {
-            if minimum > maximum {
-                return Err(FdcFoundationImportError::InvalidInput(format!(
-                    "FDC ID {} nutrient {} has min greater than max",
-                    food.fdc_id, source_nutrient_id
-                )));
-            }
-        }
-        let method_code = item
-            .get("foodNutrientDerivation")
-            .and_then(|derivation| derivation.get("code"))
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
-        values.push(StagedNutrient {
+        values.push(extract_macronutrient(
+            food,
+            food_nutrients,
+            source_nutrient_id,
             internal_code,
-            amount,
-            minimum,
-            maximum,
-            method_code,
-        });
+            expected_unit,
+        )?);
     }
     Ok(values)
+}
+
+fn extract_macronutrient(
+    food: &RawFood,
+    food_nutrients: &[Value],
+    source_nutrient_id: u64,
+    internal_code: &'static str,
+    expected_unit: &str,
+) -> Result<StagedNutrient, FdcFoundationImportError> {
+    let matches = food_nutrients
+        .iter()
+        .filter(|item| {
+            item.get("nutrient")
+                .and_then(|nutrient| nutrient.get("id"))
+                .and_then(Value::as_u64)
+                == Some(source_nutrient_id)
+        })
+        .collect::<Vec<_>>();
+    if matches.len() != 1 {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "FDC ID {} must contain exactly one source nutrient {} for {}",
+            food.fdc_id, source_nutrient_id, internal_code
+        )));
+    }
+    let item = matches[0];
+    validate_nutrient_unit(food.fdc_id, source_nutrient_id, item, expected_unit)?;
+    let amount = required_nonnegative_amount(food.fdc_id, source_nutrient_id, item)?;
+    let minimum = decimal_field(item, "min")?;
+    let maximum = decimal_field(item, "max")?;
+    if let (Some(minimum), Some(maximum)) = (minimum, maximum)
+        && minimum > maximum
+    {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "FDC ID {} nutrient {} has min greater than max",
+            food.fdc_id, source_nutrient_id
+        )));
+    }
+    let method_code = item
+        .get("foodNutrientDerivation")
+        .and_then(|derivation| derivation.get("code"))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+    Ok(StagedNutrient {
+        internal_code,
+        amount,
+        minimum,
+        maximum,
+        method_code,
+    })
+}
+
+fn validate_nutrient_unit(
+    fdc_id: u64,
+    source_nutrient_id: u64,
+    item: &Value,
+    expected_unit: &str,
+) -> Result<(), FdcFoundationImportError> {
+    let unit = item
+        .get("nutrient")
+        .and_then(|nutrient| nutrient.get("unitName"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            FdcFoundationImportError::InvalidInput(format!(
+                "FDC ID {fdc_id} nutrient {source_nutrient_id} has no unitName"
+            ))
+        })?;
+    if !unit.eq_ignore_ascii_case(expected_unit) {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "FDC ID {fdc_id} nutrient {source_nutrient_id} uses unit {unit}, expected {expected_unit}"
+        )));
+    }
+    Ok(())
+}
+
+fn required_nonnegative_amount(
+    fdc_id: u64,
+    source_nutrient_id: u64,
+    item: &Value,
+) -> Result<Decimal, FdcFoundationImportError> {
+    let amount = decimal_field(item, "amount")?.ok_or_else(|| {
+        FdcFoundationImportError::InvalidInput(format!(
+            "FDC ID {fdc_id} nutrient {source_nutrient_id} has no amount"
+        ))
+    })?;
+    if amount.is_sign_negative() {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "FDC ID {fdc_id} nutrient {source_nutrient_id} has a negative amount"
+        )));
+    }
+    Ok(amount)
 }
 
 fn decimal_field(value: &Value, field: &str) -> Result<Option<Decimal>, FdcFoundationImportError> {
