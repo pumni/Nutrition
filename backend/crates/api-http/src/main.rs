@@ -92,15 +92,46 @@ impl IntoResponse for ApiError {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AppEnvironment {
+    Local,
+    Ci,
+    Staging,
+    Production,
+}
+
+impl AppEnvironment {
+    fn from_env() -> Self {
+        let value = env::var("APP_ENV").expect("APP_ENV is required");
+        Self::parse(&value).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "local" => Ok(Self::Local),
+            "ci" => Ok(Self::Ci),
+            "staging" => Ok(Self::Staging),
+            "production" => Ok(Self::Production),
+            _ => Err("APP_ENV must be local, ci, staging, or production".to_owned()),
+        }
+    }
+
+    const fn allows_development_adapters(self) -> bool {
+        matches!(self, Self::Local | Self::Ci)
+    }
+}
+
 #[tokio::main]
 async fn main() {
     initialize_tracing();
+    let environment = AppEnvironment::from_env();
     let auth_mode = env::var("AUTH_MODE").expect("AUTH_MODE is required");
-    assert!(
-        auth_mode == "development",
-        "only AUTH_MODE=development is available; production requires an OIDC adapter"
-    );
-    let bind_addr = env::var("APP_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_owned());
+    validate_auth_mode(environment, &auth_mode).expect("authentication configuration is invalid");
+    let bind_addr = match env::var("APP_BIND_ADDR") {
+        Ok(value) => value,
+        Err(_) if environment.allows_development_adapters() => "127.0.0.1:8080".to_owned(),
+        Err(_) => panic!("APP_BIND_ADDR is required when APP_ENV is staging or production"),
+    };
     let address: SocketAddr = bind_addr
         .parse()
         .expect("APP_BIND_ADDR must be a valid socket address");
@@ -111,8 +142,8 @@ async fn main() {
     let catalog_release_id = active_catalog_release_id(&pool)
         .await
         .expect("an active catalog release is required");
-    let (parser, prompt_version, model_provider_version) =
-        configured_parser(&pool).expect("parser configuration is invalid");
+    let (parser, prompt_version, model_provider_version) = configured_parser(&pool, environment)
+        .expect("parser configuration is invalid");
     let versions = BehaviorVersions {
         catalog_release_id,
         parser_schema_version: PARSER_SCHEMA_VERSION.to_owned(),
@@ -407,18 +438,34 @@ fn required_nutrients() -> Vec<NutrientCode> {
         .collect()
 }
 
+fn validate_auth_mode(environment: AppEnvironment, auth_mode: &str) -> Result<(), String> {
+    match auth_mode {
+        "development" if environment.allows_development_adapters() => Ok(()),
+        "development" => {
+            Err("AUTH_MODE=development is forbidden when APP_ENV is staging or production".to_owned())
+        }
+        "oidc" => Err("AUTH_MODE=oidc is not implemented; production authentication remains blocked"
+            .to_owned()),
+        _ => Err("AUTH_MODE must be development or oidc".to_owned()),
+    }
+}
+
 fn configured_parser(
     pool: &sqlx::PgPool,
+    environment: AppEnvironment,
 ) -> Result<(ConfiguredMealParser, String, String), String> {
     match env::var("PARSER_MODE")
         .map_err(|_| "PARSER_MODE is required".to_owned())?
         .as_str()
     {
-        "fixture" => Ok((
+        "fixture" if environment.allows_development_adapters() => Ok((
             ConfiguredMealParser::Fixture(FixtureParser),
             "fixture-parser-0.2.0".to_owned(),
             "fixture/local".to_owned(),
         )),
+        "fixture" => {
+            Err("PARSER_MODE=fixture is forbidden when APP_ENV is staging or production".to_owned())
+        }
         "hosted" => {
             let provider =
                 env::var("LLM_PROVIDER").map_err(|_| "LLM_PROVIDER is required".to_owned())?;
@@ -476,4 +523,37 @@ fn initialize_tracing() {
 
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AppEnvironment, validate_auth_mode};
+
+    #[test]
+    fn environment_policy_is_explicit() {
+        assert_eq!(AppEnvironment::parse("local"), Ok(AppEnvironment::Local));
+        assert_eq!(AppEnvironment::parse("ci"), Ok(AppEnvironment::Ci));
+        assert_eq!(
+            AppEnvironment::parse("staging"),
+            Ok(AppEnvironment::Staging)
+        );
+        assert_eq!(
+            AppEnvironment::parse("production"),
+            Ok(AppEnvironment::Production)
+        );
+        assert!(AppEnvironment::Local.allows_development_adapters());
+        assert!(AppEnvironment::Ci.allows_development_adapters());
+        assert!(!AppEnvironment::Staging.allows_development_adapters());
+        assert!(!AppEnvironment::Production.allows_development_adapters());
+        assert!(AppEnvironment::parse("prod").is_err());
+    }
+
+    #[test]
+    fn development_auth_is_non_production_only() {
+        assert!(validate_auth_mode(AppEnvironment::Local, "development").is_ok());
+        assert!(validate_auth_mode(AppEnvironment::Ci, "development").is_ok());
+        assert!(validate_auth_mode(AppEnvironment::Staging, "development").is_err());
+        assert!(validate_auth_mode(AppEnvironment::Production, "development").is_err());
+        assert!(validate_auth_mode(AppEnvironment::Production, "oidc").is_err());
+    }
 }
