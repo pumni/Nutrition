@@ -7,6 +7,7 @@ Write-Output "Starting PostgreSQL 18..."
 docker compose -f deploy/compose.yaml up -d postgres
 
 try {
+    $env:APP_ENV = "ci"
     $env:DATABASE_URL = $databaseUrl
     $env:RUN_MIGRATIONS = "true"
     $env:RUN_FOUNDATION_SEED = "true"
