@@ -13,6 +13,9 @@ concurrency:
   group: backend-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   verify:
     name: verify backend
@@ -23,19 +26,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.97.1
-          components: rustfmt, clippy
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal --component rustfmt --component clippy
+          rustup default 1.97.1
+          rustc --version
+          cargo --version
 
-      - name: Cache Rust build
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: backend-ci
-
-      - name: Verify Docker Compose
-        run: docker compose -f deploy/compose.yaml config --quiet
+      - name: Verify PowerShell and Docker
+        run: |
+          pwsh --version
+          docker --version
+          docker compose version
 
       - name: Run foundation verification
         shell: pwsh
@@ -44,3 +46,7 @@ jobs:
       - name: Run PostgreSQL integration verification
         shell: pwsh
         run: ./scripts/verify-postgres.ps1
+
+      - name: Clean PostgreSQL verification resources
+        if: always()
+        run: docker compose -f deploy/compose.yaml down -v --remove-orphans
