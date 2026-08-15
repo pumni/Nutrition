@@ -1,0 +1,39 @@
+name: one-shot-format-fdc
+
+on:
+  push:
+    branches:
+      - agent/fdc-importer-stage
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-remove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/fdc-importer-stage
+
+      - name: Install pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.97.1 --profile minimal --component rustfmt
+          rustup default 1.97.1
+
+      - name: Apply canonical formatting
+        run: cargo fmt --all
+
+      - name: Commit formatted source and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates/persistence-postgres/src/fdc_importer.rs
+          git rm .github/workflows/one-shot-format-fdc.yml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "style: apply rustfmt to staged FDC importer"
+          git push origin HEAD:agent/fdc-importer-stage
