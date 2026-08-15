@@ -1,0 +1,9 @@
+.git
+.github
+.agent
+docs
+target
+.env
+.env.*
+!.env.example
+**/*.log
