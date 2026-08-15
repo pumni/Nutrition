@@ -1,0 +1,46 @@
+name: backend-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: backend-ci
+
+      - name: Verify Docker Compose
+        run: docker compose -f deploy/compose.yaml config --quiet
+
+      - name: Run foundation verification
+        shell: pwsh
+        run: ./scripts/verify.ps1
+
+      - name: Run PostgreSQL integration verification
+        shell: pwsh
+        run: ./scripts/verify-postgres.ps1
