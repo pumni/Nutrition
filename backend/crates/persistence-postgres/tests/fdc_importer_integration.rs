@@ -101,16 +101,17 @@ async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
     assert!(catalog_state.1);
     assert!(!catalog_state.2);
 
-    let membership_counts: (i64, i64) = sqlx::query_as(
+    let membership_counts: (i64, i64, i64) = sqlx::query_as(
         "SELECT
             (SELECT count(*) FROM catalog.catalog_release_food_name WHERE catalog_release_id = $1),
-            (SELECT count(*) FROM catalog.catalog_release_profile WHERE catalog_release_id = $1)",
+            (SELECT count(*) FROM catalog.catalog_release_profile WHERE catalog_release_id = $1),
+            (SELECT count(*) FROM catalog.catalog_release_portion_observation WHERE catalog_release_id = $1)",
     )
     .bind(report.catalog_release_id)
     .fetch_one(&pool)
     .await
     .expect("catalog memberships must be readable");
-    assert_eq!(membership_counts, (1, 1));
+    assert_eq!(membership_counts, (1, 1, 0));
 
     let profile_state: (String, String, i64, i64) = sqlx::query_as(
         "SELECT p.status,
