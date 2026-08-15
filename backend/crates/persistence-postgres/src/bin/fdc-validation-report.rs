@@ -22,7 +22,8 @@ fn main() -> ExitCode {
             eprintln!(
                 "usage: cargo run -p persistence-postgres --bin fdc-validation-report -- \
                  --artifact <path> --release <release> --published-date <date> \
-                 --object-uri <uri> --expected-sha256 <sha256> [--selection-id <fdc-id>]"
+                 --object-uri <uri> --expected-sha256 <sha256> [--selection-id <fdc-id>] \
+                 [--preprocessing-policy <policy-version>]"
             );
             ExitCode::from(2)
         }
@@ -46,6 +47,7 @@ fn run() -> Result<
         source_archive_sha256: optional_argument(&arguments, "--archive-sha256"),
         expected_sha256: required_argument(&arguments, "--expected-sha256")?,
         reviewed_fdc_ids: repeated_arguments(&arguments, "--selection-id")?,
+        preprocessing_policy_version: optional_argument(&arguments, "--preprocessing-policy"),
     };
     let source_bytes = fs::read(&artifact_path)
         .map_err(|error| format!("failed to read artifact {artifact_path}: {error}"))?;

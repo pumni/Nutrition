@@ -1,6 +1,6 @@
 {
   "artifact_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
-  "artifact_valid": false,
+  "artifact_valid": true,
   "checksum_valid": true,
   "energy": {
     "atwater_general_2047": 27,
@@ -11,6 +11,46 @@
   },
   "energy_policy": "fdc_energy_v1",
   "errors": [
+    "reviewed FDC selection is not approved"
+  ],
+  "expected_artifact_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
+  "importer_version": "fdc-foundation-json-0.2.0",
+  "invalid_records": 32,
+  "normalized_payload_sha256": "8af923182f75bce502ba9c14aca2228fd4dad095eb1a8d6a7aba6a2b5101c19d",
+  "normalized_payload_valid": true,
+  "normalized_record_count": 363,
+  "null_records": 32,
+  "object_uri": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip",
+  "preprocessing_applied": true,
+  "preprocessing_policy_version": "fdc_foundation_2026_04_null_tail_v1",
+  "production_eligible": false,
+  "raw_records": 395,
+  "release": {
+    "activation_attempted": false,
+    "reviewer_approved": false,
+    "status": "staged_only"
+  },
+  "schema_contract": "FoundationFoods[].{fdcId:uint,dataType:Foundation,description:string,foodNutrients:[{amount:number,nutrient:{id:uint,unitName:string},foodNutrientDerivation?:{code?:string}}]}",
+  "schema_fingerprint": "bfad93f4dac2af1d5fca89f3c69ddd34de34c945946c1bb15e625a138ebae5cf",
+  "selected_energy": {
+    "atwater_general_2047": 0,
+    "atwater_specific_2048": 0,
+    "missing": 0,
+    "scope": "reviewed_selection",
+    "unexpected_legacy_1008": 0
+  },
+  "selected_records": 0,
+  "selection_fingerprint": null,
+  "selection_status": "not_approved",
+  "selection_valid": false,
+  "source": "usda_fdc",
+  "source_archive_sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+  "source_integrity_valid": true,
+  "source_payload_filename": "FoodData_Central_foundation_food_json_2026-04-30.json",
+  "source_published_date": "2026-04-30",
+  "source_release": "2026-04-30",
+  "source_schema_conformant": false,
+  "source_schema_errors": [
     "FoundationFoods[363] is null; expected a Foundation food object",
     "FoundationFoods[364] is null; expected a Foundation food object",
     "FoundationFoods[365] is null; expected a Foundation food object",
@@ -42,39 +82,8 @@
     "FoundationFoods[391] is null; expected a Foundation food object",
     "FoundationFoods[392] is null; expected a Foundation food object",
     "FoundationFoods[393] is null; expected a Foundation food object",
-    "FoundationFoods[394] is null; expected a Foundation food object",
-    "reviewed FDC selection is not approved"
+    "FoundationFoods[394] is null; expected a Foundation food object"
   ],
-  "expected_artifact_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
-  "importer_version": "fdc-foundation-json-0.2.0",
-  "invalid_records": 32,
-  "null_records": 32,
-  "object_uri": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip",
-  "production_eligible": false,
-  "raw_records": 395,
-  "release": {
-    "activation_attempted": false,
-    "reviewer_approved": false,
-    "status": "staged_only"
-  },
-  "schema_contract": "FoundationFoods[].{fdcId:uint,dataType:Foundation,description:string,foodNutrients:[{amount:number,nutrient:{id:uint,unitName:string},foodNutrientDerivation?:{code?:string}}]}",
-  "schema_fingerprint": "bfad93f4dac2af1d5fca89f3c69ddd34de34c945946c1bb15e625a138ebae5cf",
-  "selected_energy": {
-    "atwater_general_2047": 0,
-    "atwater_specific_2048": 0,
-    "missing": 0,
-    "scope": "reviewed_selection",
-    "unexpected_legacy_1008": 0
-  },
-  "selected_records": 0,
-  "selection_fingerprint": null,
-  "selection_status": "not_approved",
-  "selection_valid": false,
-  "source": "usda_fdc",
-  "source_archive_sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
-  "source_payload_filename": "FoodData_Central_foundation_food_json_2026-04-30.json",
-  "source_published_date": "2026-04-30",
-  "source_release": "2026-04-30",
   "valid_records": 363,
   "validation_passed": false
 }

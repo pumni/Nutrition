@@ -176,6 +176,7 @@ artifact is approved so a future release is not dependent on this document alone
 
 The concrete April 2026 artifact evidence is recorded in
 [`releases/fdc-foundation-2026-04-validation.md`](releases/fdc-foundation-2026-04-validation.md)
-and its deterministic JSON report. The report is intentionally blocked: the downloaded JSON has
-32 `null` members in the `FoundationFoods` array and no reviewed production selection. No source
-record is silently discarded and no catalog activation is authorized by this evidence.
+and its deterministic JSON report. The report records the approved, release-specific null-tail
+adapter and remains intentionally blocked because there is no reviewed production selection or
+named reviewer approval. No source record is silently discarded and no catalog activation is
+authorized by this evidence.

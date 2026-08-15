@@ -62,6 +62,7 @@ async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
         source_archive_sha256: None,
         expected_sha256: request.expected_sha256.clone(),
         reviewed_fdc_ids: request.include_fdc_ids.clone(),
+        preprocessing_policy_version: None,
     };
     let validation =
         validate_fdc_foundation_json(FOUNDATION_FIXTURE.as_bytes(), &validation_request);
@@ -99,6 +100,8 @@ fn build_import_request(release_version: &str) -> FdcFoundationImportRequest {
         source_published_date: "2026-04-30".to_owned(),
         object_uri: format!("fixture://fdc/{release_version}.json"),
         expected_sha256: hex::encode(Sha256::digest(FOUNDATION_FIXTURE.as_bytes())),
+        source_archive_sha256: None,
+        preprocessing_policy_version: None,
         include_fdc_ids: vec![900_000_001],
         created_by: "0198f100-0000-7000-8000-000000000098".to_owned(),
     }

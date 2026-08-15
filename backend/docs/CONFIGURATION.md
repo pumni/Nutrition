@@ -82,10 +82,20 @@ When enabled, all of the following are required:
 - `FDC_IMPORT_SOURCE_PUBLISHED_DATE`: upstream publication date, initially `2026-04-30`;
 - `FDC_IMPORT_OBJECT_URI`: durable provenance URI for the exact imported JSON artifact;
 - `FDC_IMPORT_EXPECTED_SHA256`: expected SHA-256 of the exact JSON bytes read from `FDC_IMPORT_PATH`;
+- `FDC_IMPORT_SOURCE_ARCHIVE_SHA256`: optional SHA-256 of the source archive; required when a
+  preprocessing policy is enabled;
+- `FDC_IMPORT_PREPROCESSING_POLICY`: optional exact adapter version, currently
+  `fdc_foundation_2026_04_null_tail_v1`; the importer verifies the source release/archive/payload
+  hashes before consuming its 363-record derivative;
 - `FDC_IMPORT_INCLUDE_IDS`: comma-separated, non-empty set of reviewed FDC IDs to stage into the product catalog;
 - `FDC_IMPORT_CREATED_BY`: UUID of the human/service actor responsible for the staged import.
 
-The pinned artifact checksum is verified before any database write. All source records in the artifact are stored in `raw.source_food_record`, while only the reviewed `FDC_IMPORT_INCLUDE_IDS` selection receives staged food/name/profile evidence. Re-importing the same release/checksum/selection is idempotent. A checksum conflict for the same upstream release fails closed.
+The pinned artifact checksum is verified before any database write. If preprocessing is enabled,
+the exact source and policy are verified before the derivative is parsed; the original source hash
+and derivative hash/policy are retained in the staged manifest. All source records in the artifact
+are stored in `raw.source_food_record`, while only the reviewed `FDC_IMPORT_INCLUDE_IDS` selection
+receives staged food/name/profile evidence. Re-importing the same release/checksum/selection is
+idempotent. A checksum conflict for the same upstream release fails closed.
 
 The importer stages unambiguous macronutrients plus Foundation energy under `fdc_energy_v1`: nutrient `2048` (Atwater Specific) is preferred and `2047` (Atwater General) is the fallback. Nutrient `1008` is never used for the April 2026 Foundation release. Profiles with missing energy remain incomplete; malformed or duplicate energy candidates fail closed. Imported values retain source nutrient ID/method metadata, while profiles remain `in_review`, quality `U`, and non-production-eligible until the validation/reviewer/activation gates are complete.
 
