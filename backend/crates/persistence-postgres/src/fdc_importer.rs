@@ -427,14 +427,13 @@ async fn ensure_fdc_dataset(
     let id = Uuid::now_v7();
     sqlx::query(
         "INSERT INTO raw.dataset
-            (id, code, name, publisher, license_code, license_url, homepage_url,
-             ingestion_policy_version, metadata)
+            (id, code, name, publisher, license_code, license_url, homepage,
+             ingestion_policy_version)
          VALUES
             ($1, $2, 'USDA FoodData Central',
              'U.S. Department of Agriculture, Agricultural Research Service',
              'CC0-1.0', 'https://creativecommons.org/publicdomain/zero/1.0/',
-             'https://fdc.nal.usda.gov/', $3,
-             jsonb_build_object('initial_data_type', 'Foundation'))
+             'https://fdc.nal.usda.gov/', $3)
          ON CONFLICT (code) DO NOTHING",
     )
     .bind(id)
@@ -542,7 +541,7 @@ async fn create_dataset_release(
     });
     sqlx::query(
         "INSERT INTO raw.dataset_release
-            (id, dataset_id, version, source_published_at, object_uri, checksum_sha256,
+            (id, dataset_id, version, published_at, object_uri, checksum_sha256,
              schema_fingerprint, record_count, metadata, status)
          VALUES ($1, $2, $3, ($4 || 'T00:00:00Z')::timestamptz, $5, $6, $7, $8, $9, 'validated')",
     )
@@ -569,7 +568,7 @@ async fn store_raw_records(
         let payload_hash = sha256_hex(&serde_json::to_vec(&food.payload)?);
         sqlx::query(
             "INSERT INTO raw.source_food_record
-                (id, dataset_release_id, external_id, source_data_type, source_name,
+                (id, dataset_release_id, external_id, source_data_type, source_description,
                  normalized_search_text, raw_payload, payload_hash)
              VALUES ($1, $2, $3, 'Foundation', $4, $5, $6, $7)
              ON CONFLICT (dataset_release_id, external_id) DO NOTHING",
@@ -673,13 +672,13 @@ async fn ensure_food_mapping(
 ) -> Result<(), FdcFoundationImportError> {
     sqlx::query(
         "INSERT INTO catalog.food_mapping
-            (id, source_record_id, food_id, mapping_method, mapping_version, confidence,
-             match_type, review_status, rationale)
-         SELECT $1, $2, $3, 'fdc_exact_external_id', $4, 1.0, 'exact', 'proposed',
+            (id, source_food_record_id, food_id, mapping_type, mapping_method, score,
+             policy_version, review_status, rationale)
+         SELECT $1, $2, $3, 'exact', 'fdc_exact_external_id', 1.0, $4, 'proposed',
                 'Deterministic mapping from the pinned FDC external ID; requires catalog review before publication'
           WHERE NOT EXISTS (
               SELECT 1 FROM catalog.food_mapping
-               WHERE source_record_id = $2 AND food_id = $3
+               WHERE source_food_record_id = $2 AND food_id = $3
           )",
     )
     .bind(Uuid::now_v7())
@@ -700,7 +699,7 @@ async fn ensure_food_name(
     if let Some(id) = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM catalog.food_name
           WHERE food_id = $1 AND source_record_id = $2 AND locale = 'en-US' AND name = $3
-          ORDER BY created_at
+          ORDER BY valid_from
           LIMIT 1",
     )
     .bind(food_id)
@@ -753,7 +752,8 @@ async fn ensure_staged_profile(
 ) -> Result<Uuid, FdcFoundationImportError> {
     if let Some(id) = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM composition.composition_profile
-          WHERE food_id = $1 AND source_record_id = $2 AND basis_code = 'edible_grams'
+          WHERE food_id = $1 AND source_record_id = $2
+            AND basis_amount = 100 AND basis_unit = 'g' AND edible_basis
           ORDER BY created_at
           LIMIT 1",
     )
@@ -800,9 +800,9 @@ async fn create_staged_profile(
     });
     sqlx::query(
         "INSERT INTO composition.composition_profile
-            (id, food_id, source_record_id, profile_type, preparation_state, edible_fraction,
-             basis_code, quality_grade, method_metadata, status)
-         VALUES ($1, $2, $3, 'laboratory', 'as_published', 1.0, 'edible_grams', 'U', $4, 'in_review')",
+            (id, food_id, source_record_id, profile_type, basis_amount, basis_unit, edible_basis,
+             quality_grade, method_metadata, status)
+         VALUES ($1, $2, $3, 'laboratory', 100, 'g', true, 'U', $4, 'in_review')",
     )
     .bind(profile_id)
     .bind(food_id)
@@ -829,9 +829,9 @@ async fn create_staged_profile(
         })?;
         sqlx::query(
             "INSERT INTO composition.composition_value
-                (profile_id, nutrient_id, amount_per_100g, lower_amount_per_100g,
-                 upper_amount_per_100g, value_status, method_code)
-             VALUES ($1, $2, $3, $4, $5, 'compiled', $6)",
+                (profile_id, nutrient_id, amount, unit, minimum_amount, maximum_amount,
+                 value_status, method_code)
+             VALUES ($1, $2, $3, 'g', $4, $5, 'compiled', $6)",
         )
         .bind(profile_id)
         .bind(nutrient_id)
