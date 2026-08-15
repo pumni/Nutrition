@@ -1,6 +1,9 @@
-use persistence_postgres::{claim_jobs, complete_job, deliver_outbox_batch, fail_job};
+use persistence_postgres::{
+    FdcFoundationImportRequest, claim_jobs, complete_job, deliver_outbox_batch, fail_job,
+    import_fdc_foundation_json,
+};
 use sqlx::PgPool;
-use std::{env, time::Duration};
+use std::{env, fs, time::Duration};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -14,6 +17,12 @@ async fn main() {
 
     let environment = AppEnvironment::from_env();
     let config = WorkerConfig::from_env(environment);
+    let run_fdc_import = env_bool("RUN_FDC_FOUNDATION_IMPORT", false);
+    assert!(
+        !run_fdc_import || environment.allows_source_import(),
+        "RUN_FDC_FOUNDATION_IMPORT=true is forbidden when APP_ENV is production"
+    );
+
     let pool = persistence_postgres::connect(&config.database_url, config.database_pool_size)
         .await
         .expect("worker could not connect to PostgreSQL");
@@ -33,6 +42,11 @@ async fn main() {
             .expect("foundation fixture seed failed");
         info!("test-only foundation fixture seed applied");
     }
+    if run_fdc_import {
+        run_fdc_foundation_import(&pool)
+            .await
+            .expect("FDC Foundation import failed");
+    }
     sqlx_healthcheck(&pool).await;
     match config.mode {
         WorkerMode::Idle => info!("worker healthcheck completed"),
@@ -41,6 +55,63 @@ async fn main() {
             info!(processed, "worker run-once completed");
         }
         WorkerMode::Loop => run_loop(&pool, &config).await,
+    }
+}
+
+async fn run_fdc_foundation_import(
+    pool: &PgPool,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let source_path = required_env("FDC_IMPORT_PATH");
+    let source_bytes = fs::read(&source_path)?;
+    let request = FdcFoundationImportRequest {
+        release_version: required_env("FDC_IMPORT_RELEASE_VERSION"),
+        source_published_date: required_env("FDC_IMPORT_SOURCE_PUBLISHED_DATE"),
+        object_uri: required_env("FDC_IMPORT_OBJECT_URI"),
+        expected_sha256: required_env("FDC_IMPORT_EXPECTED_SHA256"),
+        include_fdc_ids: parse_fdc_ids(&required_env("FDC_IMPORT_INCLUDE_IDS"))?,
+        created_by: required_env("FDC_IMPORT_CREATED_BY"),
+    };
+    let report = import_fdc_foundation_json(pool, &source_bytes, &request).await?;
+    info!(
+        dataset_release_id = %report.dataset_release_id,
+        catalog_release_id = %report.catalog_release_id,
+        catalog_release_version = %report.catalog_release_version,
+        raw_record_count = report.raw_record_count,
+        selected_record_count = report.selected_record_count,
+        replayed = report.replayed,
+        "staged FDC Foundation import completed"
+    );
+    Ok(())
+}
+
+fn parse_fdc_ids(value: &str) -> Result<Vec<u64>, String> {
+    let values = value
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            value
+                .parse::<u64>()
+                .map_err(|_| format!("FDC_IMPORT_INCLUDE_IDS contains invalid FDC ID: {value}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if values.is_empty() {
+        return Err("FDC_IMPORT_INCLUDE_IDS must contain at least one FDC ID".to_owned());
+    }
+    Ok(values)
+}
+
+fn required_env(name: &str) -> String {
+    env::var(name).unwrap_or_else(|_| panic!("{name} is required"))
+}
+
+fn env_bool(name: &str, default: bool) -> bool {
+    match env::var(name).as_deref() {
+        Ok("true") => true,
+        Ok("false") => false,
+        Err(env::VarError::NotPresent) => default,
+        Err(env::VarError::NotUnicode(_)) => panic!("{name} must be valid Unicode"),
+        Ok(value) => panic!("{name} must be true or false, got {value}"),
     }
 }
 
@@ -77,6 +148,10 @@ impl AppEnvironment {
 
     const fn allows_development_adapters(self) -> bool {
         matches!(self, Self::Local | Self::Ci)
+    }
+
+    const fn allows_source_import(self) -> bool {
+        matches!(self, Self::Local | Self::Ci | Self::Staging)
     }
 }
 
@@ -193,7 +268,7 @@ async fn run_loop(pool: &PgPool, config: &WorkerConfig) {
 
 #[cfg(test)]
 mod tests {
-    use super::AppEnvironment;
+    use super::{AppEnvironment, parse_fdc_ids};
 
     #[test]
     fn environment_policy_is_explicit() {
@@ -211,6 +286,17 @@ mod tests {
         assert!(AppEnvironment::Ci.allows_development_adapters());
         assert!(!AppEnvironment::Staging.allows_development_adapters());
         assert!(!AppEnvironment::Production.allows_development_adapters());
+        assert!(AppEnvironment::Local.allows_source_import());
+        assert!(AppEnvironment::Ci.allows_source_import());
+        assert!(AppEnvironment::Staging.allows_source_import());
+        assert!(!AppEnvironment::Production.allows_source_import());
         assert!(AppEnvironment::parse("prod").is_err());
+    }
+
+    #[test]
+    fn fdc_id_selection_requires_valid_ids() {
+        assert_eq!(parse_fdc_ids("2, 1").expect("valid IDs"), vec![2, 1]);
+        assert!(parse_fdc_ids("").is_err());
+        assert!(parse_fdc_ids("1,nope").is_err());
     }
 }
