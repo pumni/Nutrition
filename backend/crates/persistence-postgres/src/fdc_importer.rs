@@ -230,11 +230,13 @@ async fn existing_catalog_release(
     tx: &mut Transaction<'_, Postgres>,
     version: &str,
 ) -> Result<Option<Uuid>, FdcFoundationImportError> {
-    sqlx::query_scalar::<_, Uuid>("SELECT id FROM catalog.catalog_release WHERE version = $1")
-        .bind(version)
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(FdcFoundationImportError::Query)
+    sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM catalog.catalog_release WHERE version = $1",
+    )
+    .bind(version)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(FdcFoundationImportError::Query)
 }
 
 async fn create_staged_catalog_release(
