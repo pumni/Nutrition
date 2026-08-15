@@ -1,6 +1,7 @@
 use persistence_postgres::{
-    CatalogReleaseActivationError, CatalogReleaseActivationRequest, FdcFoundationImportRequest,
-    activate_catalog_release, connect, import_fdc_foundation_json, migrate,
+    CatalogReleaseActivationError, CatalogReleaseActivationRequest, CatalogReleaseRollbackRequest,
+    FdcFoundationImportRequest, activate_catalog_release, connect, import_fdc_foundation_json,
+    migrate, stage_catalog_rollback,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -89,6 +90,130 @@ async fn catalog_activation_validates_and_supersedes_atomically() {
     ));
 }
 
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn catalog_rollback_creates_new_release_and_preserves_history() {
+    let pool = setup_database().await;
+    let initial_active_release_id = ensure_previous_active_release(&pool).await;
+    let reviewer_id = Uuid::parse_str(REVIEWER_ID).expect("reviewer UUID must be valid");
+
+    let first = stage_and_prepare_release(&pool, "rollback-a", 910_000_101).await;
+    activate_prepared_release(
+        &pool,
+        &first,
+        Some(initial_active_release_id),
+        reviewer_id,
+        "human-review:rollback-a",
+    )
+    .await;
+
+    let second = stage_and_prepare_release(&pool, "rollback-b", 910_000_102).await;
+    activate_prepared_release(
+        &pool,
+        &second,
+        Some(first.catalog_release_id),
+        reviewer_id,
+        "human-review:rollback-b",
+    )
+    .await;
+    assert_release_status(&pool, first.catalog_release_id, "superseded").await;
+
+    let rollback = stage_catalog_rollback(
+        &pool,
+        &CatalogReleaseRollbackRequest {
+            source_release_id: first.catalog_release_id,
+            new_version: format!("rollback-target-{}", Uuid::now_v7()),
+            created_by: reviewer_id,
+        },
+    )
+    .await
+    .expect("superseded validated release must produce a staged rollback snapshot");
+    assert_eq!(rollback.source_release_id, first.catalog_release_id);
+    assert_eq!(rollback.validation_report_hash, "b".repeat(64));
+    assert_release_status(&pool, rollback.rollback_release_id, "staged").await;
+    assert_release_membership_counts(&pool, rollback.rollback_release_id).await;
+
+    let rollback_activation = activate_catalog_release(
+        &pool,
+        &CatalogReleaseActivationRequest {
+            release_id: rollback.rollback_release_id,
+            expected_current_active_release: Some(second.catalog_release_id),
+            validation_report_hash: rollback.validation_report_hash,
+            reviewer_id,
+            approval_reference: "human-review:rollback-execute".to_owned(),
+        },
+    )
+    .await
+    .expect("rollback snapshot must activate through the normal activation gate");
+    assert_eq!(
+        rollback_activation.previous_active_release_id,
+        Some(second.catalog_release_id)
+    );
+    assert_eq!(
+        rollback_activation.dataset_release_id,
+        first.dataset_release_id
+    );
+    assert_release_status(&pool, first.catalog_release_id, "superseded").await;
+    assert_release_status(&pool, second.catalog_release_id, "superseded").await;
+    assert_release_status(&pool, rollback.rollback_release_id, "active").await;
+}
+
+async fn stage_and_prepare_release(
+    pool: &PgPool,
+    version_prefix: &str,
+    fdc_id: u64,
+) -> PreparedRelease {
+    let release_version = format!("{version_prefix}-{}", Uuid::now_v7());
+    let fixture = FOUNDATION_FIXTURE
+        .replace("910000001", &fdc_id.to_string())
+        .replace(
+            "Synthetic activation apple, raw",
+            &format!("Synthetic {version_prefix} apple, raw"),
+        );
+    let report = import_fdc_foundation_json(
+        pool,
+        fixture.as_bytes(),
+        &build_import_request_for_source(&release_version, fixture.as_bytes(), fdc_id),
+    )
+    .await
+    .expect("rollback fixture must stage");
+    let validation_report_hash = "b".repeat(64);
+    prepare_validation_evidence(pool, report.catalog_release_id, &validation_report_hash).await;
+    PreparedRelease {
+        catalog_release_id: report.catalog_release_id,
+        dataset_release_id: report.dataset_release_id,
+        validation_report_hash,
+    }
+}
+
+async fn activate_prepared_release(
+    pool: &PgPool,
+    release: &PreparedRelease,
+    expected_current_active_release: Option<Uuid>,
+    reviewer_id: Uuid,
+    approval_reference: &str,
+) {
+    activate_catalog_release(
+        pool,
+        &CatalogReleaseActivationRequest {
+            release_id: release.catalog_release_id,
+            expected_current_active_release,
+            validation_report_hash: release.validation_report_hash.clone(),
+            reviewer_id,
+            approval_reference: approval_reference.to_owned(),
+        },
+    )
+    .await
+    .expect("prepared release must activate");
+}
+
+#[derive(Clone, Debug)]
+struct PreparedRelease {
+    catalog_release_id: Uuid,
+    dataset_release_id: Uuid,
+    validation_report_hash: String,
+}
+
 async fn setup_database() -> PgPool {
     let database_url =
         env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
@@ -102,12 +227,20 @@ async fn setup_database() -> PgPool {
 }
 
 fn build_import_request(release_version: &str) -> FdcFoundationImportRequest {
+    build_import_request_for_source(release_version, FOUNDATION_FIXTURE.as_bytes(), 910_000_001)
+}
+
+fn build_import_request_for_source(
+    release_version: &str,
+    source_bytes: &[u8],
+    fdc_id: u64,
+) -> FdcFoundationImportRequest {
     FdcFoundationImportRequest {
         release_version: release_version.to_owned(),
         source_published_date: "2026-04-30".to_owned(),
         object_uri: format!("fixture://fdc/{release_version}.json"),
-        expected_sha256: sha256_hex(FOUNDATION_FIXTURE.as_bytes()),
-        include_fdc_ids: vec![910_000_001],
+        expected_sha256: sha256_hex(source_bytes),
+        include_fdc_ids: vec![fdc_id],
         created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
     }
 }
@@ -235,6 +368,20 @@ async fn assert_published_content(pool: &PgPool, release_id: Uuid) {
     .await
     .expect("published content must be readable");
     assert_eq!(content_state, (1, 1, 1));
+}
+
+async fn assert_release_membership_counts(pool: &PgPool, release_id: Uuid) {
+    let counts: (i64, i64, i64) = sqlx::query_as(
+        "SELECT
+            (SELECT count(*) FROM catalog.catalog_release_food_name WHERE catalog_release_id = $1),
+            (SELECT count(*) FROM catalog.catalog_release_profile WHERE catalog_release_id = $1),
+            (SELECT count(*) FROM catalog.catalog_release_portion_observation WHERE catalog_release_id = $1)",
+    )
+    .bind(release_id)
+    .fetch_one(pool)
+    .await
+    .expect("rollback memberships must be readable");
+    assert_eq!(counts, (1, 1, 0));
 }
 
 async fn assert_source_activation(

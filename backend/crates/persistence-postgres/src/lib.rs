@@ -10,7 +10,8 @@ mod seed;
 pub use analysis_repository::PostgresAnalysisRepository;
 pub use catalog_activation::{
     CatalogReleaseActivationError, CatalogReleaseActivationReport, CatalogReleaseActivationRequest,
-    activate_catalog_release,
+    CatalogReleaseRollbackReport, CatalogReleaseRollbackRequest, activate_catalog_release,
+    stage_catalog_rollback,
 };
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
 pub use fdc_importer::{

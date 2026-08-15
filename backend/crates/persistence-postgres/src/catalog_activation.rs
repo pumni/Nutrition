@@ -20,6 +20,20 @@ pub struct CatalogReleaseActivationReport {
     pub dataset_release_id: Uuid,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CatalogReleaseRollbackRequest {
+    pub source_release_id: Uuid,
+    pub new_version: String,
+    pub created_by: Uuid,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CatalogReleaseRollbackReport {
+    pub rollback_release_id: Uuid,
+    pub source_release_id: Uuid,
+    pub validation_report_hash: String,
+}
+
 #[derive(Debug, Error)]
 pub enum CatalogReleaseActivationError {
     #[error("invalid catalog activation input: {0}")]
@@ -49,6 +63,8 @@ pub enum CatalogReleaseActivationError {
     Query(#[from] sqlx::Error),
     #[error("catalog activation JSON serialization failed")]
     Json(#[from] serde_json::Error),
+    #[error("catalog rollback source {release_id} has status {status}; expected superseded")]
+    RollbackSourceStatus { release_id: Uuid, status: String },
 }
 
 /// Explicitly activates a validated staged catalog release.
@@ -139,6 +155,177 @@ pub async fn activate_catalog_release(
     })
 }
 
+/// Creates a new staged immutable snapshot from a superseded catalog release.
+///
+/// A superseded release is never changed back to `active`. Its memberships and validated manifest
+/// are copied into a new staged release, which must still pass the normal explicit activation
+/// command and reviewer gate. This preserves the release history and gives the activation
+/// transaction a distinct rollback release to audit.
+///
+/// # Errors
+///
+/// Returns an error when the source release is not superseded, its manifest checksum or validation
+/// evidence is invalid, or the new version conflicts with an existing release.
+pub async fn stage_catalog_rollback(
+    pool: &PgPool,
+    request: &CatalogReleaseRollbackRequest,
+) -> Result<CatalogReleaseRollbackReport, CatalogReleaseActivationError> {
+    validate_rollback_request(request)?;
+    let mut tx = pool.begin().await?;
+    let source = sqlx::query(
+        "SELECT status, manifest, checksum_sha256
+           FROM catalog.catalog_release
+          WHERE id = $1
+          FOR UPDATE",
+    )
+    .bind(request.source_release_id)
+    .fetch_optional(&mut *tx)
+    .await?
+    .ok_or(CatalogReleaseActivationError::ReleaseNotFound(
+        request.source_release_id,
+    ))?;
+    let status: String = source.try_get("status")?;
+    if status != "superseded" {
+        return Err(CatalogReleaseActivationError::RollbackSourceStatus {
+            release_id: request.source_release_id,
+            status,
+        });
+    }
+    let source_manifest: Value = source.try_get("manifest")?;
+    let source_checksum: String = source.try_get("checksum_sha256")?;
+    verify_release_checksum(
+        request.source_release_id,
+        &source_manifest,
+        &source_checksum,
+    )?;
+    let validation_report_hash = rollback_validation_hash(&source_manifest)?;
+    let _dataset_release_id = manifest_dataset_release_id(&source_manifest)?;
+
+    let version_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+             SELECT 1 FROM catalog.catalog_release WHERE version = $1
+         )",
+    )
+    .bind(&request.new_version)
+    .fetch_one(&mut *tx)
+    .await?;
+    if version_exists {
+        return Err(CatalogReleaseActivationError::InvalidInput(format!(
+            "catalog release version already exists: {}",
+            request.new_version
+        )));
+    }
+
+    let mut rollback_manifest = source_manifest;
+    rollback_manifest["rollback_of_catalog_release_id"] =
+        Value::String(request.source_release_id.to_string());
+    rollback_manifest["rollback_source_checksum_sha256"] = Value::String(source_checksum);
+    let rollback_checksum = sha256_hex(&serde_json::to_vec(&rollback_manifest)?);
+    let rollback_release_id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO catalog.catalog_release
+            (id, version, status, manifest, checksum_sha256, created_by)
+         VALUES ($1, $2, 'staged', $3, $4, $5)",
+    )
+    .bind(rollback_release_id)
+    .bind(&request.new_version)
+    .bind(&rollback_manifest)
+    .bind(rollback_checksum)
+    .bind(request.created_by)
+    .execute(&mut *tx)
+    .await?;
+    copy_release_memberships(&mut tx, request.source_release_id, rollback_release_id).await?;
+    tx.commit().await?;
+
+    Ok(CatalogReleaseRollbackReport {
+        rollback_release_id,
+        source_release_id: request.source_release_id,
+        validation_report_hash,
+    })
+}
+
+fn validate_rollback_request(
+    request: &CatalogReleaseRollbackRequest,
+) -> Result<(), CatalogReleaseActivationError> {
+    if request.source_release_id.is_nil() {
+        return Err(CatalogReleaseActivationError::InvalidInput(
+            "source_release_id must not be nil".to_owned(),
+        ));
+    }
+    if request.created_by.is_nil() {
+        return Err(CatalogReleaseActivationError::InvalidInput(
+            "created_by must not be nil".to_owned(),
+        ));
+    }
+    if request.new_version.trim().is_empty() {
+        return Err(CatalogReleaseActivationError::InvalidInput(
+            "new_version must not be empty".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn rollback_validation_hash(manifest: &Value) -> Result<String, CatalogReleaseActivationError> {
+    let validation = manifest
+        .get("validation")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            CatalogReleaseActivationError::ValidationFailed(
+                "rollback source has no validation evidence".to_owned(),
+            )
+        })?;
+    if validation.get("status").and_then(Value::as_str) != Some("passed")
+        || validation
+            .get("production_eligible")
+            .and_then(Value::as_bool)
+            != Some(true)
+        || manifest.get("production_eligible").and_then(Value::as_bool) != Some(true)
+    {
+        return Err(CatalogReleaseActivationError::ValidationFailed(
+            "rollback source validation evidence is not production eligible".to_owned(),
+        ));
+    }
+    let report_hash = validation
+        .get("report_sha256")
+        .and_then(Value::as_str)
+        .and_then(|value| normalize_hash(value).ok())
+        .ok_or_else(|| {
+            CatalogReleaseActivationError::ValidationFailed(
+                "rollback source has no valid validation report hash".to_owned(),
+            )
+        })?;
+    Ok(report_hash)
+}
+
+async fn copy_release_memberships(
+    tx: &mut Transaction<'_, Postgres>,
+    source_release_id: Uuid,
+    rollback_release_id: Uuid,
+) -> Result<(), CatalogReleaseActivationError> {
+    for statement in [
+        "INSERT INTO catalog.catalog_release_food_name (catalog_release_id, food_name_id)
+         SELECT $1, food_name_id
+           FROM catalog.catalog_release_food_name
+          WHERE catalog_release_id = $2",
+        "INSERT INTO catalog.catalog_release_profile (catalog_release_id, profile_id)
+         SELECT $1, profile_id
+           FROM catalog.catalog_release_profile
+          WHERE catalog_release_id = $2",
+        "INSERT INTO catalog.catalog_release_portion_observation
+            (catalog_release_id, portion_observation_id)
+         SELECT $1, portion_observation_id
+           FROM catalog.catalog_release_portion_observation
+          WHERE catalog_release_id = $2",
+    ] {
+        sqlx::query(statement)
+            .bind(rollback_release_id)
+            .bind(source_release_id)
+            .execute(&mut **tx)
+            .await?;
+    }
+    Ok(())
+}
+
 fn validate_request(
     request: &CatalogReleaseActivationRequest,
 ) -> Result<(), CatalogReleaseActivationError> {
@@ -202,7 +389,12 @@ async fn validate_release_evidence(
 ) -> Result<Uuid, CatalogReleaseActivationError> {
     validate_manifest_evidence(request, manifest)?;
     let dataset_release_id = manifest_dataset_release_id(manifest)?;
-    validate_dataset_release(tx, dataset_release_id).await?;
+    validate_dataset_release(
+        tx,
+        dataset_release_id,
+        manifest.get("rollback_of_catalog_release_id").is_some(),
+    )
+    .await?;
     validate_profile_readiness(tx, request.release_id).await?;
     validate_approved_mappings(tx, request.release_id).await?;
     validate_catalog_names(tx, request.release_id).await?;
@@ -273,6 +465,7 @@ fn manifest_dataset_release_id(manifest: &Value) -> Result<Uuid, CatalogReleaseA
 async fn validate_dataset_release(
     tx: &mut Transaction<'_, Postgres>,
     dataset_release_id: Uuid,
+    is_rollback: bool,
 ) -> Result<(), CatalogReleaseActivationError> {
     let dataset_release_status = sqlx::query_scalar::<_, String>(
         "SELECT status
@@ -288,7 +481,9 @@ async fn validate_dataset_release(
             "source dataset release does not exist".to_owned(),
         )
     })?;
-    if dataset_release_status != "imported" {
+    let acceptable_status = dataset_release_status == "imported"
+        || (is_rollback && dataset_release_status == "superseded");
+    if !acceptable_status {
         return Err(CatalogReleaseActivationError::ValidationFailed(format!(
             "source dataset release is not imported: {dataset_release_status}"
         )));
