@@ -240,6 +240,8 @@ fn build_import_request_for_source(
         source_published_date: "2026-04-30".to_owned(),
         object_uri: format!("fixture://fdc/{release_version}.json"),
         expected_sha256: sha256_hex(source_bytes),
+        source_archive_sha256: None,
+        preprocessing_policy_version: None,
         include_fdc_ids: vec![fdc_id],
         created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
     }
