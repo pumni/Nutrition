@@ -9,7 +9,7 @@ The implementation agent works inside a machine-bound Task Spec prepared from hu
 3. Change only paths inside the scope envelope and respect protected-path authorization.
 4. Choose relevant files, private decomposition, tests, and debugging order inside the policy boundary.
 5. Use canonical gate IDs; task artifacts and reports refer to gates and evidence but never define commands.
-6. Run required verification, scope, provenance, and policy checks.
+6. Run required verification, scope, and policy checks.
 7. Produce an observable implementation report with acceptance evidence, gate references, deviations, and blockers.
 
 ## Protected blockers
@@ -27,4 +27,4 @@ A blocker records the observed fact, exact repository evidence, the applicable c
 
 ## Completion
 
-Completion requires passing applicable canonical gates, approved-scope verification, provenance checks, policy checks, and an evidence-based report. Trusted evidence is written by the canonical runner outside the target worktree.
+Completion requires passing applicable canonical gates, approved-scope verification, policy checks, and an evidence-based report. Trusted evidence is written by the canonical runner outside the target worktree.

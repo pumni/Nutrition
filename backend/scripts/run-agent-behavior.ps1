@@ -37,6 +37,7 @@ function Invoke-Git([string[]]$Arguments) {
 }
 
 $casesDocument = Load-Json $CasesPath
+$caseBankSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $CasesPath).Hash.ToLowerInvariant()
 $cases = @($casesDocument.cases)
 if ($CaseIds -and $CaseIds.Count -gt 0) { $cases = @($cases | Where-Object { [string]$_.id -in $CaseIds }) }
 if ($cases.Count -eq 0) { Fail 'no behavioral cases selected' }
@@ -131,6 +132,7 @@ $aggregate = [ordered]@{
         completed_at = (Get-Date).ToUniversalTime().ToString('o')
     }
     baseline_commit = $BaselineCommit
+    case_bank_sha256 = $caseBankSha256
     evidence_root = (Resolve-Path -LiteralPath $evidenceRoot).Path
     cases = @($caseResults)
 }

@@ -47,8 +47,10 @@ function Assert-CaseInventory($Document) {
     return $Document
 }
 function Assert-BehaviorResults($Document, [switch]$RealEvidence) {
-    Assert-ExactProperties $Document @('schema_version','harness','baseline_commit','evidence_root','cases') 'behavioral result document'
+    Assert-ExactProperties $Document @('schema_version','harness','baseline_commit','case_bank_sha256','evidence_root','cases') 'behavioral result document'
     if ([string]$Document.schema_version -ne '3.0.0') { Fail 'behavioral result schema mismatch' }
+    $actualCaseBankSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $script:CasesPath).Hash.ToLowerInvariant()
+    if ([string]$Document.case_bank_sha256 -notmatch '^[0-9a-fA-F]{64}$' -or [string]$Document.case_bank_sha256 -ine $actualCaseBankSha256) { Fail 'behavioral result case-bank hash does not match the supplied control-plane inventory' }
     $evidenceRoot = [IO.Path]::GetFullPath([string]$Document.evidence_root)
     if ($evidenceRoot.StartsWith($Root.TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { Fail 'behavioral evidence must be outside the subject repository root' }
     $harness=$Document.harness; Assert-ExactProperties $harness @('name','version','adapter','model','trial_count','run_id','started_at','completed_at') 'behavioral harness metadata'

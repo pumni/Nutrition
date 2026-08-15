@@ -30,7 +30,8 @@ if ($LASTEXITCODE -ne 0 -or $BaselineCommit -notmatch '^[0-9a-fA-F]{40}$' -or $c
 $scopeHints = if ($intent.PSObject.Properties.Name -contains 'scope_hints') {
     @($intent.scope_hints | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
 } else { @() }
-$includes = if ($scopeHints.Count -gt 0) { $scopeHints } else { @('**') }
+if ($scopeHints.Count -eq 0) { throw 'Task Intent scope_hints must contain an intentional coarse write boundary; use ** explicitly for repository-wide work' }
+$includes = $scopeHints
 $excludes = if ($intent.PSObject.Properties.Name -contains 'scope_exclusions') {
     @($intent.scope_exclusions | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
 } else { @() }

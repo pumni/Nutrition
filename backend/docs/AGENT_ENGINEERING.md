@@ -8,11 +8,11 @@ Human owners decide product and nutrition-domain semantics, architecture boundar
 
 ## Agent autonomy
 
-The agent reads the minimal modules selected by `.agent/context/router.json`, investigates the repository, forms and revises a durable plan, chooses implementation files and order, implements within the scope envelope, runs canonical gates, and self-corrects fixable failures. Machine policies and gate registries are queried when needed; they are not default prompt context.
+The agent reads the minimal modules selected by `.agent/context/router.json`, investigates the repository, plans and replans as needed, chooses implementation files and order, implements within the scope envelope, runs canonical gates, and self-corrects fixable failures. Machine policies and gate registries are queried when needed; they are not default prompt context.
 
 ## Task, scope, and risk
 
-Human Task Intent contains the objective, acceptance criteria, non-negotiables, coarse scope hints, and explicit protected approvals. The trusted prepare phase binds the baseline, scope ceiling, approvals, and risk floor into a compiled Task Spec. The agent discovers relevant modules and owns implementation sequencing during read-only investigation; verification derives modules, gates, and effective risk from the actual diff. Human-approved means Task Intent and protected approvals; machine-bound means the compiled execution envelope; observed means the final diff; verifier-derived means gates and risk.
+Human Task Intent contains the objective, acceptance criteria, non-negotiables, a non-empty coarse write boundary, and explicit protected approvals. Use `**` only when repository-wide mutation is intentional. The trusted prepare phase binds the baseline, scope ceiling, approvals, and risk floor into a compiled Task Spec. The agent discovers relevant modules and owns implementation sequencing during read-only investigation; verification derives modules, gates, and effective risk from the actual diff. Human-approved means Task Intent and protected approvals; machine-bound means the compiled execution envelope; observed means the final diff; verifier-derived means gates and risk.
 
 ## Verification and evidence
 

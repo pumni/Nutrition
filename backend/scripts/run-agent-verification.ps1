@@ -80,6 +80,7 @@ function Assert-Baseline([string]$Root, [string]$Baseline, [string]$ExpectedTarg
     if ($LASTEXITCODE -ne 0 -or $resolved -ne $Baseline) { Fail 'compiled Task Spec baseline does not exist in TargetRoot' }
     $target = Get-TargetHead $Root
     if ($ExpectedTarget -and ($ExpectedTarget -notmatch '^[0-9a-fA-F]{40}$' -or $ExpectedTarget -ine $target)) { Fail "TargetRoot HEAD does not match TargetCommit: expected $ExpectedTarget, actual $target" }
+    if ($ExpectedTarget -and $Baseline -ieq $target) { Fail 'trusted verification requires distinct baseline and target commits' }
     & git -C $Root merge-base --is-ancestor $Baseline $target 2>$null
     if ($LASTEXITCODE -ne 0) { Fail "baseline $Baseline is not an ancestor of target $target" }
     return $target
@@ -90,14 +91,14 @@ function Get-ChangeRecords([string]$Root, [string]$Baseline) {
     foreach ($line in $lines) {
         $parts = $line -split "`t"
         $type = if ($parts[0] -match 'A') { 'create' } elseif ($parts[0] -match 'D') { 'delete' } else { 'modify' }
-        $records += [pscustomobject]@{ path = Normalize $parts[-1]; type = $type; provenance = @('unstaged') }
+        $records += [pscustomobject]@{ path = Normalize $parts[-1]; type = $type }
     }
     $untracked = (& git -C $Root ls-files --others --exclude-standard 2>&1 | Out-String).Trim() -split "`r?`n" | Where-Object { $_ }
-    foreach ($path in $untracked) { $records += [pscustomobject]@{ path = Normalize $path; type = 'create'; provenance = @('untracked') } }
+    foreach ($path in $untracked) { $records += [pscustomobject]@{ path = Normalize $path; type = 'create' } }
     return @($records | Sort-Object path -Unique)
 }
-function Get-DerivedRequirements([string]$Root, $Records) {
-    $router = Load-Json (Join-Path $Root '.agent/context/router.json')
+function Get-DerivedRequirements([string]$PolicyRoot, $Records) {
+    $router = Load-Json (Join-Path $PolicyRoot '.agent/context/router.json')
     $modules = @($router.default_modules)
     $gates = @()
     $riskTags = @()
@@ -126,8 +127,8 @@ function Get-DerivedRequirements([string]$Root, $Records) {
         risk_tags = @($riskTags | Select-Object -Unique)
     }
 }
-function Get-ScopeViolations([string]$Root, $Spec, $Records) {
-    $policy = Load-Json (Join-Path $Root '.agent/verification/scope-policy.json')
+function Get-ScopeViolations([string]$PolicyRoot, $Spec, $Records) {
+    $policy = Load-Json (Join-Path $PolicyRoot '.agent/verification/scope-policy.json')
     $approved = @($Spec.scope_envelope.approved_protected_paths) + @($Spec.approved_protected_decisions | ForEach-Object { $_.scope })
     $violations = @()
     foreach ($record in @($Records)) {
@@ -228,13 +229,13 @@ try {
     $script:CurrentTaskId = [string]$spec.task_id
     $specHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $specPath).Hash.ToLowerInvariant()
     $registry = Assert-Registry $script:ControlRoot
+    $targetHead = Assert-Baseline $target ([string]$spec.baseline.commit) $TargetCommit
     $preflightLog = Join-Path $evidence 'task-spec-preflight.log'
     $preflight = Invoke-Process $script:PowerShellExe @('-NoLogo','-NoProfile','-File',(Join-Path $script:ControlRoot 'scripts/verify-agent-context.ps1'),'-TaskSpec',$specPath,'-RepositoryRoot',$target) $script:ControlRoot $preflightLog
     if ($preflight.exit_code -ne 0) { Fail 'CONTEXT_INTEGRITY_FAILED: Task Spec preflight failed' }
-    $targetHead = Assert-Baseline $target ([string]$spec.baseline.commit) $TargetCommit
     $records = @(Get-ChangeRecords $target ([string]$spec.baseline.commit))
-    $scopeViolations = Get-ScopeViolations $target $spec $records
-    $derived = Get-DerivedRequirements $target $records
+    $scopeViolations = Get-ScopeViolations $script:ControlRoot $spec $records
+    $derived = Get-DerivedRequirements $script:ControlRoot $records
     $gateResults = @()
     $gateIndex = 1
     foreach ($gateId in @($derived.gates)) {

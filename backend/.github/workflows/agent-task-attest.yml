@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       baseline_sha:
-        description: Exact trusted baseline commit SHA used to prepare the compiled Task Spec
+        description: Exact baseline commit captured by the caller before the agent execution began
         required: true
         type: string
       target_sha:
@@ -48,7 +48,7 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH"
 
-      - name: Validate target SHA
+      - name: Validate baseline and target SHAs
         shell: bash
         env:
           BASELINE_SHA: ${{ inputs.baseline_sha }}
@@ -57,6 +57,7 @@ jobs:
           set -euo pipefail
           [[ "$BASELINE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
           [[ "$TARGET_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
+          [[ "${BASELINE_SHA,,}" != "${TARGET_SHA,,}" ]]
 
       - name: Checkout trusted control
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

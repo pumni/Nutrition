@@ -44,11 +44,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "type", "provenance"],
+        "required": ["path", "type"],
         "properties": {
           "path": {"type": "string", "minLength": 1},
-          "type": {"enum": ["create", "modify", "delete"]},
-          "provenance": {"type": "array", "items": {"enum": ["committed", "staged", "unstaged", "untracked"]}}
+          "type": {"enum": ["create", "modify", "delete"]}
         }
       }
     },
