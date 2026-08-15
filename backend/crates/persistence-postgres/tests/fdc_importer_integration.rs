@@ -86,8 +86,10 @@ async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
     .expect("raw source records must be readable");
     assert_eq!(raw_count, 2);
 
-    let catalog_state: (String, Option<chrono::DateTime<chrono::Utc>>, bool) = sqlx::query_as(
-        "SELECT status, activated_at, (manifest->>'production_eligible')::boolean
+    let catalog_state: (String, bool, bool) = sqlx::query_as(
+        "SELECT status,
+                activated_at IS NULL,
+                (manifest->>'production_eligible')::boolean
            FROM catalog.catalog_release
           WHERE id = $1",
     )
@@ -96,7 +98,7 @@ async fn fdc_import_is_release_pinned_idempotent_and_non_publishing() {
     .await
     .expect("catalog release must be readable");
     assert_eq!(catalog_state.0, "staged");
-    assert!(catalog_state.1.is_none());
+    assert!(catalog_state.1);
     assert!(!catalog_state.2);
 
     let membership_counts: (i64, i64) = sqlx::query_as(
