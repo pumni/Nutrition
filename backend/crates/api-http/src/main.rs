@@ -127,6 +127,8 @@ async fn main() {
     let environment = AppEnvironment::from_env();
     let auth_mode = env::var("AUTH_MODE").expect("AUTH_MODE is required");
     validate_auth_mode(environment, &auth_mode).expect("authentication configuration is invalid");
+    let parser_mode = env::var("PARSER_MODE").expect("PARSER_MODE is required");
+    validate_parser_mode(environment, &parser_mode).expect("parser configuration is invalid");
     let bind_addr = match env::var("APP_BIND_ADDR") {
         Ok(value) => value,
         Err(_) if environment.allows_development_adapters() => "127.0.0.1:8080".to_owned(),
@@ -142,8 +144,8 @@ async fn main() {
     let catalog_release_id = active_catalog_release_id(&pool)
         .await
         .expect("an active catalog release is required");
-    let (parser, prompt_version, model_provider_version) = configured_parser(&pool, environment)
-        .expect("parser configuration is invalid");
+    let (parser, prompt_version, model_provider_version) =
+        configured_parser(&pool, &parser_mode).expect("parser configuration is invalid");
     let versions = BehaviorVersions {
         catalog_release_id,
         parser_schema_version: PARSER_SCHEMA_VERSION.to_owned(),
@@ -450,22 +452,27 @@ fn validate_auth_mode(environment: AppEnvironment, auth_mode: &str) -> Result<()
     }
 }
 
+fn validate_parser_mode(environment: AppEnvironment, parser_mode: &str) -> Result<(), String> {
+    match parser_mode {
+        "fixture" if environment.allows_development_adapters() => Ok(()),
+        "fixture" => {
+            Err("PARSER_MODE=fixture is forbidden when APP_ENV is staging or production".to_owned())
+        }
+        "hosted" => Ok(()),
+        _ => Err("PARSER_MODE must be fixture or hosted".to_owned()),
+    }
+}
+
 fn configured_parser(
     pool: &sqlx::PgPool,
-    environment: AppEnvironment,
+    parser_mode: &str,
 ) -> Result<(ConfiguredMealParser, String, String), String> {
-    match env::var("PARSER_MODE")
-        .map_err(|_| "PARSER_MODE is required".to_owned())?
-        .as_str()
-    {
-        "fixture" if environment.allows_development_adapters() => Ok((
+    match parser_mode {
+        "fixture" => Ok((
             ConfiguredMealParser::Fixture(FixtureParser),
             "fixture-parser-0.2.0".to_owned(),
             "fixture/local".to_owned(),
         )),
-        "fixture" => {
-            Err("PARSER_MODE=fixture is forbidden when APP_ENV is staging or production".to_owned())
-        }
         "hosted" => {
             let provider =
                 env::var("LLM_PROVIDER").map_err(|_| "LLM_PROVIDER is required".to_owned())?;
@@ -527,7 +534,7 @@ async fn shutdown_signal() {
 
 #[cfg(test)]
 mod tests {
-    use super::{AppEnvironment, validate_auth_mode};
+    use super::{AppEnvironment, validate_auth_mode, validate_parser_mode};
 
     #[test]
     fn environment_policy_is_explicit() {
@@ -549,11 +556,16 @@ mod tests {
     }
 
     #[test]
-    fn development_auth_is_non_production_only() {
+    fn development_adapters_are_non_production_only() {
         assert!(validate_auth_mode(AppEnvironment::Local, "development").is_ok());
         assert!(validate_auth_mode(AppEnvironment::Ci, "development").is_ok());
         assert!(validate_auth_mode(AppEnvironment::Staging, "development").is_err());
         assert!(validate_auth_mode(AppEnvironment::Production, "development").is_err());
         assert!(validate_auth_mode(AppEnvironment::Production, "oidc").is_err());
+        assert!(validate_parser_mode(AppEnvironment::Local, "fixture").is_ok());
+        assert!(validate_parser_mode(AppEnvironment::Ci, "fixture").is_ok());
+        assert!(validate_parser_mode(AppEnvironment::Staging, "fixture").is_err());
+        assert!(validate_parser_mode(AppEnvironment::Production, "fixture").is_err());
+        assert!(validate_parser_mode(AppEnvironment::Production, "hosted").is_ok());
     }
 }
