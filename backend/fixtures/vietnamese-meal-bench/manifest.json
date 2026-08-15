@@ -1,19 +1,55 @@
 {
   "benchmark": "VietnameseMealBench",
-  "version": "foundation-0.3.0",
+  "version": "foundation-0.4.0",
   "status": "development-only",
   "language": "vi-VN",
   "license": "internal-test-fixtures",
-  "case_file": "foundation-cases.json",
-  "case_count": 5,
+  "annotation_guideline": "docs/VIETNAMESE_MEAL_BENCH.md",
   "splits": {
-    "development": 5,
-    "public_test": 0,
-    "sealed_test": 0,
-    "challenge": 0
+    "development": {
+      "case_file": "foundation-cases.json",
+      "case_count": 5,
+      "answers_in_repo": true
+    },
+    "public_test": {
+      "case_file": "public-test-cases.json",
+      "case_count": 15,
+      "answers_in_repo": true
+    },
+    "sealed_test": {
+      "case_file": null,
+      "case_count": 0,
+      "answers_in_repo": false,
+      "answer_storage": "external-controlled-access"
+    },
+    "challenge": {
+      "case_file": null,
+      "case_count": 0,
+      "answers_in_repo": false,
+      "answer_storage": "external-controlled-access"
+    }
+  },
+  "metrics": {
+    "schema_valid_rate": {"walking_skeleton": 0.99, "mvp_beta": 0.995},
+    "mention_f1": {"walking_skeleton": 0.9, "mvp_beta": 0.94},
+    "known_food_top3_recall": {"walking_skeleton": 0.9, "mvp_beta": 0.96},
+    "known_food_top1_accuracy": {"walking_skeleton": 0.78, "mvp_beta": 0.88},
+    "unknown_detection_precision": {"walking_skeleton": 0.85, "mvp_beta": 0.92},
+    "over_resolution_rate": {"walking_skeleton": 0.08, "mvp_beta": 0.03},
+    "calculation_fixture_pass_rate": {"walking_skeleton": 1.0, "mvp_beta": 1.0},
+    "replay_pass_rate": {"walking_skeleton": 1.0, "mvp_beta": 1.0}
+  },
+  "release_gates": {
+    "human_adjudication_required": true,
+    "sealed_answers_not_in_repo": true,
+    "calculation_fixture_pass_required": true,
+    "replay_pass_required": true,
+    "slice_regressions_block_release": true
   },
   "notes": [
-    "These cases verify explicit mass, contextual portion, clarification, and rejection behavior.",
-    "They are not sufficient to tune or release a production parser."
+    "Development and public-test expected outputs are annotations, not production nutrition evidence.",
+    "Public-test cases in this release are pending independent human adjudication.",
+    "Sealed-test and challenge answers must remain outside the repository and are not loaded by the CI report harness.",
+    "The benchmark report contains aggregate counts and file hashes only; it does not print case text or expected answers."
   ]
 }

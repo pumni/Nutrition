@@ -4,6 +4,13 @@
     "text": "100 g trứng gà luộc",
     "locale": "vi-VN",
     "expected_decision": "resolve",
+    "expected_parse": {
+      "items": [
+        {"food_phrase": "trứng gà luộc", "quantity": "100", "unit": "g", "preparation": ["luộc"], "modifiers": [], "negated": false}
+      ],
+      "clarification_dimension": null,
+      "safety_flags": []
+    },
     "expected_food_names": ["Trứng gà luộc"],
     "expected_nutrition": {
       "energy_kcal": "155",
@@ -19,6 +26,14 @@
     "text": "100 g trứng gà luộc, 150 g cơm trắng",
     "locale": "vi-VN",
     "expected_decision": "resolve",
+    "expected_parse": {
+      "items": [
+        {"food_phrase": "trứng gà luộc", "quantity": "100", "unit": "g", "preparation": ["luộc"], "modifiers": [], "negated": false},
+        {"food_phrase": "cơm trắng", "quantity": "150", "unit": "g", "preparation": [], "modifiers": [], "negated": false}
+      ],
+      "clarification_dimension": null,
+      "safety_flags": []
+    },
     "expected_food_names": ["Trứng gà luộc", "Cơm trắng"],
     "expected_nutrition": {
       "energy_kcal": "350",
@@ -34,6 +49,11 @@
     "text": "100 g món không tồn tại",
     "locale": "vi-VN",
     "expected_decision": "insufficient",
+    "expected_parse": {
+      "items": [],
+      "clarification_dimension": null,
+      "safety_flags": ["unknown_food"]
+    },
     "expected_food_names": [],
     "expected_nutrition": {},
     "tags": ["foundation", "unknown-food", "no-force-match"],
@@ -44,6 +64,14 @@
     "text": "2 quả trứng gà luộc, 1 bát cơm trắng",
     "locale": "vi-VN",
     "expected_decision": "resolve",
+    "expected_parse": {
+      "items": [
+        {"food_phrase": "trứng gà luộc", "quantity": "2", "unit": "quả", "preparation": ["luộc"], "modifiers": [], "negated": false},
+        {"food_phrase": "cơm trắng", "quantity": "1", "unit": "bát", "preparation": [], "modifiers": [], "negated": false}
+      ],
+      "clarification_dimension": null,
+      "safety_flags": []
+    },
     "expected_food_names": ["Trứng gà luộc", "Cơm trắng"],
     "expected_mass_g": [
       {"central": "100", "lower": "90", "upper": "120"},
@@ -64,6 +92,13 @@
     "text": "1 ly cơm trắng",
     "locale": "vi-VN",
     "expected_decision": "needs_clarification",
+    "expected_parse": {
+      "items": [
+        {"food_phrase": "cơm trắng", "quantity": "1", "unit": "ly", "preparation": [], "modifiers": [], "negated": false}
+      ],
+      "clarification_dimension": "portion",
+      "safety_flags": []
+    },
     "expected_food_names": ["Cơm trắng"],
     "expected_nutrition": {},
     "expected_clarification_dimension": "portion",

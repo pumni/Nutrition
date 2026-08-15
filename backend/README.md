@@ -180,7 +180,9 @@ See [`docs/FOUNDATION_DECISIONS.md`](docs/FOUNDATION_DECISIONS.md) for decisions
 The initial governance artifacts are
 [`docs/SOURCE_REGISTER.md`](docs/SOURCE_REGISTER.md),
 [`docs/RISK_REGISTER.md`](docs/RISK_REGISTER.md), and the development-only
-[`VietnameseMealBench manifest`](fixtures/vietnamese-meal-bench/manifest.json).
+[`VietnameseMealBench manifest`](fixtures/vietnamese-meal-bench/manifest.json). The benchmark
+structure and aggregate report contract are documented in
+[`docs/VIETNAMESE_MEAL_BENCH.md`](docs/VIETNAMESE_MEAL_BENCH.md).
 
 ## AI coding context layer
 

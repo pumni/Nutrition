@@ -26,6 +26,9 @@ Get-Content -Raw -LiteralPath ".\fixtures\vietnamese-meal-bench\foundation-cases
     ConvertFrom-Json |
     Out-Null
 
+Write-Output "Validating VietnameseMealBench structure..."
+& "$PSScriptRoot\verify-vietnamese-meal-bench.ps1"
+
 Write-Output "Checking prohibited sensitive logging patterns..."
 $sensitiveLogPattern = '(info|warn|error|debug|trace)!\([^)]*(request\.text|raw_text|authorization|database_url)'
 $sensitiveLogMatches = Get-ChildItem -LiteralPath ".\crates" -Recurse -File -Filter "*.rs" |
