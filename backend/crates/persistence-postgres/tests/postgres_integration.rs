@@ -226,10 +226,30 @@ async fn worker_claim_retry_and_outbox_delivery_are_bounded() {
         .expect("job status query must succeed");
     assert_eq!(failing_status, "dead");
 
+    let outbox_id = uuid::Uuid::now_v7();
+    let aggregate_id = uuid::Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO ops.outbox_event (id, aggregate_type, aggregate_id, event_type, payload)
+         VALUES ($1, 'integration_fixture', $2, 'integration_fixture.ready', '{}')",
+    )
+    .bind(outbox_id)
+    .bind(aggregate_id)
+    .execute(&pool)
+    .await
+    .expect("outbox fixture must insert");
+
     let delivered = deliver_outbox_batch(&pool, "integration-worker", 100)
         .await
         .expect("outbox batch must deliver");
     assert!(delivered > 0);
+    let fixture_published: bool = sqlx::query_scalar(
+        "SELECT published_at IS NOT NULL FROM ops.outbox_event WHERE id = $1",
+    )
+    .bind(outbox_id)
+    .fetch_one(&pool)
+    .await
+    .expect("outbox fixture delivery must be readable");
+    assert!(fixture_published);
 }
 
 fn assert_contextual_snapshot(expected: &AnalysisSnapshot, actual: &AnalysisSnapshot) {
