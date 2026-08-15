@@ -100,6 +100,14 @@ Every source import must be represented by immutable release evidence containing
 The importer writes into a **staged** catalog release. Validation happens before activation.
 Activation must be explicit and atomic; an active release is never edited in place.
 
+The activation command requires the staged manifest to contain validation evidence whose
+`report_sha256` matches the command input, whose status is `passed`, and whose production
+eligibility is explicitly true. It also verifies that every selected composition profile has
+complete `fdc_energy_v1` evidence, production eligibility, an approved source mapping, and an
+active catalog name. Only then does one transaction publish the staged profiles, activate their
+food identities and catalog release, supersede the prior catalog/source pointers, and retain the
+previous release as the rollback target. The importer itself never invokes activation.
+
 ## Nutrient mapping policy
 
 The importer must map source nutrients to internal nutrient codes explicitly. It must not infer a
