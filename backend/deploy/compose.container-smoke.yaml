@@ -6,6 +6,7 @@ services:
       dockerfile: deploy/Dockerfile
       target: worker-runtime
     environment:
+      APP_ENV: ci
       DATABASE_URL: postgres://nutrition:nutrition@postgres:5432/nutrition
       RUN_MIGRATIONS: "true"
       RUN_FOUNDATION_SEED: "true"
@@ -22,6 +23,7 @@ services:
       dockerfile: deploy/Dockerfile
       target: api-http-runtime
     environment:
+      APP_ENV: ci
       DATABASE_URL: postgres://nutrition:nutrition@postgres:5432/nutrition
       AUTH_MODE: development
       PARSER_MODE: fixture
