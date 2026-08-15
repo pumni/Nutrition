@@ -2,7 +2,10 @@ use rust_decimal::Decimal;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Postgres, Transaction};
-use std::{collections::{BTreeMap, BTreeSet}, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -56,12 +59,10 @@ struct RawFood {
 
 struct StagedNutrient {
     internal_code: &'static str,
-    expected_unit: &'static str,
     amount: Decimal,
     minimum: Option<Decimal>,
     maximum: Option<Decimal>,
     method_code: Option<String>,
-    source_nutrient_id: u64,
 }
 
 /// Imports a pinned USDA FoodData Central Foundation Foods JSON artifact into raw provenance
@@ -110,7 +111,10 @@ pub async fn import_fdc_foundation_json(
     let selected_ids = reviewed_selection(&request.include_fdc_ids)?;
     let foods = parse_source_foods(source_bytes)?;
     validate_selection_exists(&foods, &selected_ids)?;
-    for food in foods.iter().filter(|food| selected_ids.contains(&food.fdc_id)) {
+    for food in foods
+        .iter()
+        .filter(|food| selected_ids.contains(&food.fdc_id))
+    {
         extract_unambiguous_macronutrients(food)?;
     }
 
@@ -143,12 +147,11 @@ pub async fn import_fdc_foundation_json(
     .execute(&mut *tx)
     .await?;
 
-    if let Some(existing_catalog_release_id) = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM catalog.catalog_release WHERE version = $1",
-    )
-    .bind(&catalog_release_version)
-    .fetch_optional(&mut *tx)
-    .await?
+    if let Some(existing_catalog_release_id) =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM catalog.catalog_release WHERE version = $1")
+            .bind(&catalog_release_version)
+            .fetch_optional(&mut *tx)
+            .await?
     {
         tx.commit().await?;
         return Ok(FdcFoundationImportReport {
@@ -191,7 +194,10 @@ pub async fn import_fdc_foundation_json(
     .execute(&mut *tx)
     .await?;
 
-    for food in foods.iter().filter(|food| selected_ids.contains(&food.fdc_id)) {
+    for food in foods
+        .iter()
+        .filter(|food| selected_ids.contains(&food.fdc_id))
+    {
         stage_selected_food(&mut tx, dataset_release_id, catalog_release_id, food).await?;
     }
 
@@ -253,11 +259,14 @@ fn parse_source_foods(source_bytes: &[u8]) -> Result<Vec<RawFood>, FdcFoundation
     let mut seen_ids = BTreeSet::new();
     let mut foods = Vec::with_capacity(food_values.len());
     for payload in food_values {
-        let fdc_id = payload.get("fdcId").and_then(Value::as_u64).ok_or_else(|| {
-            FdcFoundationImportError::InvalidInput(
-                "every Foundation food must contain an unsigned integer fdcId".to_owned(),
-            )
-        })?;
+        let fdc_id = payload
+            .get("fdcId")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| {
+                FdcFoundationImportError::InvalidInput(
+                    "every Foundation food must contain an unsigned integer fdcId".to_owned(),
+                )
+            })?;
         if !seen_ids.insert(fdc_id) {
             return Err(FdcFoundationImportError::InvalidInput(format!(
                 "duplicate FDC ID {fdc_id} in source artifact"
@@ -292,8 +301,14 @@ fn validate_selection_exists(
     foods: &[RawFood],
     selected_ids: &BTreeSet<u64>,
 ) -> Result<(), FdcFoundationImportError> {
-    let available = foods.iter().map(|food| food.fdc_id).collect::<BTreeSet<_>>();
-    let missing = selected_ids.difference(&available).copied().collect::<Vec<_>>();
+    let available = foods
+        .iter()
+        .map(|food| food.fdc_id)
+        .collect::<BTreeSet<_>>();
+    let missing = selected_ids
+        .difference(&available)
+        .copied()
+        .collect::<Vec<_>>();
     if !missing.is_empty() {
         return Err(FdcFoundationImportError::InvalidInput(format!(
             "reviewed FDC IDs are missing from the pinned artifact: {missing:?}"
@@ -450,7 +465,11 @@ async fn ensure_core_macronutrients(
     for (code, name, group_code) in [
         ("protein_g", "Protein", "macronutrient/protein"),
         ("fat_g", "Fat", "macronutrient/fat"),
-        ("carbohydrate_g", "Carbohydrate", "macronutrient/carbohydrate"),
+        (
+            "carbohydrate_g",
+            "Carbohydrate",
+            "macronutrient/carbohydrate",
+        ),
     ] {
         sqlx::query(
             "INSERT INTO composition.nutrient
@@ -492,12 +511,11 @@ async fn stage_selected_food(
     .bind(&semantic_key)
     .execute(&mut **tx)
     .await?;
-    let food_id: Uuid = sqlx::query_scalar(
-        "SELECT id FROM catalog.food_entity WHERE semantic_key = $1",
-    )
-    .bind(&semantic_key)
-    .fetch_one(&mut **tx)
-    .await?;
+    let food_id: Uuid =
+        sqlx::query_scalar("SELECT id FROM catalog.food_entity WHERE semantic_key = $1")
+            .bind(&semantic_key)
+            .fetch_one(&mut **tx)
+            .await?;
 
     sqlx::query(
         "INSERT INTO catalog.food_mapping
@@ -726,21 +744,16 @@ fn extract_unambiguous_macronutrients(
             .map(ToOwned::to_owned);
         values.push(StagedNutrient {
             internal_code,
-            expected_unit,
             amount,
             minimum,
             maximum,
             method_code,
-            source_nutrient_id,
         });
     }
     Ok(values)
 }
 
-fn decimal_field(
-    value: &Value,
-    field: &str,
-) -> Result<Option<Decimal>, FdcFoundationImportError> {
+fn decimal_field(value: &Value, field: &str) -> Result<Option<Decimal>, FdcFoundationImportError> {
     let Some(raw) = value.get(field) else {
         return Ok(None);
     };
@@ -764,6 +777,7 @@ fn decimal_field(
 #[cfg(test)]
 mod tests {
     use super::{extract_unambiguous_macronutrients, parse_source_foods, reviewed_selection};
+    use std::collections::BTreeSet;
 
     const MINIMAL: &str = r#"{
       "FoundationFoods": [{
@@ -784,15 +798,24 @@ mod tests {
         let foods = parse_source_foods(MINIMAL.as_bytes()).expect("fixture must parse");
         let nutrients = extract_unambiguous_macronutrients(&foods[0])
             .expect("unambiguous macro nutrients must map");
-        assert_eq!(nutrients.len(), 3);
-        assert!(nutrients.iter().all(|nutrient| nutrient.source_nutrient_id != 2048));
-        assert!(nutrients.iter().all(|nutrient| nutrient.expected_unit == "g"));
+        let codes = nutrients
+            .iter()
+            .map(|nutrient| nutrient.internal_code)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            codes,
+            BTreeSet::from(["carbohydrate_g", "fat_g", "protein_g"])
+        );
+        assert!(!codes.contains("energy_kcal"));
     }
 
     #[test]
     fn reviewed_selection_rejects_empty_and_duplicate_ids() {
         assert!(reviewed_selection(&[]).is_err());
         assert!(reviewed_selection(&[1, 1]).is_err());
-        assert_eq!(reviewed_selection(&[2, 1]).expect("unique selection").len(), 2);
+        assert_eq!(
+            reviewed_selection(&[2, 1]).expect("unique selection").len(),
+            2
+        );
     }
 }
