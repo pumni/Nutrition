@@ -102,15 +102,25 @@ impl WorkerConfig {
             Ok("run-once") => WorkerMode::RunOnce,
             Ok("loop") => WorkerMode::Loop,
             Ok("idle") => WorkerMode::Idle,
-            Err(_) if environment.allows_development_adapters() => WorkerMode::Idle,
-            Err(_) => panic!("WORKER_MODE is required when APP_ENV is staging or production"),
+            Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
+                WorkerMode::Idle
+            }
+            Err(env::VarError::NotPresent) => {
+                panic!("WORKER_MODE is required when APP_ENV is staging or production")
+            }
+            Err(env::VarError::NotUnicode(_)) => panic!("WORKER_MODE must be valid Unicode"),
             Ok(value) => panic!("unsupported WORKER_MODE: {value}"),
         };
         let worker_id = match env::var("WORKER_ID") {
             Ok(value) if !value.trim().is_empty() => value,
             Ok(_) => panic!("WORKER_ID must not be empty"),
-            Err(_) if environment.allows_development_adapters() => "worker-local".to_owned(),
-            Err(_) => panic!("WORKER_ID is required when APP_ENV is staging or production"),
+            Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
+                "worker-local".to_owned()
+            }
+            Err(env::VarError::NotPresent) => {
+                panic!("WORKER_ID is required when APP_ENV is staging or production")
+            }
+            Err(env::VarError::NotUnicode(_)) => panic!("WORKER_ID must be valid Unicode"),
         };
         Self {
             database_url: env::var("DATABASE_URL")
