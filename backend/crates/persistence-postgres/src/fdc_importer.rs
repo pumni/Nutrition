@@ -42,6 +42,43 @@ pub struct FdcFoundationImportReport {
     pub replayed: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FdcFoundationValidationRequest {
+    pub release_version: String,
+    pub source_published_date: String,
+    pub object_uri: String,
+    pub source_payload_filename: Option<String>,
+    pub source_archive_sha256: Option<String>,
+    pub expected_sha256: String,
+    pub reviewed_fdc_ids: Vec<u64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FdcFoundationValidationReport {
+    pub source_sha256: String,
+    pub expected_sha256: String,
+    pub checksum_status: String,
+    pub schema_fingerprint: String,
+    pub raw_record_count: usize,
+    pub valid_record_count: usize,
+    pub selected_record_count: usize,
+    pub null_record_count: usize,
+    pub invalid_record_count: usize,
+    pub selection_fingerprint: Option<String>,
+    pub selection_status: String,
+    pub source_energy_atwater_specific_count: usize,
+    pub source_energy_atwater_general_count: usize,
+    pub source_energy_missing_count: usize,
+    pub source_unexpected_legacy_energy_count: usize,
+    pub selected_energy_atwater_specific_count: usize,
+    pub selected_energy_atwater_general_count: usize,
+    pub selected_energy_missing_count: usize,
+    pub selected_unexpected_legacy_energy_count: usize,
+    pub artifact_status: String,
+    pub validation_status: String,
+    pub errors: Vec<String>,
+}
+
 #[derive(Debug, Error)]
 pub enum FdcFoundationImportError {
     #[error("invalid FDC import input: {0}")]
@@ -119,6 +156,333 @@ pub async fn import_fdc_foundation_json(
     Ok(report)
 }
 
+/// Validates a pinned FDC artifact without writing to `PostgreSQL` or activating any release.
+///
+/// The report is deliberately an evidence artifact rather than an activation decision. It keeps
+/// source-wide coverage separate from the reviewed selection, records structural anomalies, and
+/// always reports `production_eligible: false` when rendered.
+#[must_use]
+pub fn validate_fdc_foundation_json(
+    source_bytes: &[u8],
+    request: &FdcFoundationValidationRequest,
+) -> FdcFoundationValidationReport {
+    let source_sha256 = sha256_hex(source_bytes);
+    let expected_sha256 = request.expected_sha256.trim().to_ascii_lowercase();
+    let (checksum_valid, mut artifact_errors) =
+        validate_checksum(&source_sha256, &expected_sha256, request);
+    let foods = validate_source_records(source_bytes, &mut artifact_errors);
+    let source_energy = source_energy_summary(&foods.foods, &mut artifact_errors);
+    let selection = validate_reviewed_selection(&foods.foods, request);
+    let artifact_valid = checksum_valid && artifact_errors.is_empty();
+    let validation_passed =
+        artifact_valid && selection.selection_valid && selection.errors.is_empty();
+    artifact_errors.sort();
+    let mut errors = artifact_errors;
+    errors.extend(selection.errors.iter().cloned());
+    FdcFoundationValidationReport {
+        source_sha256,
+        expected_sha256,
+        schema_fingerprint: schema_fingerprint(),
+        raw_record_count: foods.raw_record_count,
+        valid_record_count: foods.foods.len(),
+        selected_record_count: selection.selected_record_count,
+        null_record_count: foods.null_record_count,
+        invalid_record_count: foods.invalid_record_count,
+        selection_fingerprint: selection.selection_fingerprint,
+        selection_status: selection.status,
+        source_energy_atwater_specific_count: source_energy.atwater_specific,
+        source_energy_atwater_general_count: source_energy.atwater_general,
+        source_energy_missing_count: source_energy.missing_energy,
+        source_unexpected_legacy_energy_count: source_energy.unexpected_legacy,
+        selected_energy_atwater_specific_count: selection.energy.atwater_specific,
+        selected_energy_atwater_general_count: selection.energy.atwater_general,
+        selected_energy_missing_count: selection.energy.missing_energy,
+        selected_unexpected_legacy_energy_count: selection.energy.unexpected_legacy,
+        checksum_status: if checksum_valid { "valid" } else { "invalid" }.to_owned(),
+        artifact_status: if artifact_valid { "valid" } else { "invalid" }.to_owned(),
+        validation_status: if validation_passed {
+            "passed"
+        } else {
+            "blocked"
+        }
+        .to_owned(),
+        errors,
+    }
+}
+
+struct ValidatedFoods {
+    foods: Vec<RawFood>,
+    raw_record_count: usize,
+    null_record_count: usize,
+    invalid_record_count: usize,
+}
+
+struct ValidatedSelection {
+    energy: EnergySummary,
+    errors: Vec<String>,
+    selection_fingerprint: Option<String>,
+    selected_record_count: usize,
+    selection_valid: bool,
+    status: String,
+}
+
+fn validate_checksum(
+    source_sha256: &str,
+    expected_sha256: &str,
+    request: &FdcFoundationValidationRequest,
+) -> (bool, Vec<String>) {
+    let mut errors = Vec::new();
+    let checksum_valid = normalize_sha256(expected_sha256).map_or_else(
+        |_| {
+            errors.push("expected_sha256 must be exactly 64 hexadecimal characters".to_owned());
+            false
+        },
+        |expected| expected == source_sha256,
+    );
+    if !checksum_valid && errors.is_empty() {
+        errors.push(format!(
+            "artifact checksum mismatch: expected {expected_sha256}, actual {source_sha256}"
+        ));
+    }
+    for (field, value) in [
+        ("release_version", request.release_version.as_str()),
+        (
+            "source_published_date",
+            request.source_published_date.as_str(),
+        ),
+        ("object_uri", request.object_uri.as_str()),
+    ] {
+        if value.trim().is_empty() {
+            errors.push(format!("{field} must not be empty"));
+        }
+    }
+    if let Some(archive_sha256) = request.source_archive_sha256.as_deref()
+        && normalize_sha256(archive_sha256).is_err()
+    {
+        errors.push(
+            "source_archive_sha256 must be exactly 64 hexadecimal characters when present"
+                .to_owned(),
+        );
+    }
+    (checksum_valid, errors)
+}
+
+fn validate_source_records(source_bytes: &[u8], errors: &mut Vec<String>) -> ValidatedFoods {
+    let mut result = ValidatedFoods {
+        foods: Vec::new(),
+        raw_record_count: 0,
+        null_record_count: 0,
+        invalid_record_count: 0,
+    };
+    let root = match serde_json::from_slice::<Value>(source_bytes) {
+        Ok(root) => root,
+        Err(error) => {
+            errors.push(format!("FDC JSON parsing failed: {error}"));
+            return result;
+        }
+    };
+    let Some(food_values) = root.get("FoundationFoods").and_then(Value::as_array) else {
+        errors.push("FDC JSON root must contain a FoundationFoods array".to_owned());
+        return result;
+    };
+    result.raw_record_count = food_values.len();
+    let mut seen_ids = BTreeSet::new();
+    for (index, payload) in food_values.iter().enumerate() {
+        if payload.is_null() {
+            result.null_record_count += 1;
+            result.invalid_record_count += 1;
+            errors.push(format!(
+                "FoundationFoods[{index}] is null; expected a Foundation food object"
+            ));
+            continue;
+        }
+        let food = match parse_food_record(payload.clone()) {
+            Ok(food) => food,
+            Err(error) => {
+                result.invalid_record_count += 1;
+                errors.push(format!(
+                    "FoundationFoods[{index}] failed structural validation: {error}"
+                ));
+                continue;
+            }
+        };
+        if !seen_ids.insert(food.fdc_id) {
+            result.invalid_record_count += 1;
+            errors.push(format!(
+                "FoundationFoods[{index}] duplicates FDC ID {}",
+                food.fdc_id
+            ));
+            continue;
+        }
+        let shape_errors = validate_food_schema(&food);
+        if !shape_errors.is_empty() {
+            result.invalid_record_count += 1;
+            errors.extend(shape_errors.into_iter().map(|error| {
+                format!("FoundationFoods[{index}] schema validation failed: {error}")
+            }));
+            continue;
+        }
+        result.foods.push(food);
+    }
+    result
+}
+
+fn source_energy_summary(foods: &[RawFood], errors: &mut Vec<String>) -> EnergySummary {
+    let mut summary = EnergySummary::default();
+    for food in foods {
+        match extract_energy(food) {
+            Ok(energy) => add_energy_summary(&mut summary, &energy),
+            Err(error) => errors.push(format!(
+                "FDC ID {} energy validation failed: {error}",
+                food.fdc_id
+            )),
+        }
+    }
+    summary
+}
+
+fn validate_reviewed_selection(
+    foods: &[RawFood],
+    request: &FdcFoundationValidationRequest,
+) -> ValidatedSelection {
+    let selected_ids = request
+        .reviewed_fdc_ids
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    let mut errors = Vec::new();
+    if request.reviewed_fdc_ids.is_empty() {
+        errors.push("reviewed FDC selection is not approved".to_owned());
+    }
+    if selected_ids.len() != request.reviewed_fdc_ids.len() {
+        errors.push("reviewed FDC selection contains duplicate IDs".to_owned());
+    }
+    let available_ids = foods
+        .iter()
+        .map(|food| food.fdc_id)
+        .collect::<BTreeSet<_>>();
+    let missing_ids = selected_ids
+        .difference(&available_ids)
+        .copied()
+        .collect::<Vec<_>>();
+    if !missing_ids.is_empty() {
+        errors.push(format!(
+            "reviewed FDC IDs are missing from the structurally valid artifact: {missing_ids:?}"
+        ));
+    }
+    let selection_valid = !request.reviewed_fdc_ids.is_empty()
+        && selected_ids.len() == request.reviewed_fdc_ids.len()
+        && missing_ids.is_empty();
+    let status = if request.reviewed_fdc_ids.is_empty() {
+        "not_approved"
+    } else if selection_valid {
+        "validated"
+    } else {
+        "invalid"
+    }
+    .to_owned();
+    let selection_fingerprint = if selected_ids.is_empty() {
+        None
+    } else {
+        Some(selection_fingerprint(&selected_ids))
+    };
+    let mut energy = EnergySummary::default();
+    let mut selected_record_count = 0;
+    for food in foods
+        .iter()
+        .filter(|food| selected_ids.contains(&food.fdc_id))
+    {
+        selected_record_count += 1;
+        if let Err(error) = extract_unambiguous_macronutrients(food) {
+            errors.push(format!(
+                "FDC ID {} selected composition validation failed: {error}",
+                food.fdc_id
+            ));
+        }
+        match extract_energy(food) {
+            Ok(extracted) => add_energy_summary(&mut energy, &extracted),
+            Err(error) => errors.push(format!(
+                "FDC ID {} selected energy validation failed: {error}",
+                food.fdc_id
+            )),
+        }
+    }
+    errors.sort();
+    ValidatedSelection {
+        energy,
+        errors,
+        selection_fingerprint,
+        selected_record_count,
+        selection_valid,
+        status,
+    }
+}
+
+impl FdcFoundationValidationReport {
+    #[must_use]
+    pub fn to_json(&self, request: &FdcFoundationValidationRequest) -> Value {
+        json!({
+            "source": FDC_DATASET_CODE,
+            "source_release": request.release_version,
+            "source_published_date": request.source_published_date,
+            "object_uri": request.object_uri,
+            "source_payload_filename": request.source_payload_filename,
+            "source_archive_sha256": request.source_archive_sha256,
+            "artifact_sha256": self.source_sha256,
+            "expected_artifact_sha256": self.expected_sha256,
+            "checksum_valid": self.checksum_status == "valid",
+            "schema_fingerprint": self.schema_fingerprint,
+            "schema_contract": FDC_SCHEMA_CONTRACT,
+            "importer_version": FDC_FOUNDATION_IMPORTER_VERSION,
+            "energy_policy": FDC_ENERGY_MAPPING_POLICY_VERSION,
+            "raw_records": self.raw_record_count,
+            "valid_records": self.valid_record_count,
+            "selected_records": self.selected_record_count,
+            "null_records": self.null_record_count,
+            "invalid_records": self.invalid_record_count,
+            "selection_fingerprint": self.selection_fingerprint,
+            "selection_status": self.selection_status,
+            "energy": {
+                "scope": "valid_source_records",
+                "atwater_specific_2048": self.source_energy_atwater_specific_count,
+                "atwater_general_2047": self.source_energy_atwater_general_count,
+                "missing": self.source_energy_missing_count,
+                "unexpected_legacy_1008": self.source_unexpected_legacy_energy_count
+            },
+            "selected_energy": {
+                "scope": "reviewed_selection",
+                "atwater_specific_2048": self.selected_energy_atwater_specific_count,
+                "atwater_general_2047": self.selected_energy_atwater_general_count,
+                "missing": self.selected_energy_missing_count,
+                "unexpected_legacy_1008": self.selected_unexpected_legacy_energy_count
+            },
+            "errors": self.errors,
+            "artifact_valid": self.artifact_status == "valid",
+            "selection_valid": self.selection_status == "validated",
+            "validation_passed": self.validation_status == "passed",
+            "production_eligible": false,
+            "release": {
+                "status": "staged_only",
+                "reviewer_approved": false,
+                "activation_attempted": false
+            }
+        })
+    }
+
+    /// Renders the report as deterministic pretty-printed JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns a serialization error if the report cannot be represented as JSON.
+    pub fn to_pretty_json(
+        &self,
+        request: &FdcFoundationValidationRequest,
+    ) -> Result<String, serde_json::Error> {
+        // `Value` contains only JSON-native values, so this serialization is deterministic.
+        serde_json::to_string_pretty(&self.to_json(request))
+    }
+}
+
 fn prepare_import(
     source_bytes: &[u8],
     request: &FdcFoundationImportRequest,
@@ -164,7 +528,7 @@ fn prepare_import(
         energy_summary.unexpected_legacy += energy.unexpected_legacy_count;
     }
 
-    let schema_fingerprint = sha256_hex(FDC_SCHEMA_CONTRACT.as_bytes());
+    let schema_fingerprint = schema_fingerprint();
     let selection_fingerprint = selection_fingerprint(&selected_ids);
     let release_fingerprint = sha256_hex(
         format!(
@@ -389,11 +753,10 @@ fn reviewed_selection(values: &[u64]) -> Result<BTreeSet<u64>, FdcFoundationImpo
 }
 
 fn parse_source_foods(source_bytes: &[u8]) -> Result<Vec<RawFood>, FdcFoundationImportError> {
-    let mut root: Value = serde_json::from_slice(source_bytes)?;
+    let root: Value = serde_json::from_slice(source_bytes)?;
     let food_values = root
-        .get_mut("FoundationFoods")
-        .and_then(Value::as_array_mut)
-        .map(std::mem::take)
+        .get("FoundationFoods")
+        .and_then(Value::as_array)
         .ok_or_else(|| {
             FdcFoundationImportError::InvalidInput(
                 "FDC JSON root must contain a FoundationFoods array".to_owned(),
@@ -408,42 +771,77 @@ fn parse_source_foods(source_bytes: &[u8]) -> Result<Vec<RawFood>, FdcFoundation
     let mut seen_ids = BTreeSet::new();
     let mut foods = Vec::with_capacity(food_values.len());
     for payload in food_values {
-        let fdc_id = payload
-            .get("fdcId")
-            .and_then(Value::as_u64)
-            .ok_or_else(|| {
-                FdcFoundationImportError::InvalidInput(
-                    "every Foundation food must contain an unsigned integer fdcId".to_owned(),
-                )
-            })?;
+        let food = parse_food_record(payload.clone())?;
+        let fdc_id = food.fdc_id;
         if !seen_ids.insert(fdc_id) {
             return Err(FdcFoundationImportError::InvalidInput(format!(
                 "duplicate FDC ID {fdc_id} in source artifact"
             )));
         }
-        if payload.get("dataType").and_then(Value::as_str) != Some("Foundation") {
-            return Err(FdcFoundationImportError::InvalidInput(format!(
-                "FDC ID {fdc_id} is not a Foundation food"
-            )));
-        }
-        let description = payload
-            .get("description")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|description| !description.is_empty())
-            .ok_or_else(|| {
-                FdcFoundationImportError::InvalidInput(format!(
-                    "FDC ID {fdc_id} has no non-empty description"
-                ))
-            })?
-            .to_owned();
-        foods.push(RawFood {
-            fdc_id,
-            description,
-            payload,
-        });
+        foods.push(food);
     }
     Ok(foods)
+}
+
+fn parse_food_record(payload: Value) -> Result<RawFood, FdcFoundationImportError> {
+    let fdc_id = payload
+        .get("fdcId")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            FdcFoundationImportError::InvalidInput(
+                "every Foundation food must contain an unsigned integer fdcId".to_owned(),
+            )
+        })?;
+    if payload.get("dataType").and_then(Value::as_str) != Some("Foundation") {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "FDC ID {fdc_id} is not a Foundation food"
+        )));
+    }
+    let description = payload
+        .get("description")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|description| !description.is_empty())
+        .ok_or_else(|| {
+            FdcFoundationImportError::InvalidInput(format!(
+                "FDC ID {fdc_id} has no non-empty description"
+            ))
+        })?
+        .to_owned();
+    Ok(RawFood {
+        fdc_id,
+        description,
+        payload,
+    })
+}
+
+fn validate_food_schema(food: &RawFood) -> Vec<String> {
+    let Some(food_nutrients) = food.payload.get("foodNutrients").and_then(Value::as_array) else {
+        return vec![format!("FDC ID {} has no foodNutrients array", food.fdc_id)];
+    };
+    let mut errors = Vec::new();
+    for (index, item) in food_nutrients.iter().enumerate() {
+        let Some(nutrient) = item.get("nutrient") else {
+            errors.push(format!(
+                "FDC ID {} foodNutrients[{index}] has no nutrient object",
+                food.fdc_id
+            ));
+            continue;
+        };
+        if nutrient.get("id").and_then(Value::as_u64).is_none() {
+            errors.push(format!(
+                "FDC ID {} foodNutrients[{index}].nutrient.id is not an unsigned integer",
+                food.fdc_id
+            ));
+        }
+        if nutrient.get("unitName").and_then(Value::as_str).is_none() {
+            errors.push(format!(
+                "FDC ID {} foodNutrients[{index}].nutrient.unitName is not a string",
+                food.fdc_id
+            ));
+        }
+    }
+    errors
 }
 
 fn validate_selection_exists(
@@ -473,6 +871,24 @@ fn selection_fingerprint(selected_ids: &BTreeSet<u64>) -> String {
         .collect::<Vec<_>>()
         .join(",");
     sha256_hex(joined.as_bytes())
+}
+
+fn add_energy_summary(summary: &mut EnergySummary, energy: &EnergyExtraction) {
+    match energy
+        .selected
+        .as_ref()
+        .map(|value| value.source_nutrient_id)
+    {
+        Some(2048) => summary.atwater_specific += 1,
+        Some(2047) => summary.atwater_general += 1,
+        None => summary.missing_energy += 1,
+        Some(_) => unreachable!("energy extraction only selects 2048 or 2047"),
+    }
+    summary.unexpected_legacy += energy.unexpected_legacy_count;
+}
+
+fn schema_fingerprint() -> String {
+    sha256_hex(FDC_SCHEMA_CONTRACT.as_bytes())
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -1203,7 +1619,8 @@ fn decimal_field(value: &Value, field: &str) -> Result<Option<Decimal>, FdcFound
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_energy, extract_unambiguous_macronutrients, parse_source_foods, reviewed_selection,
+        FdcFoundationValidationRequest, extract_energy, extract_unambiguous_macronutrients,
+        parse_source_foods, reviewed_selection, validate_fdc_foundation_json,
     };
     use serde_json::{Value, json};
     use std::collections::BTreeSet;
@@ -1328,5 +1745,88 @@ mod tests {
             reviewed_selection(&[2, 1]).expect("unique selection").len(),
             2
         );
+    }
+
+    #[test]
+    fn validation_report_is_deterministic_and_preserves_selection_energy_counts() {
+        let request = validation_request(MINIMAL, vec![900_000_001]);
+        let first = validate_fdc_foundation_json(MINIMAL.as_bytes(), &request);
+        let second = validate_fdc_foundation_json(MINIMAL.as_bytes(), &request);
+
+        assert_eq!(first, second);
+        assert_eq!(first.artifact_status, "valid");
+        assert_eq!(first.selection_status, "validated");
+        assert_eq!(first.validation_status, "passed");
+        assert_eq!(first.raw_record_count, 1);
+        assert_eq!(first.selected_record_count, 1);
+        assert_eq!(first.source_energy_atwater_specific_count, 1);
+        assert_eq!(first.selected_energy_atwater_specific_count, 1);
+        assert_eq!(
+            first
+                .to_pretty_json(&request)
+                .expect("validation report must serialize"),
+            second
+                .to_pretty_json(&request)
+                .expect("validation report must serialize")
+        );
+        assert_eq!(
+            first
+                .to_json(&request)
+                .get("production_eligible")
+                .and_then(Value::as_bool),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn validation_report_fails_closed_on_null_records_and_unapproved_selection() {
+        let source = r#"{
+          "FoundationFoods": [
+            {
+              "fdcId": 900000001,
+              "dataType": "Foundation",
+              "description": "Synthetic foundation food",
+              "foodNutrients": [
+                {"amount": 2.5, "nutrient": {"id": 1003, "unitName": "G"}},
+                {"amount": 3.5, "nutrient": {"id": 1004, "unitName": "G"}},
+                {"amount": 4.5, "nutrient": {"id": 1005, "unitName": "G"}},
+                {"amount": 99, "nutrient": {"id": 2048, "unitName": "KCAL"}}
+              ]
+            },
+            null
+          ]
+        }"#;
+        let request = validation_request(source, Vec::new());
+        let report = validate_fdc_foundation_json(source.as_bytes(), &request);
+
+        assert_eq!(report.raw_record_count, 2);
+        assert_eq!(report.valid_record_count, 1);
+        assert_eq!(report.null_record_count, 1);
+        assert_eq!(report.invalid_record_count, 1);
+        assert_eq!(report.artifact_status, "invalid");
+        assert_eq!(report.selection_status, "not_approved");
+        assert_eq!(report.validation_status, "blocked");
+        assert!(report.errors.iter().any(|error| error.contains("is null")));
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("not approved"))
+        );
+    }
+
+    fn validation_request(
+        source: &str,
+        reviewed_fdc_ids: Vec<u64>,
+    ) -> FdcFoundationValidationRequest {
+        FdcFoundationValidationRequest {
+            release_version: "2026-04-30".to_owned(),
+            source_published_date: "2026-04-30".to_owned(),
+            object_uri: "fixture://fdc/validation.json".to_owned(),
+            source_payload_filename: None,
+            source_archive_sha256: None,
+            expected_sha256: super::sha256_hex(source.as_bytes()),
+            reviewed_fdc_ids,
+        }
     }
 }
