@@ -6,12 +6,12 @@ The API and worker require an explicit `APP_ENV` so development-only behavior ca
 
 ## Environment classes
 
-| `APP_ENV` | Intended use | Development bearer auth | Fixture parser | Foundation fixture seed |
-|---|---|---:|---:|---:|
-| `local` | developer workstation | allowed | allowed | allowed |
-| `ci` | automated verification | allowed | allowed | allowed |
-| `staging` | production-equivalent validation | forbidden | forbidden | forbidden |
-| `production` | real production traffic | forbidden | forbidden | forbidden |
+| `APP_ENV` | Intended use | Development bearer auth | Fixture parser | Foundation fixture seed | Staged source import |
+|---|---|---:|---:|---:|---:|
+| `local` | developer workstation | allowed | allowed | allowed | allowed |
+| `ci` | automated verification | allowed | allowed | allowed | allowed |
+| `staging` | production-equivalent validation | forbidden | forbidden | forbidden | allowed |
+| `production` | real production traffic | forbidden | forbidden | forbidden | forbidden |
 
 `APP_ENV` is required. Unknown values fail startup.
 
@@ -71,6 +71,26 @@ Optional bounded settings:
 
 `RUN_MIGRATIONS=true` explicitly runs the embedded forward-only migrations. `RUN_FOUNDATION_SEED=true` is accepted only for `local` and `ci`; staging and production reject it before fixture data can be inserted.
 
+## Staged FoodData Central import
+
+`RUN_FDC_FOUNDATION_IMPORT=true` executes the release-pinned USDA FoodData Central Foundation Foods importer during worker startup. It is allowed only for `local`, `ci`, and `staging`; production rejects it. The importer writes raw provenance and a staged catalog selection only. It never activates a catalog release or publishes a composition profile.
+
+When enabled, all of the following are required:
+
+- `FDC_IMPORT_PATH`: local path to the extracted Foundation Foods JSON artifact available to the worker process;
+- `FDC_IMPORT_RELEASE_VERSION`: pinned upstream release identifier, initially `2026-04-30`;
+- `FDC_IMPORT_SOURCE_PUBLISHED_DATE`: upstream publication date, initially `2026-04-30`;
+- `FDC_IMPORT_OBJECT_URI`: durable provenance URI for the exact imported JSON artifact;
+- `FDC_IMPORT_EXPECTED_SHA256`: expected SHA-256 of the exact JSON bytes read from `FDC_IMPORT_PATH`;
+- `FDC_IMPORT_INCLUDE_IDS`: comma-separated, non-empty set of reviewed FDC IDs to stage into the product catalog;
+- `FDC_IMPORT_CREATED_BY`: UUID of the human/service actor responsible for the staged import.
+
+The pinned artifact checksum is verified before any database write. All source records in the artifact are stored in `raw.source_food_record`, while only the reviewed `FDC_IMPORT_INCLUDE_IDS` selection receives staged food/name/profile evidence. Re-importing the same release/checksum/selection is idempotent. A checksum conflict for the same upstream release fails closed.
+
+The current importer intentionally stages only the unambiguous protein, fat, and carbohydrate mappings. Energy remains blocked by the protected domain decision in #22, so imported profiles remain `in_review`, quality `U`, and non-production-eligible.
+
+Do not place source artifacts or real credentials in the repository. The import file should be supplied by the controlled data-ingestion environment.
+
 ## Secrets and logging
 
 `DATABASE_URL`, `LLM_API_KEY`, authorization tokens, and meal text are sensitive. Do not commit them, bake them into images, or emit them through logging/telemetry. Supply production secrets through the deployment platform's secret mechanism.
@@ -84,4 +104,5 @@ This contract makes unsafe configuration fail closed; it does not claim producti
 - production API authentication remains blocked until #10 implements OIDC;
 - fixture catalog data remains prohibited in staging/production;
 - hosted parser production enablement remains gated by #8, #9, and privacy/legal review;
-- a production nutrition source remains gated by #5–#7.
+- FDC source staging remains non-publishing until #22 and the source/reviewer gates from #5–#6 are resolved;
+- Vietnamese source rights and portion evidence remain gated by #5 and #7.

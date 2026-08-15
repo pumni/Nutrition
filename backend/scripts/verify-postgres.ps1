@@ -3,8 +3,25 @@ $PSNativeCommandUseErrorActionPreference = $true
 
 $databaseUrl = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
 
+function Invoke-WebRequestAllowError {
+    param([hashtable]$Parameters)
+
+    try {
+        return Invoke-WebRequest @Parameters
+    }
+    catch {
+        $response = $_.Exception.Response
+        if ($null -eq $response) {
+            throw
+        }
+        return [pscustomobject]@{
+            StatusCode = [int]$response.StatusCode
+        }
+    }
+}
+
 Write-Output "Starting PostgreSQL 18..."
-docker compose -f deploy/compose.yaml up -d postgres
+docker compose -f deploy/compose.yaml up -d --wait postgres
 
 try {
     $env:APP_ENV = "ci"
@@ -31,13 +48,14 @@ try {
     $env:AUTH_MODE = "development"
     $env:PARSER_MODE = "fixture"
     cargo build -p api-http
-    $apiBinaryName = if ($IsWindows) { "api-http.exe" } else { "api-http" }
+    $isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+    $apiBinaryName = if ($isWindowsHost) { "api-http.exe" } else { "api-http" }
     $apiPath = (Resolve-Path (Join-Path ".\target\debug" $apiBinaryName)).Path
     $processArguments = @{
         FilePath = $apiPath
         PassThru = $true
     }
-    if ($IsWindows) {
+    if ($isWindowsHost) {
         $processArguments.WindowStyle = "Hidden"
     }
     $apiProcess = Start-Process @processArguments
@@ -111,15 +129,15 @@ try {
         ) {
             throw "HTTP create/read replay contract failed"
         }
-        $unauthorizedRead = Invoke-WebRequest `
-            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)" `
-            -SkipHttpErrorCheck `
-            -TimeoutSec 5
-        $foreignRead = Invoke-WebRequest `
-            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)" `
-            -Headers @{Authorization = "Bearer dev:0198f100-0000-7000-8000-000000000097"} `
-            -SkipHttpErrorCheck `
-            -TimeoutSec 5
+        $unauthorizedRead = Invoke-WebRequestAllowError -Parameters @{
+            Uri = "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)"
+            TimeoutSec = 5
+        }
+        $foreignRead = Invoke-WebRequestAllowError -Parameters @{
+            Uri = "http://127.0.0.1:8080/v1/nutrition/analyses/$($created.analysis_id)"
+            Headers = @{Authorization = "Bearer dev:0198f100-0000-7000-8000-000000000097"}
+            TimeoutSec = 5
+        }
         if ($unauthorizedRead.StatusCode -ne 401 -or $foreignRead.StatusCode -ne 403) {
             throw "HTTP authentication/ownership contract failed"
         }
@@ -129,14 +147,14 @@ try {
             locale = "vi-VN"
             mode = "balanced"
         } | ConvertTo-Json
-        $idempotencyConflict = Invoke-WebRequest `
-            -Method Post `
-            -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
-            -Headers $createHeaders `
-            -ContentType "application/json; charset=utf-8" `
-            -Body ([Text.Encoding]::UTF8.GetBytes($conflictingBody)) `
-            -SkipHttpErrorCheck `
-            -TimeoutSec 5
+        $idempotencyConflict = Invoke-WebRequestAllowError -Parameters @{
+            Method = "Post"
+            Uri = "http://127.0.0.1:8080/v1/nutrition/analyses"
+            Headers = $createHeaders
+            ContentType = "application/json; charset=utf-8"
+            Body = [Text.Encoding]::UTF8.GetBytes($conflictingBody)
+            TimeoutSec = 5
+        }
         if ($idempotencyConflict.StatusCode -ne 409) {
             throw "HTTP idempotency conflict contract failed"
         }
