@@ -1,4 +1,5 @@
 mod analysis_repository;
+mod catalog_activation;
 mod catalog_repository;
 mod fdc_importer;
 mod ops_repository;
@@ -7,6 +8,11 @@ mod portion_repository;
 mod seed;
 
 pub use analysis_repository::PostgresAnalysisRepository;
+pub use catalog_activation::{
+    CatalogReleaseActivationError, CatalogReleaseActivationReport, CatalogReleaseActivationRequest,
+    CatalogReleaseRollbackReport, CatalogReleaseRollbackRequest, activate_catalog_release,
+    stage_catalog_rollback,
+};
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
 pub use fdc_importer::{
     FDC_ENERGY_MAPPING_POLICY_VERSION, FDC_FOUNDATION_IMPORTER_VERSION, FdcFoundationImportError,
