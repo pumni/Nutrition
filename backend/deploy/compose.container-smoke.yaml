@@ -1,0 +1,33 @@
+services:
+  worker-smoke:
+    image: nutrition-worker:ci
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: worker-runtime
+    environment:
+      DATABASE_URL: postgres://nutrition:nutrition@postgres:5432/nutrition
+      RUN_MIGRATIONS: "true"
+      RUN_FOUNDATION_SEED: "true"
+      WORKER_MODE: idle
+      WORKER_ID: container-smoke-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api-smoke:
+    image: nutrition-api:ci
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: api-http-runtime
+    environment:
+      DATABASE_URL: postgres://nutrition:nutrition@postgres:5432/nutrition
+      AUTH_MODE: development
+      PARSER_MODE: fixture
+      APP_BIND_ADDR: 0.0.0.0:8080
+    ports:
+      - "18080:8080"
+    depends_on:
+      worker-smoke:
+        condition: service_completed_successfully
