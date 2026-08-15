@@ -27,18 +27,14 @@ Get-Content -Raw -LiteralPath ".\fixtures\vietnamese-meal-bench\foundation-cases
     Out-Null
 
 Write-Output "Checking prohibited sensitive logging patterns..."
-$previousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
-$PSNativeCommandUseErrorActionPreference = $false
-$sensitiveLogMatches = rg --line-number `
-    '(info|warn|error|debug|trace)!\([^)]*(request\.text|raw_text|authorization|database_url)' `
-    crates
-$sensitiveLogExitCode = $LASTEXITCODE
-$PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
-if ($sensitiveLogExitCode -eq 0) {
-    throw "Potential sensitive value found in a logging macro: $sensitiveLogMatches"
-}
-if ($sensitiveLogExitCode -gt 1) {
-    throw "Sensitive logging scan failed"
+$sensitiveLogPattern = '(info|warn|error|debug|trace)!\([^)]*(request\.text|raw_text|authorization|database_url)'
+$sensitiveLogMatches = Get-ChildItem -LiteralPath ".\crates" -Recurse -File -Filter "*.rs" |
+    Select-String -Pattern $sensitiveLogPattern
+if ($sensitiveLogMatches) {
+    $matchDetails = $sensitiveLogMatches |
+        ForEach-Object { "$($_.Path):$($_.LineNumber):$($_.Line.Trim())" } |
+        Out-String
+    throw "Potential sensitive value found in a logging macro:`n$matchDetails"
 }
 
 Write-Output "Validating Docker Compose configuration..."
