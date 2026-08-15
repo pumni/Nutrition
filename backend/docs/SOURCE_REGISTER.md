@@ -38,7 +38,10 @@ A source cannot become active until it has:
 - reviewer and rollback target.
 
 Source data is imported into a staged catalog release. Validation precedes explicit activation, and
-an active release is never edited in place.
+an active release is never edited in place. Activation requires the validation report hash to match
+the staged release manifest, complete energy/provenance evidence, approved source mappings, and an
+explicit reviewer approval reference; the previous source and catalog releases remain available
+for rollback.
 
 The two foods and two contextual portion observations in the foundation fixture are synthetic
 engineering data. Their nutrient values and mass ranges must not be represented as a curated
