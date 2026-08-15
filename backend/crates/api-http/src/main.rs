@@ -131,8 +131,13 @@ async fn main() {
     validate_parser_mode(environment, &parser_mode).expect("parser configuration is invalid");
     let bind_addr = match env::var("APP_BIND_ADDR") {
         Ok(value) => value,
-        Err(_) if environment.allows_development_adapters() => "127.0.0.1:8080".to_owned(),
-        Err(_) => panic!("APP_BIND_ADDR is required when APP_ENV is staging or production"),
+        Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
+            "127.0.0.1:8080".to_owned()
+        }
+        Err(env::VarError::NotPresent) => {
+            panic!("APP_BIND_ADDR is required when APP_ENV is staging or production")
+        }
+        Err(env::VarError::NotUnicode(_)) => panic!("APP_BIND_ADDR must be valid Unicode"),
     };
     let address: SocketAddr = bind_addr
         .parse()
