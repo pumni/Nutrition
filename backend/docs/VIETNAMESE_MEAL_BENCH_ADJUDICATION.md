@@ -49,7 +49,9 @@ After both packets are completed, compare them into an external report:
 ~~~
 
 The queue contains only the disagreement set and both proposed annotations.
-It must be reviewed by the domain adjudicator. The adjudicator's identity,
+The comparator rejects blank or schema-invalid packets, checks exact text and
+locale identity for each sample, rejects duplicate/empty safety flags, and
+records SHA-256 hashes for both input packets. The queue must be reviewed by the domain adjudicator. The adjudicator's identity,
 decision, rationale, guideline version, and review date belong in the
 controlled external record. They must not be fabricated in this repository.
 
@@ -99,7 +101,11 @@ accuracy, safety-flag exactness, normalized food-phrase mention precision/
 recall/F1, over-resolution rate, and tag slices. Resolver top-k, nutrition,
 calculation, and replay metrics remain `null` until the adjudicated expected artifacts
 provide the required canonical IDs, evidence versions, or replay references. The
-report contains hashes and aggregates, not case text or expected answers.
+schema-valid rate is based on the exact versioned contract, including decision/
+item constraints, field types, additional-property rejection, and unique safety
+flags. Missing or invalid predictions remain in every expected-case and expected-
+mention denominator. The report contains hashes and aggregates, not case text or
+expected answers.
 
 ## Proposed release thresholds
 

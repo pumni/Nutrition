@@ -16,9 +16,52 @@
     "analysis_clarification_dimension": {"type": ["string", "null"]},
     "safety_flags": {
       "type": "array",
+      "uniqueItems": true,
       "items": {"type": "string", "minLength": 1}
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["parse_decision"],
+        "properties": {"parse_decision": {"const": "parsed"}}
+      },
+      "then": {"properties": {"items": {"minItems": 1}}}
+    },
+    {
+      "if": {
+        "required": ["parse_decision"],
+        "properties": {"parse_decision": {"const": "parse_rejected"}}
+      },
+      "then": {
+        "properties": {
+          "items": {"maxItems": 0},
+          "analysis_decision": {"const": "insufficient"}
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["analysis_decision"],
+        "properties": {"analysis_decision": {"const": "needs_clarification"}}
+      },
+      "then": {
+        "required": ["analysis_clarification_dimension"],
+        "properties": {
+          "analysis_clarification_dimension": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["analysis_decision"],
+        "properties": {"analysis_decision": {"enum": ["resolve", "insufficient"]}}
+      },
+      "then": {
+        "properties": {"analysis_clarification_dimension": {"type": "null"}}
+      }
+    }
+  ],
   "$defs": {
     "item": {
       "type": "object",

@@ -17,6 +17,12 @@ Write-Output "Validating JSON artifacts..."
 Get-Content -Raw -LiteralPath ".\schemas\parsed-meal-0.1.0.json" |
     ConvertFrom-Json |
     Out-Null
+Get-Content -Raw -LiteralPath ".\schemas\vietnamese-meal-bench-annotation-0.1.0.json" |
+    ConvertFrom-Json |
+    Out-Null
+Get-Content -Raw -LiteralPath ".\schemas\vietnamese-meal-bench-prediction-0.1.0.json" |
+    ConvertFrom-Json |
+    Out-Null
 
 Get-Content -Raw -LiteralPath ".\fixtures\vietnamese-meal-bench\manifest.json" |
     ConvertFrom-Json |
@@ -28,6 +34,8 @@ Get-Content -Raw -LiteralPath ".\fixtures\vietnamese-meal-bench\foundation-cases
 
 Write-Output "Validating VietnameseMealBench structure..."
 & "$PSScriptRoot\verify-vietnamese-meal-bench.ps1"
+Write-Output "Running VietnameseMealBench evaluation regressions..."
+& "$PSScriptRoot\test-vietnamese-meal-bench-evaluation.ps1"
 
 Write-Output "Checking prohibited sensitive logging patterns..."
 $sensitiveLogPattern = '(info|warn|error|debug|trace)!\([^)]*(request\.text|raw_text|authorization|database_url)'

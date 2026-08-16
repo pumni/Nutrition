@@ -21,11 +21,32 @@
         },
         "safety_flags": {
           "type": "array",
+          "uniqueItems": true,
           "items": {"type": "string", "minLength": 1}
         }
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["annotation"],
+        "properties": {"annotation": {"properties": {"parse_decision": {"const": "parsed"}}}}
+      },
+      "then": {
+        "properties": {"annotation": {"properties": {"items": {"minItems": 1}}}}
+      }
+    },
+    {
+      "if": {
+        "required": ["annotation"],
+        "properties": {"annotation": {"properties": {"parse_decision": {"const": "parse_rejected"}}}}
+      },
+      "then": {
+        "properties": {"annotation": {"properties": {"items": {"maxItems": 0}}}}
+      }
+    }
+  ],
   "$defs": {
     "item": {
       "type": "object",
