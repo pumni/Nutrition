@@ -30,7 +30,12 @@ Required in every environment:
 
 `AUTH_MODE=development` is accepted only for `APP_ENV=local|ci` and uses the existing `Bearer dev:<uuid>` contract.
 
-`AUTH_MODE=oidc` is reserved for the production adapter tracked by #10. Until that adapter exists, selecting `oidc` fails startup. This deliberately means staging and production API startup remain blocked rather than silently using development credentials.
+`AUTH_MODE=oidc` is the provider-neutral OIDC adapter for `staging` and `production`. It requires:
+
+- `OIDC_ISSUER_URL`, an HTTPS issuer URL without a query or fragment;
+- `OIDC_AUDIENCE`, the exact expected audience.
+
+The adapter discovers JWKS from the configured issuer, accepts `RS256` only, requires exact `iss`, expected `aud`, non-empty `sub`, and `exp`, and validates optional `nbf` with a 60-second clock-skew allowance. JWKS are cached for 15 minutes; an unknown key ID triggers one refresh and failures remain fail-closed. No provider-specific role or scope authorization is enabled in v1.
 
 ### Parser
 
@@ -111,7 +116,7 @@ The checked-in `.env.example` contains local-only placeholder values and no real
 
 This contract makes unsafe configuration fail closed; it does not claim production readiness. In particular:
 
-- production API authentication remains blocked until #10 implements OIDC;
+- production OIDC traffic remains a deployment/provider approval gate; the checked-in adapter does not select or enable a provider by itself;
 - fixture catalog data remains prohibited in staging/production;
 - hosted parser production enablement remains gated by #8, #9, and privacy/legal review;
 - FDC source staging remains non-publishing until the `fdc_energy_v1` validation and source/reviewer gates from #5–#6 are resolved;
