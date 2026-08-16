@@ -112,6 +112,8 @@ pub async fn export_user_data(pool: &PgPool, user_id: UserId) -> Result<Value, P
                 revision.resolution_policy_version,
                 revision.portion_policy_version,
                 revision.composition_policy_version,
+                revision.clarification_policy_version,
+                revision.correction_policy_version,
                 revision.calculation_engine_version,
                 revision.catalog_release_id::text AS catalog_release_id,
                 revision.created_at::text AS revision_created_at
@@ -192,6 +194,8 @@ fn behavior_versions(row: &sqlx::postgres::PgRow) -> Result<Value, sqlx::Error> 
         "resolution_policy_version": row.try_get::<String, _>("resolution_policy_version")?,
         "portion_policy_version": row.try_get::<String, _>("portion_policy_version")?,
         "composition_policy_version": row.try_get::<String, _>("composition_policy_version")?,
+        "clarification_policy_version": row.try_get::<String, _>("clarification_policy_version")?,
+        "correction_policy_version": row.try_get::<String, _>("correction_policy_version")?,
         "calculation_engine_version": row.try_get::<String, _>("calculation_engine_version")?,
         "catalog_release_id": row.try_get::<String, _>("catalog_release_id")?
     }))
