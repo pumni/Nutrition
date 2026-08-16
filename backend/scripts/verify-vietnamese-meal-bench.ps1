@@ -84,8 +84,12 @@ foreach ($splitName in @("development", "public_test")) {
             $errors.Add("insufficient case $sampleId must not contain resolved items")
         }
         if ([string]$case.expected_analysis_decision -eq "needs_clarification" -and
-            [string]::IsNullOrWhiteSpace([string]$case.expected_parse.clarification_dimension)) {
-            $errors.Add("clarification case $sampleId must declare clarification_dimension")
+            [string]::IsNullOrWhiteSpace([string]$case.expected_analysis_clarification_dimension)) {
+            $errors.Add("analysis clarification case $sampleId must declare expected_analysis_clarification_dimension")
+        }
+        if ([string]$case.expected_parse_decision -eq "parsed" -and
+            $null -ne $case.expected_parse.clarification_dimension) {
+            $errors.Add("parsed case $sampleId must keep parser clarification_dimension null; use expected_analysis_clarification_dimension for downstream analysis")
         }
         foreach ($item in $items) {
             if ([string]::IsNullOrWhiteSpace([string]$item.food_phrase)) {

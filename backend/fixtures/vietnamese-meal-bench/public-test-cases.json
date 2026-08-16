@@ -4,7 +4,8 @@
     "text": "2 quả trứng luộc",
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
-    "expected_analysis_decision": "resolve",
+    "expected_analysis_decision": "needs_clarification",
+    "expected_analysis_clarification_dimension": "food_identity",
     "expected_parse": {"items": [{"food_phrase": "trứng luộc", "quantity": "2", "unit": "quả", "preparation": ["luộc"], "modifiers": [], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["common-meal", "count", "preparation"],
     "adjudication_status": "pending_human_review"
@@ -55,7 +56,8 @@
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
     "expected_analysis_decision": "needs_clarification",
-    "expected_parse": {"items": [{"food_phrase": "cơm gà", "quantity": null, "unit": null, "preparation": [], "modifiers": ["không da"], "negated": false}], "clarification_dimension": "portion", "safety_flags": []},
+    "expected_analysis_clarification_dimension": "portion",
+    "expected_parse": {"items": [{"food_phrase": "cơm gà", "quantity": null, "unit": null, "preparation": [], "modifiers": ["không da"], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["modifier", "missing-quantity", "clarification"],
     "adjudication_status": "pending_human_review"
   },
@@ -65,7 +67,8 @@
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
     "expected_analysis_decision": "needs_clarification",
-    "expected_parse": {"items": [{"food_phrase": "da gà", "quantity": null, "unit": null, "preparation": [], "modifiers": [], "negated": true}, {"food_phrase": "thịt gà", "quantity": null, "unit": null, "preparation": [], "modifiers": [], "negated": false}], "clarification_dimension": "portion", "safety_flags": []},
+    "expected_analysis_clarification_dimension": "portion",
+    "expected_parse": {"items": [{"food_phrase": "da gà", "quantity": null, "unit": null, "preparation": [], "modifiers": [], "negated": true}, {"food_phrase": "thịt gà", "quantity": null, "unit": null, "preparation": [], "modifiers": [], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["negation", "partial-consumption", "clarification"],
     "adjudication_status": "pending_human_review"
   },
@@ -75,7 +78,8 @@
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
     "expected_analysis_decision": "needs_clarification",
-    "expected_parse": {"items": [{"food_phrase": "phở bò", "quantity": "1", "unit": "tô", "preparation": ["tái"], "modifiers": [], "negated": false}], "clarification_dimension": "portion", "safety_flags": []},
+    "expected_analysis_clarification_dimension": "portion",
+    "expected_parse": {"items": [{"food_phrase": "phở bò", "quantity": "1", "unit": "tô", "preparation": ["tái"], "modifiers": [], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["composite-dish", "household-unit", "regional-ambiguity"],
     "adjudication_status": "pending_human_review"
   },
@@ -85,7 +89,8 @@
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
     "expected_analysis_decision": "needs_clarification",
-    "expected_parse": {"items": [{"food_phrase": "bún bò Huế", "quantity": "1", "unit": "phần", "preparation": [], "modifiers": ["ít nước"], "negated": false}], "clarification_dimension": "recipe", "safety_flags": []},
+    "expected_analysis_clarification_dimension": "recipe",
+    "expected_parse": {"items": [{"food_phrase": "bún bò Huế", "quantity": "1", "unit": "phần", "preparation": [], "modifiers": ["ít nước"], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["regional-name", "composite-dish", "modifier"],
     "adjudication_status": "pending_human_review"
   },
@@ -105,7 +110,8 @@
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
     "expected_analysis_decision": "needs_clarification",
-    "expected_parse": {"items": [{"food_phrase": "cơm", "quantity": null, "unit": null, "preparation": [], "modifiers": ["ít"], "negated": false}], "clarification_dimension": "portion", "safety_flags": []},
+    "expected_analysis_clarification_dimension": "portion",
+    "expected_parse": {"items": [{"food_phrase": "cơm", "quantity": null, "unit": null, "preparation": [], "modifiers": ["ít"], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["slang", "approximation", "missing-quantity"],
     "adjudication_status": "pending_human_review"
   },
@@ -125,7 +131,8 @@
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
     "expected_analysis_decision": "needs_clarification",
-    "expected_parse": {"items": [{"food_phrase": "bánh mì", "quantity": "0.5", "unit": "ổ", "preparation": [], "modifiers": [], "negated": false}], "clarification_dimension": "recipe", "safety_flags": []},
+    "expected_analysis_clarification_dimension": "recipe",
+    "expected_parse": {"items": [{"food_phrase": "bánh mì", "quantity": "0.5", "unit": "ổ", "preparation": [], "modifiers": [], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["partial-consumption", "fraction", "composite-dish"],
     "adjudication_status": "pending_human_review"
   },
@@ -135,7 +142,8 @@
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
     "expected_analysis_decision": "needs_clarification",
-    "expected_parse": {"items": [{"food_phrase": "rau muống", "quantity": "1", "unit": "nắm", "preparation": [], "modifiers": [], "negated": false}], "clarification_dimension": "portion", "safety_flags": []},
+    "expected_analysis_clarification_dimension": "portion",
+    "expected_parse": {"items": [{"food_phrase": "rau muống", "quantity": "1", "unit": "nắm", "preparation": [], "modifiers": [], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["unsupported-portion", "household-unit"],
     "adjudication_status": "pending_human_review"
   },

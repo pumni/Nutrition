@@ -1,7 +1,7 @@
 # Production nutrition data strategy
 
-Status: accepted policy; artifact evidence captured, release validation blocked
-Reviewed: 2026-08-15
+Status: accepted policy; FDC v1 rights and exact first allowlist approved, staging drill pending
+Reviewed: 2026-08-16
 
 ## Objective
 
@@ -17,7 +17,7 @@ concept uses all of them.
 The first importer target is **USDA FoodData Central Foundation Foods, April 2026 JSON release**.
 
 The reviewed USDA FoodData Central material states that FDC data are public domain and published
-under CC0 1.0. USDA publishes dated downloadable releases, and Foundation Foods is specifically
+under CC0 1.0. The v1 rights decision is `approved_for_v1`. USDA publishes dated downloadable releases, and Foundation Foods is specifically
 intended for basic, unprocessed or lightly processed foods with analytically derived values and
 underlying provenance metadata.
 
@@ -55,8 +55,9 @@ to ingest or redistribute those datasets in this product.
 
 Therefore:
 
+- `vn_food_composition_2017` is explicitly not selected for v1;
+- its rights review is deferred and production ingestion remains prohibited;
 - no national Vietnamese composition table is approved for bulk production ingestion yet;
-- reuse and redistribution terms must be captured before importer work begins for such a source;
 - a Vietnamese alias or display name does not change the provenance of the underlying nutrient
   composition profile;
 - a composite Vietnamese dish must not be approximated by an LLM-generated nutrient profile;
@@ -164,18 +165,20 @@ policy. The selected profile and source release remain part of the persisted beh
 
 ## Activation gates
 
-`usda_fdc` may move from candidate to staged-import development after this strategy is accepted, but
-production activation remains blocked until:
+`usda_fdc` is approved as the v1 composition source, but production activation remains blocked until:
 
 - the April 2026 Foundation Foods JSON artifact is acquired and SHA-256 recorded;
 - importer/schema versions and `fdc_energy_v1` are implemented under #6;
+- a deterministic reviewed allowlist of exactly 20 records is approved by named data/domain owner
+  `pumni` with selection SHA-256
+  `ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2` and approval reference
+  `github:pull/31#issuecomment-5305073122`;
 - the selected subset and nutrient mappings pass validation;
 - an impact report is reviewed;
 - a rollback target is recorded;
 - a data/domain owner is assigned.
 
-Vietnamese national-table ingestion remains additionally blocked on documented permitted-use and
-redistribution rights.
+Vietnamese national-table ingestion remains prohibited for v1; its rights review is deferred.
 
 ## Reviewed external evidence
 

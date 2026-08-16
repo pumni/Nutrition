@@ -1,6 +1,6 @@
 # VietnameseMealBench
 
-Current fixture release: `foundation-0.5.0` (`development-only`). Run the structural and
+Current fixture release: `foundation-0.5.1` (`development-only`). Run the structural and
 aggregate report harness with:
 
 ```powershell
@@ -29,10 +29,13 @@ Each case has two decisions:
 - `expected_analysis_decision`: downstream analysis after food identity, preparation, portion, and
   available evidence resolution (`resolve`, `needs_clarification`, or `insufficient`). This is the
   decision used for end-to-end analysis evaluation and is intentionally separate from parser
-  scoring.
+  scoring. When it is `needs_clarification`, `expected_analysis_clarification_dimension` records
+  the downstream evidence dimension; it must not be inferred from the parser annotation.
 
 For example, `1 ly cơm trắng` can be `parsed` at parser level while analysis is
-`needs_clarification` because the current portion evidence does not support that vessel.
+`needs_clarification` because the current portion evidence does not support that vessel. Likewise,
+`2 quả trứng luộc` is parseable but requires `food_identity` clarification unless a generic egg
+identity is explicitly approved; the benchmark must never infer chicken from `trứng` alone.
 
 The public annotations are `pending_human_review`; they are not a parser release gate yet. Two
 independent annotators and a domain adjudicator are required before a case can become approved.
