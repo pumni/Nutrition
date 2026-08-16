@@ -19,7 +19,11 @@ report.
 - Structural anomalies: `32` trailing `null` entries at indexes `363..394`
 - Preprocessing: removed exactly those `32` tail placeholders; normalized payload contains `363` records
 - Source integrity valid: yes; source schema conformant: no; normalized payload valid: yes
-- Reviewed production selection: not approved; selected records `0`
+- Reviewed production selection: approved exact 20-record allowlist; selection SHA-256
+  `ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2`
+- Reviewer: `pumni`
+- Approval reference: `github:pull/31#issuecomment-5305073122`
+- Reviewed at: `2026-08-16T01:08:05Z`
 - Activation attempted: no
 - Production eligible: no
 
@@ -38,6 +42,7 @@ they do not approve any food subset for catalog staging.
   the transformed payload is a separate derivative identified by its own SHA-256.
 - Fail-closed conditions: any source hash, release, length, null position, tail value, or policy
   mismatch rejects preprocessing.
-- Production gate: still blocked. The normalized artifact has no reviewed FDC selection and no
-  named reviewer approval. The `137` records without `2047`/`2048` remain incomplete, and
-  legacy `1008` is not used as a fallback.
+- Production gate: still blocked pending the exact selected import's validation and staging
+  activation/rollback drill. The `137` records without `2047`/`2048` remain incomplete, and
+  legacy `1008` is not used as a fallback. The approved selection is source composition identity
+  evidence only; it does not approve Vietnamese aliases, recipes, or portion evidence.

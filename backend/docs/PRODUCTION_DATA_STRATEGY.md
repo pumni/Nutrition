@@ -1,6 +1,6 @@
 # Production nutrition data strategy
 
-Status: accepted policy; FDC v1 rights approved, first reviewed allowlist pending
+Status: accepted policy; FDC v1 rights and exact first allowlist approved, staging drill pending
 Reviewed: 2026-08-16
 
 ## Objective
@@ -169,8 +169,10 @@ policy. The selected profile and source release remain part of the persisted beh
 
 - the April 2026 Foundation Foods JSON artifact is acquired and SHA-256 recorded;
 - importer/schema versions and `fdc_energy_v1` are implemented under #6;
-- a deterministic reviewed allowlist of at most 20 records is reviewed by named data/domain owner
-  `pumni` and its approval reference is recorded;
+- a deterministic reviewed allowlist of exactly 20 records is approved by named data/domain owner
+  `pumni` with selection SHA-256
+  `ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2` and approval reference
+  `github:pull/31#issuecomment-5305073122`;
 - the selected subset and nutrient mappings pass validation;
 - an impact report is reviewed;
 - a rollback target is recorded;

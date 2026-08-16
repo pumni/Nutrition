@@ -1,6 +1,6 @@
 {
   "activation_attempted": false,
-  "approval_reference": null,
+  "approval_reference": "github:pull/31#issuecomment-5305073122",
   "candidate_cap": 20,
   "candidate_count": 20,
   "candidate_selection_sha256": "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2",
@@ -12,12 +12,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1750339,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -27,12 +27,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1750340,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -42,12 +42,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1750341,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -57,12 +57,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1750342,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -72,12 +72,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1750343,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -87,12 +87,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999626,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -102,12 +102,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999627,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -117,12 +117,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999628,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -132,12 +132,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999629,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -147,12 +147,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999630,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -162,12 +162,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999631,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -177,12 +177,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999632,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -192,12 +192,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999633,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -207,12 +207,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 1999634,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -222,12 +222,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 2003586,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -237,12 +237,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 2003587,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -252,12 +252,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 2003588,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -267,12 +267,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 2003589,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -282,12 +282,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 2003590,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     },
     {
@@ -297,12 +297,12 @@
       "energy_source_nutrient_id": 2048,
       "fat_status": "valid",
       "fdc_id": 2003591,
-      "identity_status": "pending_human_review",
+      "identity_status": "approved_source_composition_identity",
       "legacy_1008_present": false,
       "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
       "protein_status": "valid",
       "recipe_inference_used": false,
-      "review_status": "pending_human_review",
+      "review_status": "approved",
       "source_record_status": "structurally_valid"
     }
   ],
@@ -316,8 +316,8 @@
   "preprocessing_policy": "fdc_foundation_2026_04_null_tail_v1",
   "production_eligible": false,
   "review_scope": "fdc-v1-selection",
-  "review_status": "pending_human_review",
-  "reviewed_at": null,
+  "review_status": "approved",
+  "reviewed_at": "2026-08-16T01:08:05Z",
   "reviewer": "pumni",
   "rights_status": "approved_for_v1",
   "source": "usda_fdc",
