@@ -126,6 +126,49 @@ async fn contextual_analysis_is_persisted_and_replayed() {
 
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn oidc_external_identity_mapping_is_stable() {
+    let database_url =
+        env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
+    let pool = connect(&database_url, 2)
+        .await
+        .expect("integration database must connect");
+    migrate(&pool)
+        .await
+        .expect("integration migrations must apply");
+    let repository = PostgresAnalysisRepository::new(pool.clone());
+    let issuer = format!("https://issuer.integration/{}/", uuid::Uuid::now_v7());
+    let subject = format!("subject-{}", uuid::Uuid::now_v7());
+
+    let first = repository
+        .resolve_external_identity(&issuer, &subject)
+        .await
+        .expect("first OIDC identity mapping must succeed");
+    let second = repository
+        .resolve_external_identity(&issuer, &subject)
+        .await
+        .expect("repeat OIDC identity mapping must succeed");
+
+    assert_eq!(first.as_uuid(), second.as_uuid());
+    assert_eq!(first.as_uuid().get_version_num(), 7);
+    let row_count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM auth.external_identity WHERE issuer = $1 AND subject = $2",
+    )
+    .bind(&issuer)
+    .bind(&subject)
+    .fetch_one(&pool)
+    .await
+    .expect("OIDC identity mapping must be queryable");
+    assert_eq!(row_count, 1);
+    sqlx::query("DELETE FROM auth.external_identity WHERE issuer = $1 AND subject = $2")
+        .bind(&issuer)
+        .bind(&subject)
+        .execute(&pool)
+        .await
+        .expect("OIDC identity fixture must clean up");
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
 async fn parser_telemetry_persists_only_non_raw_metadata() {
     let database_url =
         env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
