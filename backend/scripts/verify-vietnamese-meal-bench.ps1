@@ -23,6 +23,31 @@ if ($manifest.benchmark -ne "VietnameseMealBench") {
 if ($manifest.status -ne "development-only") {
     $errors.Add("benchmark release must remain development-only")
 }
+if ($manifest.annotation.parse_layer.independent_annotators_required -ne 2) {
+    $errors.Add("parse gold requires two independent annotators")
+}
+if ($manifest.annotation.parse_layer.domain_adjudicator_required -ne 1) {
+    $errors.Add("parse gold requires one domain adjudicator")
+}
+if ($manifest.annotation.parse_layer.current_status -ne "pending_human_review") {
+    $errors.Add("parse gold must remain pending human review")
+}
+if ($manifest.annotation.analysis_layer.current_status -ne "provisional") {
+    $errors.Add("analysis gold must remain provisional before evidence version pinning")
+}
+if ($manifest.metrics.threshold_status -ne "proposal_not_approved") {
+    $errors.Add("benchmark thresholds must remain explicitly marked as a proposal")
+}
+if ($manifest.external_release_evidence.sealed_test.cases_and_answers_external -ne $true -or
+    $manifest.external_release_evidence.sealed_test.manifest_hash_required -ne $true -or
+    $manifest.external_release_evidence.sealed_test.access_control_required -ne $true) {
+    $errors.Add("sealed-test release evidence must remain external and access-controlled")
+}
+if ($manifest.external_release_evidence.challenge.cases_and_answers_external -ne $true -or
+    $manifest.external_release_evidence.challenge.manifest_hash_required -ne $true -or
+    $manifest.external_release_evidence.challenge.privacy_review_required -ne $true) {
+    $errors.Add("challenge release evidence must remain external and privacy-reviewed")
+}
 
 foreach ($splitName in @("development", "public_test")) {
     $splitProperty = $manifest.splits.PSObject.Properties[$splitName]
@@ -130,6 +155,9 @@ foreach ($splitName in @("sealed_test", "challenge")) {
     if ($split.answers_in_repo -ne $false) {
         $errors.Add("split $splitName must keep answers_in_repo=false")
     }
+    if ($split.case_count_status -ne "external_not_loaded") {
+        $errors.Add("split $splitName must remain external_not_loaded")
+    }
     if ($null -ne $split.case_file) {
         $errors.Add("split $splitName must not expose a case_file in this repository")
     }
@@ -161,6 +189,8 @@ $report = [ordered]@{
         sealed_answers_loaded = $false
         production_gate = "not_eligible"
         human_adjudication_required = [bool]$manifest.release_gates.human_adjudication_required
+        analysis_gold_version_pinning_required = [bool]$manifest.release_gates.analysis_gold_version_pinning_required
+        production_eligible = $false
     }
     errors = @($errors | Sort-Object)
 }

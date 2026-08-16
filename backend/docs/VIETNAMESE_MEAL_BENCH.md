@@ -1,7 +1,7 @@
 # VietnameseMealBench
 
-Current fixture release: `foundation-0.5.1` (`development-only`). Run the structural and
-aggregate report harness with:
+Current fixture release: `foundation-0.5.1` (`development-only`). Run the structural
+report harness with:
 
 ```powershell
 .\scripts\verify-vietnamese-meal-bench.ps1
@@ -46,3 +46,7 @@ Initial release metrics follow the benchmark specification: schema-valid rate, m
 known-food top-1/top-3 resolution, unknown detection precision, over-resolution rate, calculation
 fixture pass rate, replay pass rate, and slice-level regression checks. Aggregate scores must not
 hide regressions in safety, unknown-food, negation, ambiguity, or clarification slices.
+
+The independent annotation workflow, external sealed/challenge protocol, prediction contract,
+scoring command, and proposed (not yet approved) thresholds are documented in
+`docs/VIETNAMESE_MEAL_BENCH_ADJUDICATION.md`.
