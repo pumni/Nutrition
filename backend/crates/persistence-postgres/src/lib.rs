@@ -15,9 +15,14 @@ pub use catalog_activation::{
 };
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
 pub use fdc_importer::{
-    FDC_ENERGY_MAPPING_POLICY_VERSION, FDC_FOUNDATION_IMPORTER_VERSION, FdcFoundationImportError,
-    FdcFoundationImportReport, FdcFoundationImportRequest, FdcFoundationValidationReport,
-    FdcFoundationValidationRequest, import_fdc_foundation_json, validate_fdc_foundation_json,
+    FDC_ENERGY_MAPPING_POLICY_VERSION, FDC_FOUNDATION_2026_04_ARCHIVE_SHA256,
+    FDC_FOUNDATION_2026_04_EXTRACTED_JSON_SHA256, FDC_FOUNDATION_2026_04_NULL_TAIL_POLICY_VERSION,
+    FDC_FOUNDATION_2026_04_RELEASE_VERSION, FDC_FOUNDATION_IMPORTER_VERSION,
+    FDC_FOUNDATION_V1_SELECTION_CAP, FDC_FOUNDATION_V1_SELECTION_REVIEWER,
+    FdcFoundationImportError, FdcFoundationImportReport, FdcFoundationImportRequest,
+    FdcFoundationValidationReport, FdcFoundationValidationRequest,
+    build_fdc_selection_candidate_manifest, import_fdc_foundation_json,
+    validate_fdc_foundation_json,
 };
 pub use ops_repository::{ClaimedJob, claim_jobs, complete_job, deliver_outbox_batch, fail_job};
 pub use parser_telemetry::PostgresParserTelemetrySink;

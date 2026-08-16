@@ -18,6 +18,8 @@ pub const FDC_FOUNDATION_2026_04_ARCHIVE_SHA256: &str =
     "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a";
 pub const FDC_FOUNDATION_2026_04_EXTRACTED_JSON_SHA256: &str =
     "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc";
+pub const FDC_FOUNDATION_V1_SELECTION_REVIEWER: &str = "pumni";
+pub const FDC_FOUNDATION_V1_SELECTION_CAP: usize = 20;
 const FDC_FOUNDATION_2026_04_SOURCE_RECORD_COUNT: usize = 395;
 const FDC_FOUNDATION_2026_04_VALID_RECORD_COUNT: usize = 363;
 const FDC_DATASET_CODE: &str = "usda_fdc";
@@ -308,6 +310,185 @@ pub fn validate_fdc_foundation_json(
         .to_owned(),
         errors,
     }
+}
+
+/// Builds a deterministic, human-reviewable candidate manifest from the exact normalized FDC
+/// payload. This is evidence generation only: every candidate remains pending review and the
+/// resulting manifest can never authorize catalog activation.
+///
+/// # Errors
+///
+/// Returns an error when the pinned source, preprocessing contract, normalized payload, or
+/// candidate cap is invalid.
+pub fn build_fdc_selection_candidate_manifest(
+    source_bytes: &[u8],
+    request: &FdcFoundationValidationRequest,
+    candidate_cap: usize,
+) -> Result<Value, FdcFoundationImportError> {
+    if candidate_cap == 0 || candidate_cap > FDC_FOUNDATION_V1_SELECTION_CAP {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "candidate_cap must be between 1 and {FDC_FOUNDATION_V1_SELECTION_CAP}"
+        )));
+    }
+
+    let source_sha256 = sha256_hex(source_bytes);
+    let (_, checksum_errors) = validate_checksum(
+        &source_sha256,
+        &request.expected_sha256.trim().to_ascii_lowercase(),
+        request,
+    );
+    if !checksum_errors.is_empty() {
+        return Err(FdcFoundationImportError::InvalidInput(
+            checksum_errors.join("; "),
+        ));
+    }
+
+    let preprocessing = apply_requested_preprocessing(source_bytes, &source_sha256, request);
+    if !preprocessing.applied || !preprocessing.errors.is_empty() {
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "pinned FDC preprocessing is not valid: {}",
+            preprocessing.errors.join("; ")
+        )));
+    }
+    let normalized_payload = preprocessing.normalized_payload.ok_or_else(|| {
+        FdcFoundationImportError::InvalidInput(
+            "pinned FDC preprocessing produced no normalized payload".to_owned(),
+        )
+    })?;
+    let normalized_payload_sha256 = preprocessing.normalized_payload_sha256.ok_or_else(|| {
+        FdcFoundationImportError::InvalidInput(
+            "pinned FDC preprocessing produced no normalized payload hash".to_owned(),
+        )
+    })?;
+    let mut schema_errors = Vec::new();
+    let normalized = validate_source_records(&normalized_payload, &mut schema_errors);
+    if !schema_errors.is_empty()
+        || normalized.raw_record_count != FDC_FOUNDATION_2026_04_VALID_RECORD_COUNT
+        || normalized.null_record_count != 0
+        || normalized.invalid_record_count != 0
+    {
+        schema_errors.sort();
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "normalized FDC payload is not structurally valid: {}",
+            schema_errors.join("; ")
+        )));
+    }
+
+    let mut eligible = normalized
+        .foods
+        .iter()
+        .filter_map(candidate_from_food)
+        .collect::<Vec<_>>();
+    eligible.sort_by_key(|candidate| candidate.fdc_id);
+    let eligible_population_count = eligible.len();
+    eligible.truncate(candidate_cap);
+    if eligible.is_empty() {
+        return Err(FdcFoundationImportError::InvalidInput(
+            "pinned normalized FDC payload contains no technically eligible candidate records"
+                .to_owned(),
+        ));
+    }
+
+    let selected_ids = eligible
+        .iter()
+        .map(|candidate| candidate.fdc_id)
+        .collect::<BTreeSet<_>>();
+    let candidates = eligible
+        .into_iter()
+        .map(|candidate| {
+            json!({
+                "fdc_id": candidate.fdc_id,
+                "description": candidate.description,
+                "source_record_status": "structurally_valid",
+                "identity_status": "pending_human_review",
+                "protein_status": "valid",
+                "fat_status": "valid",
+                "carbohydrate_status": "valid",
+                "energy_source_nutrient_id": candidate.energy_source_nutrient_id,
+                "energy_method": candidate.energy_method,
+                "legacy_1008_present": false,
+                "recipe_inference_used": false,
+                "proposed_reason": "Foundation Food record with valid 1003/1004/1005 and fdc_energy_v1 evidence; selected by ascending FDC ID for a reviewer-sized initial allowlist.",
+                "review_status": "pending_human_review"
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Ok(selection_candidate_manifest(
+        request,
+        &source_sha256,
+        &normalized_payload_sha256,
+        eligible_population_count,
+        candidate_cap,
+        &selected_ids,
+        &candidates,
+    ))
+}
+
+fn selection_candidate_manifest(
+    request: &FdcFoundationValidationRequest,
+    source_sha256: &str,
+    normalized_payload_sha256: &str,
+    eligible_population_count: usize,
+    candidate_cap: usize,
+    selected_ids: &BTreeSet<u64>,
+    candidates: &[Value],
+) -> Value {
+    json!({
+        "manifest_version": "fdc-selection-candidate-v1",
+        "source": FDC_DATASET_CODE,
+        "source_release": request.release_version,
+        "source_published_date": request.source_published_date,
+        "object_uri": request.object_uri,
+        "source_payload_filename": request.source_payload_filename,
+        "source_archive_sha256": request.source_archive_sha256,
+        "source_payload_sha256": source_sha256,
+        "normalized_payload_sha256": normalized_payload_sha256,
+        "source_schema_fingerprint": schema_fingerprint(),
+        "preprocessing_policy": request.preprocessing_policy_version,
+        "importer_version": FDC_FOUNDATION_IMPORTER_VERSION,
+        "energy_policy": FDC_ENERGY_MAPPING_POLICY_VERSION,
+        "rights_status": "approved_for_v1",
+        "license_basis": "public_domain + CC0_1_0",
+        "candidate_cap": candidate_cap,
+        "eligible_population_count": eligible_population_count,
+        "candidate_count": candidates.len(),
+        "candidate_selection_sha256": selection_fingerprint(selected_ids),
+        "reviewer": FDC_FOUNDATION_V1_SELECTION_REVIEWER,
+        "review_scope": "fdc-v1-selection",
+        "review_status": "pending_human_review",
+        "approval_reference": Value::Null,
+        "reviewed_at": Value::Null,
+        "production_eligible": false,
+        "activation_attempted": false,
+        "candidates": candidates
+    })
+}
+
+struct SelectionCandidate {
+    fdc_id: u64,
+    description: String,
+    energy_source_nutrient_id: u64,
+    energy_method: &'static str,
+}
+
+fn candidate_from_food(food: &RawFood) -> Option<SelectionCandidate> {
+    extract_unambiguous_macronutrients(food).ok()?;
+    let energy = extract_energy(food).ok()?;
+    if energy.unexpected_legacy_count != 0 {
+        return None;
+    }
+    let selected = energy.selected?;
+    let energy_method = selected.source_method?;
+    if !matches!(selected.source_nutrient_id, 2048 | 2047) {
+        return None;
+    }
+    Some(SelectionCandidate {
+        fdc_id: food.fdc_id,
+        description: food.description.clone(),
+        energy_source_nutrient_id: selected.source_nutrient_id,
+        energy_method,
+    })
 }
 
 struct ValidatedFoods {
@@ -1996,7 +2177,8 @@ fn decimal_field(value: &Value, field: &str) -> Result<Option<Decimal>, FdcFound
 #[cfg(test)]
 mod tests {
     use super::{
-        FdcFoundationValidationRequest, extract_energy, extract_unambiguous_macronutrients,
+        FdcFoundationValidationRequest, build_fdc_selection_candidate_manifest,
+        candidate_from_food, extract_energy, extract_unambiguous_macronutrients,
         parse_source_foods, reviewed_selection, transform_fdc_foundation_2026_04_null_tail,
         validate_fdc_foundation_json,
     };
@@ -2093,6 +2275,36 @@ mod tests {
         assert!(extract_energy(&invalid_unit).is_err());
     }
 
+    #[test]
+    fn selection_candidates_require_complete_macros_and_non_legacy_energy() {
+        let eligible = candidate_from_food(&candidate_food(
+            900_000_001,
+            &json!([nutrient(2048, "KCAL", &json!(52))]),
+        ))
+        .expect("complete candidate must be eligible");
+        assert_eq!(eligible.fdc_id, 900_000_001);
+        assert_eq!(eligible.energy_source_nutrient_id, 2048);
+        assert_eq!(eligible.energy_method, "atwater_specific");
+
+        let legacy = candidate_from_food(&candidate_food(
+            900_000_002,
+            &json!([nutrient(1008, "KCAL", &json!(50))]),
+        ));
+        assert!(legacy.is_none());
+
+        let incomplete =
+            candidate_from_food(&energy_food(&json!([nutrient(2048, "KCAL", &json!(52))])));
+        assert!(incomplete.is_none());
+    }
+
+    #[test]
+    fn candidate_manifest_rejects_an_unpinned_artifact() {
+        let request = validation_request(MINIMAL, Vec::new());
+        let error = build_fdc_selection_candidate_manifest(MINIMAL.as_bytes(), &request, 20)
+            .expect_err("candidate evidence must require the pinned release contract");
+        assert!(error.to_string().contains("preprocessing"));
+    }
+
     fn nutrient(id: u64, unit: &str, amount: &Value) -> Value {
         json!({
             "amount": amount,
@@ -2112,6 +2324,33 @@ mod tests {
         let bytes = serde_json::to_vec(&payload).expect("synthetic energy JSON must serialize");
         parse_source_foods(&bytes)
             .expect("synthetic energy food must parse")
+            .remove(0)
+    }
+
+    fn candidate_food(fdc_id: u64, energy_nutrients: &Value) -> super::RawFood {
+        let mut food_nutrients = vec![
+            nutrient(1003, "G", &json!(2.5)),
+            nutrient(1004, "G", &json!(3.5)),
+            nutrient(1005, "G", &json!(4.5)),
+        ];
+        food_nutrients.extend(
+            energy_nutrients
+                .as_array()
+                .expect("energy fixture must be an array")
+                .iter()
+                .cloned(),
+        );
+        let payload = json!({
+            "FoundationFoods": [{
+                "fdcId": fdc_id,
+                "dataType": "Foundation",
+                "description": "Synthetic selection candidate",
+                "foodNutrients": food_nutrients
+            }]
+        });
+        let bytes = serde_json::to_vec(&payload).expect("synthetic candidate JSON must serialize");
+        parse_source_foods(&bytes)
+            .expect("synthetic candidate food must parse")
             .remove(0)
     }
 
