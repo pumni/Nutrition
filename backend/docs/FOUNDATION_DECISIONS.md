@@ -126,10 +126,11 @@ but key management and retention are intentionally not implemented until the pro
 is approved. Item source spans remain sensitive analysis data and must follow the same deletion
 policy.
 
-API analysis routes require an authenticated development principal and enforce PostgreSQL ownership
+API analysis routes require an authenticated principal and enforce PostgreSQL ownership
 before read, clarification, correction, or history access. The development bearer format is not a
-production authentication mechanism; non-development startup is intentionally blocked until an
-OIDC adapter is configured. Request bodies are capped at 16 KiB, and verification scans logging
+production authentication mechanism. Non-development authentication uses the configured provider-
+neutral OIDC adapter; provider selection and production deployment remain explicit gates. Request
+bodies are capped at 16 KiB, and verification scans logging
 macros for meal text, authorization, raw text, and database URL usage.
 
 ## Worker reliability boundary

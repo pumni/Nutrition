@@ -87,6 +87,49 @@ impl PostgresAnalysisRepository {
         .await
         .map_err(|_| ApplicationError::Persistence)
     }
+
+    /// Resolves an OIDC `(issuer, subject)` pair to a stable internal user identity.
+    ///
+    /// The `UUIDv7` is generated inside the transaction that creates the first mapping. A
+    /// concurrent first login for the same external identity converges on the existing row via
+    /// the primary-key conflict path.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Persistence` when the mapping cannot be read or created.
+    pub async fn resolve_external_identity(
+        &self,
+        issuer: &str,
+        subject: &str,
+    ) -> Result<UserId, ApplicationError> {
+        if issuer.trim().is_empty() || subject.trim().is_empty() {
+            return Err(ApplicationError::Unauthorized);
+        }
+        let mut transaction = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| ApplicationError::Persistence)?;
+        let user_id = Uuid::now_v7();
+        let resolved_user_id = sqlx::query_scalar::<_, Uuid>(
+            "INSERT INTO auth.external_identity (issuer, subject, user_id)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (issuer, subject) DO UPDATE
+                 SET issuer = EXCLUDED.issuer
+             RETURNING user_id",
+        )
+        .bind(issuer)
+        .bind(subject)
+        .bind(user_id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(|_| ApplicationError::Persistence)?;
+        transaction
+            .commit()
+            .await
+            .map_err(|_| ApplicationError::Persistence)?;
+        Ok(UserId::from_uuid(resolved_user_id))
+    }
 }
 
 #[async_trait]

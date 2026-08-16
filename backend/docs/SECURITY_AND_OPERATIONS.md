@@ -9,16 +9,20 @@ derived only from the trusted header adapter and never accepted from request JSO
 read/write checks the immutable `meal_analysis.user_id`. Missing credentials return `401`; another
 owner returns `403`.
 
-Production startup is intentionally unsupported until a reviewed OIDC/OAuth adapter validates
-issuer, audience, signature, expiry, and role claims.
+Staging and production use the provider-neutral OIDC adapter with an HTTPS configured issuer and
+audience. It validates exact issuer, expected audience, `RS256` signatures from discovered JWKS,
+expiry, and optional not-before claims with a 60-second clock-skew allowance. It never uses email
+as identity, does not enable role/scope authorization in v1, refreshes an unknown JWKS key ID once,
+and fails closed when no fresh matching key is available. `(issuer, subject)` is mapped transactionally
+to a UUIDv7 internal user identity.
 
 ## Sensitive data
 
 - Meal text, source item text, authorization headers, and database URLs are prohibited in logs.
 - HTTP tracing records request metadata without bodies or headers.
 - Request bodies are capped at 16 KiB.
-- Raw meal text encryption, retention, deletion, and export require product/legal policy before
-  collection is enabled.
+- Raw meal text persistence remains disabled. Retention, deletion, and export must follow the
+  approved privacy contract and must not add meal content to logs or telemetry.
 
 ## Worker
 

@@ -1,3 +1,5 @@
+mod oidc;
+
 use adapters::{
     ConfiguredMealParser, FixtureParser, HOSTED_PROMPT_VERSION, HostedMealParser,
     HostedParserConfig, PARSER_SCHEMA_VERSION,
@@ -16,6 +18,7 @@ use axum::{
     routing::{get, post},
 };
 use domain::{AnalysisId, NutrientCode, UserId};
+use oidc::Authenticator;
 use persistence_postgres::{
     PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresParserTelemetrySink,
     PostgresPortionEvidenceProvider, active_catalog_release_id,
@@ -32,6 +35,7 @@ use tracing_subscriber::EnvFilter;
 
 #[derive(Clone)]
 struct AppState {
+    authenticator: Authenticator,
     analyzer: Arc<dyn AnalyzeMeal>,
     clarification: Arc<dyn AnswerClarification>,
     correction: Arc<dyn CorrectAnalysis>,
@@ -127,6 +131,8 @@ async fn main() {
     let environment = AppEnvironment::from_env();
     let auth_mode = env::var("AUTH_MODE").expect("AUTH_MODE is required");
     validate_auth_mode(environment, &auth_mode).expect("authentication configuration is invalid");
+    let authenticator =
+        Authenticator::from_env(&auth_mode).expect("authentication configuration is invalid");
     let parser_mode = env::var("PARSER_MODE").expect("PARSER_MODE is required");
     validate_parser_mode(environment, &parser_mode).expect("parser configuration is invalid");
     let bind_addr = match env::var("APP_BIND_ADDR") {
@@ -178,6 +184,7 @@ async fn main() {
         required_nutrients(),
     ));
     let state = AppState {
+        authenticator,
         analyzer: Arc::new(analyzer),
         clarification: revision_service.clone(),
         correction: revision_service,
@@ -255,7 +262,7 @@ async fn analyze(
     headers: HeaderMap,
     Json(mut request): Json<AnalysisRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
-    let principal = authenticate(&headers)?;
+    let principal = authenticate(&state, &headers).await?;
     request.owner_id = Some(principal);
     let scope = format!("user:{principal}:create");
     if let Some(key) = idempotency_key(&headers)? {
@@ -290,7 +297,7 @@ async fn answer_clarification(
     Json(request): Json<ClarificationAnswerRequest>,
 ) -> Result<Json<AnalysisSnapshot>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
-    authorize(&state, analysis_id, authenticate(&headers)?).await?;
+    authorize(&state, analysis_id, authenticate(&state, &headers).await?).await?;
     state
         .clarification
         .answer(analysis_id, request)
@@ -306,7 +313,7 @@ async fn correct_analysis(
     Json(mut request): Json<CorrectionRequest>,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
-    let principal = authenticate(&headers)?;
+    let principal = authenticate(&state, &headers).await?;
     authorize(&state, analysis_id, principal).await?;
     let scope = format!("user:{principal}:correction:{analysis_id}");
     if let Some(key) = idempotency_key(&headers)? {
@@ -340,7 +347,7 @@ async fn find_analysis(
     headers: HeaderMap,
 ) -> Result<Json<AnalysisSnapshot>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
-    authorize(&state, analysis_id, authenticate(&headers)?).await?;
+    authorize(&state, analysis_id, authenticate(&state, &headers).await?).await?;
     state
         .reader
         .find(analysis_id)
@@ -356,7 +363,7 @@ async fn find_revision(
     headers: HeaderMap,
 ) -> Result<Json<serde_json::Value>, ApiError> {
     let analysis_id = parse_analysis_id(&analysis_id)?;
-    authorize(&state, analysis_id, authenticate(&headers)?).await?;
+    authorize(&state, analysis_id, authenticate(&state, &headers).await?).await?;
     state
         .reader
         .find_revision(analysis_id, revision_number)
@@ -374,18 +381,15 @@ fn parse_analysis_id(value: &str) -> Result<AnalysisId, ApiError> {
     })
 }
 
-fn authenticate(headers: &HeaderMap) -> Result<UserId, ApiError> {
-    let value = headers
+async fn authenticate(state: &AppState, headers: &HeaderMap) -> Result<UserId, ApiError> {
+    let authorization = headers
         .get("authorization")
-        .ok_or(ApiError(ApplicationError::Unauthorized))?
-        .to_str()
-        .map_err(|_| ApiError(ApplicationError::Unauthorized))?;
-    let user_id = value
-        .strip_prefix("Bearer dev:")
-        .ok_or(ApiError(ApplicationError::Unauthorized))?;
-    user_id
-        .parse::<UserId>()
-        .map_err(|_| ApiError(ApplicationError::Unauthorized))
+        .and_then(|value| value.to_str().ok());
+    state
+        .authenticator
+        .authenticate(authorization, &state.repository)
+        .await
+        .map_err(ApiError)
 }
 
 async fn authorize(
@@ -451,10 +455,7 @@ fn validate_auth_mode(environment: AppEnvironment, auth_mode: &str) -> Result<()
         "development" => Err(
             "AUTH_MODE=development is forbidden when APP_ENV is staging or production".to_owned(),
         ),
-        "oidc" => Err(
-            "AUTH_MODE=oidc is not implemented; production authentication remains blocked"
-                .to_owned(),
-        ),
+        "oidc" => Ok(()),
         _ => Err("AUTH_MODE must be development or oidc".to_owned()),
     }
 }
@@ -568,7 +569,7 @@ mod tests {
         assert!(validate_auth_mode(AppEnvironment::Ci, "development").is_ok());
         assert!(validate_auth_mode(AppEnvironment::Staging, "development").is_err());
         assert!(validate_auth_mode(AppEnvironment::Production, "development").is_err());
-        assert!(validate_auth_mode(AppEnvironment::Production, "oidc").is_err());
+        assert!(validate_auth_mode(AppEnvironment::Production, "oidc").is_ok());
         assert!(validate_parser_mode(AppEnvironment::Local, "fixture").is_ok());
         assert!(validate_parser_mode(AppEnvironment::Ci, "fixture").is_ok());
         assert!(validate_parser_mode(AppEnvironment::Staging, "fixture").is_err());
