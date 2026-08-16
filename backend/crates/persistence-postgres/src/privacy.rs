@@ -23,6 +23,12 @@ pub struct PrivacyRetentionReport {
     pub purged_analysis_aggregates: u64,
 }
 
+#[derive(Clone, Copy)]
+enum IdempotencyPurgeScope {
+    Analysis,
+    User,
+}
+
 #[derive(Debug, Error)]
 pub enum PrivacyError {
     #[error("privacy operation input is invalid: {0}")]
@@ -395,7 +401,13 @@ async fn purge_user_data_tx(
     if analysis_ids.is_empty() {
         return Ok(false);
     }
-    purge_analysis_ids_tx(transaction, user_id, &analysis_ids).await
+    purge_analysis_ids_tx(
+        transaction,
+        user_id,
+        &analysis_ids,
+        IdempotencyPurgeScope::User,
+    )
+    .await
 }
 
 async fn purge_analysis_tx(
@@ -413,13 +425,20 @@ async fn purge_analysis_tx(
     .bind(user_id.as_uuid())
     .fetch_all(&mut **transaction)
     .await?;
-    purge_analysis_ids_tx(transaction, user_id, &analysis_ids).await
+    purge_analysis_ids_tx(
+        transaction,
+        user_id,
+        &analysis_ids,
+        IdempotencyPurgeScope::Analysis,
+    )
+    .await
 }
 
 async fn purge_analysis_ids_tx(
     transaction: &mut Transaction<'_, Postgres>,
     user_id: UserId,
     analysis_ids: &[Uuid],
+    idempotency_purge_scope: IdempotencyPurgeScope,
 ) -> Result<bool, sqlx::Error> {
     if analysis_ids.is_empty() {
         return Ok(false);
@@ -468,7 +487,6 @@ async fn purge_analysis_ids_tx(
           )",
         "DELETE FROM analysis.analysis_revision WHERE meal_analysis_id = ANY($1::uuid[])",
         "DELETE FROM analysis.meal_analysis WHERE id = ANY($1::uuid[])",
-        "DELETE FROM app.idempotency_record WHERE scope_key LIKE $1",
     ] {
         if statement.contains("ops.job") {
             sqlx::query(statement)
@@ -476,14 +494,26 @@ async fn purge_analysis_ids_tx(
                 .bind(&analysis_id_text)
                 .execute(&mut **transaction)
                 .await?;
-        } else if statement.contains("idempotency_record") {
-            sqlx::query(statement)
-                .bind(format!("user:{}:%", user_id.as_uuid()))
-                .execute(&mut **transaction)
-                .await?;
         } else {
             sqlx::query(statement)
                 .bind(analysis_ids)
+                .execute(&mut **transaction)
+                .await?;
+        }
+    }
+    match idempotency_purge_scope {
+        IdempotencyPurgeScope::Analysis => {
+            sqlx::query(
+                "DELETE FROM app.idempotency_record
+                   WHERE response_reference->>'analysis_id' = ANY($1::text[])",
+            )
+            .bind(&analysis_id_text)
+            .execute(&mut **transaction)
+            .await?;
+        }
+        IdempotencyPurgeScope::User => {
+            sqlx::query("DELETE FROM app.idempotency_record WHERE scope_key LIKE $1")
+                .bind(format!("user:{}:%", user_id.as_uuid()))
                 .execute(&mut **transaction)
                 .await?;
         }

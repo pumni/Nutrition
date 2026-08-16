@@ -195,6 +195,30 @@ async fn privacy_retention_is_per_analysis_and_preserves_external_identity() {
         .expect("routine retention must preserve identity"),
         1
     );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*)
+               FROM app.idempotency_record
+              WHERE idempotency_key = $1",
+        )
+        .bind(format!("privacy-test-{old_analysis_id}"))
+        .fetch_one(&pool)
+        .await
+        .expect("old analysis idempotency record must be readable"),
+        0
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT count(*)
+               FROM app.idempotency_record
+              WHERE idempotency_key = $1",
+        )
+        .bind(format!("privacy-test-{recent_analysis_id}"))
+        .fetch_one(&pool)
+        .await
+        .expect("recent analysis idempotency record must be readable"),
+        1
+    );
 }
 
 #[tokio::test]
@@ -398,12 +422,13 @@ async fn insert_fixture(
     .expect("external identity fixture must insert");
     sqlx::query(
         "INSERT INTO app.idempotency_record
-            (scope_key, idempotency_key, request_hash, expires_at)
-         VALUES ($1, $2, $3, now() + interval '1 day')",
+            (scope_key, idempotency_key, request_hash, response_reference, expires_at)
+         VALUES ($1, $2, $3, $4, now() + interval '1 day')",
     )
     .bind(format!("user:{user_id}:create"))
     .bind(format!("privacy-test-{analysis_id}"))
     .bind("c".repeat(64))
+    .bind(json!({ "analysis_id": analysis_id }))
     .execute(pool)
     .await
     .expect("idempotency fixture must insert");
