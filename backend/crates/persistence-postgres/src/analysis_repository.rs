@@ -1,3 +1,4 @@
+use crate::privacy::redact_persisted_value;
 use application::{
     AnalysisRepository, AnalysisSnapshot, AnalysisSnapshotReader, ApplicationError,
     ClarificationAnalysis, ClarificationAnswerRequest, CorrectionRequest,
@@ -238,6 +239,8 @@ async fn persist_snapshot(
 ) -> Result<(), ApplicationError> {
     let snapshot_value =
         serde_json::to_value(snapshot).map_err(|_| ApplicationError::Persistence)?;
+    let mut snapshot_value = snapshot_value;
+    redact_persisted_value(&mut snapshot_value);
     let snapshot_bytes =
         serde_json::to_vec(&snapshot_value).map_err(|_| ApplicationError::Persistence)?;
     let snapshot_hash = sha256_hex(&snapshot_bytes);
@@ -274,6 +277,8 @@ async fn persist_clarification(
 ) -> Result<(), ApplicationError> {
     let snapshot_value =
         serde_json::to_value(clarification).map_err(|_| ApplicationError::Persistence)?;
+    let mut snapshot_value = snapshot_value;
+    redact_persisted_value(&mut snapshot_value);
     let snapshot_hash = snapshot_hash(&snapshot_value)?;
     let mut transaction = pool
         .begin()
@@ -313,7 +318,7 @@ async fn persist_clarification(
             .map_err(|_| ApplicationError::Persistence)?,
     )
     .bind("clarification-portion-0.1.0")
-    .bind(serde_json::to_value(&clarification.context).map_err(|_| ApplicationError::Persistence)?)
+    .bind(safe_clarification_context(&clarification.context)?)
     .execute(&mut *transaction)
     .await
     .map_err(|_| ApplicationError::Persistence)?;
@@ -408,6 +413,8 @@ async fn persist_clarification_answer(
     let nutrient_ids = load_nutrient_ids(pool, &snapshot.requested_nutrients).await?;
     let snapshot_value =
         serde_json::to_value(snapshot).map_err(|_| ApplicationError::Persistence)?;
+    let mut snapshot_value = snapshot_value;
+    redact_persisted_value(&mut snapshot_value);
     let snapshot_hash = snapshot_hash(&snapshot_value)?;
     let mut transaction = pool
         .begin()
@@ -488,6 +495,8 @@ async fn persist_correction(
     let nutrient_ids = load_nutrient_ids(pool, &snapshot.requested_nutrients).await?;
     let snapshot_value =
         serde_json::to_value(snapshot).map_err(|_| ApplicationError::Persistence)?;
+    let mut snapshot_value = snapshot_value;
+    redact_persisted_value(&mut snapshot_value);
     let snapshot_hash = snapshot_hash(&snapshot_value)?;
     let mut transaction = pool
         .begin()
@@ -827,7 +836,7 @@ async fn insert_items_and_results(
         .bind(item_id.as_uuid())
         .bind(snapshot.revision_id.as_uuid())
         .bind(i32::try_from(index).map_err(|_| ApplicationError::Persistence)?)
-        .bind(&item.source_text)
+        .bind("[redacted]")
         .bind(json!({
             "mass_resolution_method": mass_method_code(item.mass_resolution_method)
         }))
@@ -1135,6 +1144,14 @@ const fn quality_code(value: EvidenceQuality) -> &'static str {
         EvidenceQuality::D => "D",
         EvidenceQuality::U => "U",
     }
+}
+
+fn safe_clarification_context(
+    context: &application::ClarificationContext,
+) -> Result<Value, ApplicationError> {
+    let mut value = serde_json::to_value(context).map_err(|_| ApplicationError::Persistence)?;
+    redact_persisted_value(&mut value);
+    Ok(value)
 }
 
 const fn mass_method_code(value: MassResolutionMethod) -> &'static str {

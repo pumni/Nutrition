@@ -15,13 +15,13 @@ use axum::{
     extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use domain::{AnalysisId, NutrientCode, UserId};
 use oidc::Authenticator;
 use persistence_postgres::{
     PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresParserTelemetrySink,
-    PostgresPortionEvidenceProvider, active_catalog_release_id,
+    PostgresPortionEvidenceProvider, active_catalog_release_id, delete_user_data, export_user_data,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -197,6 +197,8 @@ async fn main() {
         .route("/health/live", get(live))
         .route("/health/ready", get(ready))
         .route("/v1/nutrition/analyses", post(analyze))
+        .route("/v1/nutrition/me", delete(delete_user_data_handler))
+        .route("/v1/nutrition/me/export", get(export_user_data_handler))
         .route("/v1/nutrition/analyses/{analysis_id}", get(find_analysis))
         .route(
             "/v1/nutrition/analyses/{analysis_id}/clarifications",
@@ -285,6 +287,31 @@ async fn analyze(
         .analyzer
         .execute(request)
         .await
+        .and_then(to_json_value)
+        .map(Json)
+        .map_err(ApiError)
+}
+
+async fn export_user_data_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let principal = authenticate(&state, &headers).await?;
+    export_user_data(&state.pool, principal)
+        .await
+        .map(Json)
+        .map_err(|_| ApiError(ApplicationError::Persistence))
+}
+
+async fn delete_user_data_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let principal = authenticate(&state, &headers).await?;
+    let request_reference = format!("privacy-delete-{}", uuid::Uuid::now_v7());
+    delete_user_data(&state.pool, principal, &request_reference)
+        .await
+        .map_err(|_| ApplicationError::Persistence)
         .and_then(to_json_value)
         .map(Json)
         .map_err(ApiError)

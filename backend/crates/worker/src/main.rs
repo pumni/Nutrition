@@ -1,6 +1,6 @@
 use persistence_postgres::{
     FdcFoundationImportRequest, claim_jobs, complete_job, deliver_outbox_batch, fail_job,
-    import_fdc_foundation_json,
+    import_fdc_foundation_json, run_privacy_retention,
 };
 use sqlx::PgPool;
 use std::{env, fs, time::Duration};
@@ -18,6 +18,7 @@ async fn main() {
     let environment = AppEnvironment::from_env();
     let config = WorkerConfig::from_env(environment);
     let run_fdc_import = env_bool("RUN_FDC_FOUNDATION_IMPORT", false);
+    let run_privacy_cleanup = env_bool("RUN_PRIVACY_RETENTION", false);
     assert!(
         !run_fdc_import || environment.allows_source_import(),
         "RUN_FDC_FOUNDATION_IMPORT=true is forbidden when APP_ENV is production"
@@ -46,6 +47,17 @@ async fn main() {
         run_fdc_foundation_import(&pool)
             .await
             .expect("FDC Foundation import failed");
+    }
+    if run_privacy_cleanup {
+        let report = run_privacy_retention(&pool)
+            .await
+            .expect("privacy retention job failed");
+        info!(
+            deleted_parser_telemetry = report.deleted_parser_telemetry,
+            deleted_audit_events = report.deleted_audit_events,
+            purged_user_aggregates = report.purged_user_aggregates,
+            "privacy retention job completed"
+        );
     }
     sqlx_healthcheck(&pool).await;
     match config.mode {

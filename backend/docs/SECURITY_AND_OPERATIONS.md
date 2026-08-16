@@ -23,6 +23,10 @@ to a UUIDv7 internal user identity.
 - Request bodies are capped at 16 KiB.
 - Raw meal text persistence remains disabled. Retention, deletion, and export must follow the
   approved privacy contract and must not add meal content to logs or telemetry.
+- `GET /v1/nutrition/me/export` returns the versioned `user-data-export-v1` user-owned export.
+- `DELETE /v1/nutrition/me` is ownership-scoped and returns only a deletion event type, timestamp,
+  and opaque request reference. It removes external identity mapping only after owned data purge;
+  global catalog/composition evidence is retained.
 
 ## Worker
 
