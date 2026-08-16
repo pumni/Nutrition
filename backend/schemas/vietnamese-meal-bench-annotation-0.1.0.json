@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nutrition-backend.invalid/schemas/vietnamese-meal-bench-annotation-0.1.0.json",
+  "title": "VietnameseMealBench independent parse annotation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sample_id", "text", "locale", "annotation"],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1},
+    "text": {"type": "string", "minLength": 1},
+    "locale": {"const": "vi-VN"},
+    "annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parse_decision", "items", "safety_flags"],
+      "properties": {
+        "parse_decision": {"enum": ["parsed", "parse_rejected"]},
+        "items": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/item"}
+        },
+        "safety_flags": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["food_phrase", "quantity", "unit", "preparation", "modifiers", "negated"],
+      "properties": {
+        "food_phrase": {"type": "string", "minLength": 1},
+        "quantity": {"type": ["string", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "preparation": {"type": "array", "items": {"type": "string"}},
+        "modifiers": {"type": "array", "items": {"type": "string"}},
+        "negated": {"type": "boolean"}
+      }
+    }
+  }
+}

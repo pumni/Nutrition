@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nutrition-backend.invalid/schemas/vietnamese-meal-bench-prediction-0.1.0.json",
+  "title": "VietnameseMealBench parser prediction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sample_id", "parse_decision", "items", "analysis_decision", "safety_flags"],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1},
+    "parse_decision": {"enum": ["parsed", "parse_rejected"]},
+    "items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "analysis_decision": {"enum": ["resolve", "needs_clarification", "insufficient"]},
+    "analysis_clarification_dimension": {"type": ["string", "null"]},
+    "safety_flags": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["food_phrase", "quantity", "unit", "preparation", "modifiers", "negated"],
+      "properties": {
+        "food_phrase": {"type": "string", "minLength": 1},
+        "quantity": {"type": ["string", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "preparation": {"type": "array", "items": {"type": "string"}},
+        "modifiers": {"type": "array", "items": {"type": "string"}},
+        "negated": {"type": "boolean"}
+      }
+    }
+  }
+}

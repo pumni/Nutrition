@@ -5,6 +5,24 @@
   "language": "vi-VN",
   "license": "internal-test-fixtures",
   "annotation_guideline": "docs/VIETNAMESE_MEAL_BENCH.md",
+  "annotation_protocol": "docs/VIETNAMESE_MEAL_BENCH_ADJUDICATION.md",
+  "annotation": {
+    "parse_layer": {
+      "independent_annotators_required": 2,
+      "domain_adjudicator_required": 1,
+      "current_status": "pending_human_review"
+    },
+    "analysis_layer": {
+      "current_status": "provisional",
+      "production_gold_requires": [
+        "catalog_release_id",
+        "portion_evidence_release",
+        "behavior_versions"
+      ]
+    },
+    "packet_schema": "schemas/vietnamese-meal-bench-annotation-0.1.0.json",
+    "prediction_schema": "schemas/vietnamese-meal-bench-prediction-0.1.0.json"
+  },
   "splits": {
     "development": {
       "case_file": "foundation-cases.json",
@@ -19,17 +37,32 @@
     "sealed_test": {
       "case_file": null,
       "case_count": 0,
+      "case_count_status": "external_not_loaded",
       "answers_in_repo": false,
       "answer_storage": "external-controlled-access"
     },
     "challenge": {
       "case_file": null,
       "case_count": 0,
+      "case_count_status": "external_not_loaded",
       "answers_in_repo": false,
       "answer_storage": "external-controlled-access"
     }
   },
+  "external_release_evidence": {
+    "sealed_test": {
+      "cases_and_answers_external": true,
+      "manifest_hash_required": true,
+      "access_control_required": true
+    },
+    "challenge": {
+      "cases_and_answers_external": true,
+      "manifest_hash_required": true,
+      "privacy_review_required": true
+    }
+  },
   "metrics": {
+    "threshold_status": "proposal_not_approved",
     "schema_valid_rate": {"walking_skeleton": 0.99, "mvp_beta": 0.995},
     "mention_f1": {"walking_skeleton": 0.9, "mvp_beta": 0.94},
     "known_food_top3_recall": {"walking_skeleton": 0.9, "mvp_beta": 0.96},
@@ -41,6 +74,7 @@
   },
   "release_gates": {
     "human_adjudication_required": true,
+    "analysis_gold_version_pinning_required": true,
     "sealed_answers_not_in_repo": true,
     "calculation_fixture_pass_required": true,
     "replay_pass_required": true,
