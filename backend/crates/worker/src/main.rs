@@ -55,7 +55,7 @@ async fn main() {
         info!(
             deleted_parser_telemetry = report.deleted_parser_telemetry,
             deleted_audit_events = report.deleted_audit_events,
-            purged_user_aggregates = report.purged_user_aggregates,
+            purged_analysis_aggregates = report.purged_analysis_aggregates,
             "privacy retention job completed"
         );
     }

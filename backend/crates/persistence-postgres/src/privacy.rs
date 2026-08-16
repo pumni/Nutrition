@@ -20,7 +20,7 @@ pub struct PrivacyDeletionReceipt {
 pub struct PrivacyRetentionReport {
     pub deleted_parser_telemetry: u64,
     pub deleted_audit_events: u64,
-    pub purged_user_aggregates: u64,
+    pub purged_analysis_aggregates: u64,
 }
 
 #[derive(Debug, Error)]
@@ -285,7 +285,7 @@ pub async fn delete_user_data(
 ) -> Result<PrivacyDeletionReceipt, PrivacyError> {
     validate_request_reference(request_reference)?;
     let mut transaction = pool.begin().await?;
-    enable_privacy_purge(&mut transaction).await?;
+    set_privacy_purge_user_id(&mut transaction, user_id).await?;
     purge_user_data_tx(&mut transaction, user_id).await?;
     sqlx::query("DELETE FROM auth.external_identity WHERE user_id = $1")
         .bind(user_id.as_uuid())
@@ -316,7 +316,6 @@ pub async fn delete_user_data(
 /// Returns [`PrivacyError`] when any retention query fails; the transaction is then rolled back.
 pub async fn run_privacy_retention(pool: &PgPool) -> Result<PrivacyRetentionReport, PrivacyError> {
     let mut transaction = pool.begin().await?;
-    enable_privacy_purge(&mut transaction).await?;
     let deleted_parser_telemetry = sqlx::query(
         "DELETE FROM ops.parser_invocation
           WHERE created_at < now() - interval '30 days'",
@@ -331,41 +330,53 @@ pub async fn run_privacy_retention(pool: &PgPool) -> Result<PrivacyRetentionRepo
     .execute(&mut *transaction)
     .await?
     .rows_affected();
-    let expired_users = sqlx::query_scalar::<_, Uuid>(
-        "SELECT meal.user_id
+    let expired_analyses = sqlx::query_as::<_, (Uuid, Uuid)>(
+        "SELECT meal.id, meal.user_id
            FROM analysis.meal_analysis meal
            LEFT JOIN analysis.analysis_revision revision
              ON revision.meal_analysis_id = meal.id
+           LEFT JOIN analysis.clarification_question question
+             ON question.analysis_revision_id = revision.id
+           LEFT JOIN analysis.clarification_answer answer
+             ON answer.question_id = question.id
+           LEFT JOIN app.analysis_correction correction
+             ON correction.meal_analysis_id = meal.id
           WHERE meal.user_id IS NOT NULL
-          GROUP BY meal.user_id
-         HAVING COALESCE(MAX(revision.created_at), MAX(meal.created_at))
+          GROUP BY meal.id, meal.user_id, meal.created_at
+         HAVING GREATEST(
+                    meal.created_at,
+                    COALESCE(MAX(revision.created_at), meal.created_at),
+                    COALESCE(MAX(question.created_at), meal.created_at),
+                    COALESCE(MAX(answer.answered_at), meal.created_at),
+                    COALESCE(MAX(correction.created_at), meal.created_at)
+                )
                 < now() - interval '365 days'
-          ORDER BY meal.user_id",
+          ORDER BY meal.id",
     )
     .fetch_all(&mut *transaction)
     .await?;
-    let mut purged_user_aggregates = 0;
-    for user_id in expired_users {
-        if purge_user_data_tx(&mut transaction, UserId::from_uuid(user_id)).await? {
-            sqlx::query("DELETE FROM auth.external_identity WHERE user_id = $1")
-                .bind(user_id)
-                .execute(&mut *transaction)
-                .await?;
-            purged_user_aggregates += 1;
+    let mut purged_analysis_aggregates = 0;
+    for (analysis_id, user_id) in expired_analyses {
+        let user_id = UserId::from_uuid(user_id);
+        set_privacy_purge_user_id(&mut transaction, user_id).await?;
+        if purge_analysis_tx(&mut transaction, analysis_id, user_id).await? {
+            purged_analysis_aggregates += 1;
         }
     }
     transaction.commit().await?;
     Ok(PrivacyRetentionReport {
         deleted_parser_telemetry,
         deleted_audit_events,
-        purged_user_aggregates,
+        purged_analysis_aggregates,
     })
 }
 
-async fn enable_privacy_purge(
+async fn set_privacy_purge_user_id(
     transaction: &mut Transaction<'_, Postgres>,
+    user_id: UserId,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query("SELECT set_config('app.privacy_purge', 'true', true)")
+    sqlx::query("SELECT set_config('app.privacy_purge_user_id', $1, true)")
+        .bind(user_id.as_uuid().to_string())
         .execute(&mut **transaction)
         .await
         .map(|_| ())
@@ -381,6 +392,35 @@ async fn purge_user_data_tx(
     .bind(user_id.as_uuid())
     .fetch_all(&mut **transaction)
     .await?;
+    if analysis_ids.is_empty() {
+        return Ok(false);
+    }
+    purge_analysis_ids_tx(transaction, user_id, &analysis_ids).await
+}
+
+async fn purge_analysis_tx(
+    transaction: &mut Transaction<'_, Postgres>,
+    analysis_id: Uuid,
+    user_id: UserId,
+) -> Result<bool, sqlx::Error> {
+    let analysis_ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id
+           FROM analysis.meal_analysis
+          WHERE id = $1 AND user_id = $2
+          FOR UPDATE",
+    )
+    .bind(analysis_id)
+    .bind(user_id.as_uuid())
+    .fetch_all(&mut **transaction)
+    .await?;
+    purge_analysis_ids_tx(transaction, user_id, &analysis_ids).await
+}
+
+async fn purge_analysis_ids_tx(
+    transaction: &mut Transaction<'_, Postgres>,
+    user_id: UserId,
+    analysis_ids: &[Uuid],
+) -> Result<bool, sqlx::Error> {
     if analysis_ids.is_empty() {
         return Ok(false);
     }
@@ -432,7 +472,7 @@ async fn purge_user_data_tx(
     ] {
         if statement.contains("ops.job") {
             sqlx::query(statement)
-                .bind(&analysis_ids)
+                .bind(analysis_ids)
                 .bind(&analysis_id_text)
                 .execute(&mut **transaction)
                 .await?;
@@ -443,7 +483,7 @@ async fn purge_user_data_tx(
                 .await?;
         } else {
             sqlx::query(statement)
-                .bind(&analysis_ids)
+                .bind(analysis_ids)
                 .execute(&mut **transaction)
                 .await?;
         }
