@@ -295,8 +295,17 @@ async fn worker_claim_retry_and_outbox_delivery_are_bounded() {
 }
 
 fn assert_contextual_snapshot(expected: &AnalysisSnapshot, actual: &AnalysisSnapshot) {
+    let mut expected_value = serde_json::to_value(expected).expect("snapshot serializes");
+    if let Some(items) = expected_value
+        .get_mut("items")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        for item in items {
+            item["source_text"] = serde_json::Value::String("[redacted]".to_owned());
+        }
+    }
     assert_eq!(
-        serde_json::to_value(expected).expect("snapshot serializes"),
+        expected_value,
         serde_json::to_value(actual).expect("replayed snapshot serializes")
     );
     let protein = actual

@@ -5,6 +5,7 @@ mod fdc_importer;
 mod ops_repository;
 mod parser_telemetry;
 mod portion_repository;
+mod privacy;
 mod seed;
 
 pub use analysis_repository::PostgresAnalysisRepository;
@@ -27,6 +28,10 @@ pub use fdc_importer::{
 pub use ops_repository::{ClaimedJob, claim_jobs, complete_job, deliver_outbox_batch, fail_job};
 pub use parser_telemetry::PostgresParserTelemetrySink;
 pub use portion_repository::PostgresPortionEvidenceProvider;
+pub use privacy::{
+    PrivacyDeletionReceipt, PrivacyError, PrivacyRetentionReport, USER_DATA_EXPORT_VERSION,
+    delete_user_data, export_user_data, run_privacy_retention,
+};
 pub use seed::seed_foundation_fixture;
 
 use sqlx::{PgPool, postgres::PgPoolOptions};

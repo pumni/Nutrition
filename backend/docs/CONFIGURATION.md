@@ -68,6 +68,11 @@ For `staging` and `production`, `WORKER_MODE` and `WORKER_ID` are also required.
 
 For `local` and `ci`, an omitted `WORKER_MODE` defaults to `idle` and an omitted `WORKER_ID` defaults to `worker-local`.
 
+`RUN_PRIVACY_RETENTION=true` runs one ownership-scoped privacy retention pass during worker
+startup. It deletes parser telemetry older than 30 days, content-free audit events older than
+365 days, and user-owned analysis aggregates whose latest revision is older than 365 days. The
+job removes external identity mappings after aggregate purge and fails closed on database errors.
+
 Optional bounded settings:
 
 - `WORKER_DATABASE_POOL_SIZE` (default `4`, range `1..=32`)
@@ -121,3 +126,12 @@ This contract makes unsafe configuration fail closed; it does not claim producti
 - hosted parser production enablement remains gated by #8, #9, and privacy/legal review;
 - FDC source staging remains non-publishing until the `fdc_energy_v1` validation and source/reviewer gates from #5–#6 are resolved;
 - Vietnamese source rights and portion evidence remain gated by #5 and #7.
+
+## Privacy API
+
+The authenticated `GET /v1/nutrition/me/export` endpoint returns `user-data-export-v1` JSON with
+owned analyses, revisions, clarification/correction history, and behavior-version metadata. The
+authenticated `DELETE /v1/nutrition/me` endpoint purges the caller's owned analysis aggregate and
+returns a content-free deletion receipt. Neither endpoint exports or logs raw meal text, source
+spans, authorization material, provider telemetry, or security logs. Global catalog evidence is
+not user-owned and is not deleted.
