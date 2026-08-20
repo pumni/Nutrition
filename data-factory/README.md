@@ -80,10 +80,23 @@ python scripts/run_fdc_full_release.py `
   --archive artifacts/raw/usda_fdc_foundation/2026-04-30/FoodData_Central_foundation_food_json_2026-04-30.zip `
   --extracted artifacts/raw/usda_fdc_foundation/2026-04-30/extracted/FoodData_Central_foundation_food_json_2026-04-30.json `
   --object-store artifacts/objects `
-  --output artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v7 `
+  --output artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v9 `
   --backend-baseline 479ac773b372599e2648437bfe5b56620f1b706d `
   --retrieved-at 2026-08-20T00:00:00+00:00
 ```
+
+When an evidence unblock pack is available, add its inputs to the same run:
+
+```powershell
+  --vietnamese-corpus <pack>/01_vietnamese_corpus_seed.json `
+  --recipe-evidence <pack>/02_recipe_evidence_candidates.json `
+  --portion-evidence <pack>/03_portion_source_candidates.json `
+  --portion-plan <pack>/04_physical_portion_measurement_plan.md
+```
+
+Vietnamese phrases become proposal-only review packets. Institutional recipe and portion sources
+become evidence candidates with hashes and missing-evidence reports; they do not become approved
+recipes, calculated profiles or published portions automatically.
 
 The runner verifies the pinned archive and extracted JSON hashes, accounts for every raw source
 row, preserves raw nutrient observations, and writes `full-catalog-package/`. The package is

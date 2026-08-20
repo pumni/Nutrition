@@ -53,6 +53,20 @@ class CurationTests(unittest.TestCase):
         self.assertFalse(packet["machine_confidence"]["authoritative"])
         self.assertIsNone(packet["decision"])
 
+    def test_evidence_source_class_and_negation_are_preserved_for_review(self) -> None:
+        result = extract_candidates(
+            {
+                "observations": [
+                    {"case_id": "case-1", "phrase": "da gà", "context": "không ăn da gà", "source_class": "pending_human_review", "negated": True},
+                    {"case_id": "case-1", "phrase": "thịt gà", "context": "chỉ ăn thịt", "source_class": "pending_human_review", "negated": False},
+                ]
+            },
+            ExtractionPolicy(),
+        )
+        by_phrase = {item["phrase"]: item for item in result.candidates}
+        self.assertEqual(by_phrase["da gà"]["source_classes"], ["pending_human_review"])
+        self.assertEqual(by_phrase["da gà"]["negated_observation_count"], 1)
+
     def test_decision_history_is_human_only_and_non_destructive(self) -> None:
         history = DecisionHistory()
         first = CurationDecision(
@@ -100,4 +114,3 @@ class CurationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

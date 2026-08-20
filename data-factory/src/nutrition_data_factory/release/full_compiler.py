@@ -27,6 +27,9 @@ def compile_full_catalog_package(
     food_concepts: list[dict[str, Any]],
     food_names: list[dict[str, Any]],
     source_food_mappings: list[dict[str, Any]],
+    vietnamese_review_packets: list[dict[str, Any]],
+    recipe_evidence_candidates: list[dict[str, Any]],
+    portion_evidence_candidates: list[dict[str, Any]],
     curation_decisions: list[dict[str, Any]],
     recipes: list[dict[str, Any]],
     recipe_components: list[dict[str, Any]],
@@ -54,6 +57,9 @@ def compile_full_catalog_package(
     _write_jsonl(output_dir / "food-concepts-candidates.jsonl", food_concepts)
     _write_jsonl(output_dir / "food-names-candidates.jsonl", food_names)
     _write_jsonl(output_dir / "source-food-mappings-candidates.jsonl", source_food_mappings)
+    _write_jsonl(output_dir / "vietnamese-review-packets.jsonl", vietnamese_review_packets)
+    _write_jsonl(output_dir / "recipe-evidence-candidates.jsonl", recipe_evidence_candidates)
+    _write_jsonl(output_dir / "portion-evidence-candidates.jsonl", portion_evidence_candidates)
     _write_jsonl(output_dir / "curation-decisions.jsonl", curation_decisions)
     _write_jsonl(output_dir / "recipes.jsonl", recipes)
     _write_jsonl(output_dir / "recipe-components.jsonl", recipe_components)
@@ -102,9 +108,12 @@ def compile_full_catalog_package(
                 "food-concepts-candidates.jsonl",
                 "food-names-candidates.jsonl",
                 "source-food-mappings-candidates.jsonl",
+                "vietnamese-review-packets.jsonl",
                 "curation-decisions.jsonl",
+                "recipe-evidence-candidates.jsonl",
                 "recipes.jsonl",
                 "recipe-components.jsonl",
+                "portion-evidence-candidates.jsonl",
                 "portion-observations.jsonl",
                 "source-quality-report.json",
                 "backend-compatibility-report.json",

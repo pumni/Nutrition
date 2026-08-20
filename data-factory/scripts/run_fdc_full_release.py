@@ -22,6 +22,7 @@ from nutrition_data_factory.compatibility import (  # noqa: E402
     load_compatibility_manifest,
 )
 from nutrition_data_factory.curation.extractor import ExtractionPolicy, extract_candidates  # noqa: E402
+from nutrition_data_factory.curation.packets import build_review_packet  # noqa: E402
 from nutrition_data_factory.impact import build_impact_report  # noqa: E402
 from nutrition_data_factory.models import NormalizedRecord  # noqa: E402
 from nutrition_data_factory.normalization.synthetic import normalize_label  # noqa: E402
@@ -47,6 +48,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--object-store", type=Path, required=True)
     parser.add_argument("--backend-baseline", required=True)
     parser.add_argument("--vietnamese-corpus", type=Path)
+    parser.add_argument("--recipe-evidence", type=Path)
+    parser.add_argument("--portion-evidence", type=Path)
+    parser.add_argument("--portion-plan", type=Path)
     parser.add_argument(
         "--retrieved-at",
         required=True,
@@ -101,14 +105,14 @@ def main(argv: list[str] | None = None) -> int:
         "raw_source_rows_accounted_for": parsed.raw_record_count == len(parsed.accepted_records) + len(parsed.rejected_records),
     }
 
-    vietnamese_candidates, vietnamese_report = _load_vietnamese_candidates(args.vietnamese_corpus)
+    vietnamese_candidates, vietnamese_report, vietnamese_review_packets = _load_vietnamese_candidates(args.vietnamese_corpus)
     food_concepts, source_names, source_mappings = _food_identity_candidates(parsed.accepted_records, metadata.code)
     food_names = [*source_names, *vietnamese_candidates]
     recipes: list[dict[str, Any]] = []
     recipe_components: list[dict[str, Any]] = []
     portions: list[dict[str, Any]] = []
-    recipe_report = _not_supplied_report("recipe-evidence-0.1.0", "recipe evidence input was not supplied")
-    portion_report = _not_supplied_report("portion-evidence-0.1.0", "measured portion evidence input was not supplied")
+    recipe_evidence_candidates, recipe_report = _load_recipe_evidence(args.recipe_evidence, parsed.accepted_records)
+    portion_evidence_candidates, portion_report = _load_portion_evidence(args.portion_evidence, args.portion_plan)
 
     counts = {
         "raw_source_rows": parsed.raw_record_count,
@@ -123,6 +127,9 @@ def main(argv: list[str] | None = None) -> int:
         "food_name_candidates": len(food_names),
         "source_food_mapping_candidates": len(source_mappings),
         "vietnamese_identity_candidates": len(vietnamese_candidates),
+        "vietnamese_review_packets": len(vietnamese_review_packets),
+        "recipe_evidence_candidates": len(recipe_evidence_candidates),
+        "portion_evidence_candidates": len(portion_evidence_candidates),
         "recipes": len(recipes),
         "recipe_components": len(recipe_components),
         "portion_observations": len(portions),
@@ -158,8 +165,8 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(source_quality.errors)} full-source quality errors require review or remain quarantined",
             f"{registry_statuses.get('source_preserved_unmapped', 0)} source nutrient IDs have no approved product semantic mapping",
             "Vietnamese identity corpus was not supplied" if not args.vietnamese_corpus else "Vietnamese identity candidates remain proposals",
-            "Recipe evidence was not supplied",
-            "Measured portion evidence was not supplied",
+            "Recipe evidence was not supplied" if not args.recipe_evidence else f"{len(recipe_evidence_candidates)} recipe evidence candidates remain review_required; 0 compile-ready",
+            "Measured portion evidence was not supplied" if not args.portion_evidence else f"{len(portion_evidence_candidates)} portion evidence candidates remain review_required; 0 published",
             "Production activation and backend import were not attempted",
         ],
     }
@@ -205,6 +212,9 @@ def main(argv: list[str] | None = None) -> int:
         food_concepts=food_concepts,
         food_names=food_names,
         source_food_mappings=source_mappings,
+        vietnamese_review_packets=vietnamese_review_packets,
+        recipe_evidence_candidates=recipe_evidence_candidates,
+        portion_evidence_candidates=portion_evidence_candidates,
         curation_decisions=[],
         recipes=recipes,
         recipe_components=recipe_components,
@@ -302,9 +312,9 @@ def _food_identity_candidates(records: tuple[FdcSourceRecord, ...], source_code:
     return concepts, names, mappings
 
 
-def _load_vietnamese_candidates(path: Path | None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def _load_vietnamese_candidates(path: Path | None) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
     if path is None:
-        return [], _not_supplied_report("vietnamese-identity-0.1.0", "Vietnamese corpus was not supplied")
+        return [], _not_supplied_report("vietnamese-identity-0.1.0", "Vietnamese corpus was not supplied"), []
     corpus_bytes = path.read_bytes()
     corpus_sha256 = _sha256(corpus_bytes)
     payload = json.loads(corpus_bytes.decode("utf-8"))
@@ -319,10 +329,117 @@ def _load_vietnamese_candidates(path: Path | None) -> tuple[list[dict[str, Any]]
             "review_status": item["review_status"],
             "evidence_refs": item["context_refs"],
             "source_corpus_sha256": corpus_sha256,
+            "source_classes": item.get("source_classes", []),
+            "negated_observation_count": item.get("negated_observation_count", 0),
         }
         for item in result.candidates
     ]
-    return candidates, {"corpus_available": True, "corpus_path": str(path), "corpus_sha256": corpus_sha256, "status": "proposal_only", **result.report, "candidate_count": len(candidates)}
+    review_packets = []
+    for candidate in result.candidates:
+        packet = build_review_packet(
+            candidate,
+            evidence_refs=[f"vietnamese-corpus-sha256:{corpus_sha256}"],
+        )
+        packet["source_classes"] = candidate.get("source_classes", [])
+        packet["negated_observation_count"] = candidate.get("negated_observation_count", 0)
+        packet["source_corpus_sha256"] = corpus_sha256
+        review_packets.append(packet)
+    return candidates, {"corpus_available": True, "corpus_path": str(path), "corpus_sha256": corpus_sha256, "status": "proposal_only", **result.report, "candidate_count": len(candidates), "review_packet_count": len(review_packets)}, review_packets
+
+
+def _load_recipe_evidence(path: Path | None, records: tuple[FdcSourceRecord, ...]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if path is None:
+        return [], _not_supplied_report("recipe-evidence-0.1.0", "recipe evidence input was not supplied")
+    evidence_bytes = path.read_bytes()
+    evidence_sha256 = _sha256(evidence_bytes)
+    payload = json.loads(evidence_bytes.decode("utf-8"))
+    candidates = payload.get("candidates") if isinstance(payload, dict) else payload
+    if not isinstance(candidates, list):
+        raise ValueError("recipe evidence must contain a candidates array")
+    source_labels = {normalize_label(record.description): str(record.fdc_id) for record in records}
+    packaged: list[dict[str, Any]] = []
+    unresolved_identity_count = 0
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        evidence = candidate.get("evidence", {})
+        identity_review = []
+        if isinstance(evidence, dict):
+            for key in sorted(evidence):
+                label = str(key).removesuffix("_g").replace("_", " ")
+                normalized_label = normalize_label(label)
+                exact_source_id = source_labels.get(normalized_label)
+                identity_review.append(
+                    {
+                        "observed_ingredient": label,
+                        "status": "proposal_exact_source_match" if exact_source_id else "unresolved_identity",
+                        "source_id": exact_source_id,
+                        "human_review_required": True,
+                    }
+                )
+                if exact_source_id is None:
+                    unresolved_identity_count += 1
+        packaged.append(
+            {
+                **candidate,
+                "source_evidence_sha256": evidence_sha256,
+                "review_status": "review_required",
+                "compilation_status": "not_compile_ready",
+                "ingredient_identity_review": identity_review,
+                "nutrition_values_emitted": False,
+            }
+        )
+    missing_field_count = sum(len(item.get("missing_for_compile", [])) for item in packaged)
+    return packaged, {
+        "report_version": "recipe-evidence-0.1.0",
+        "status": "review_required",
+        "source_path": str(path),
+        "source_sha256": evidence_sha256,
+        "candidate_count": len(packaged),
+        "compile_ready_count": 0,
+        "missing_evidence_item_count": missing_field_count,
+        "unresolved_ingredient_identity_count": unresolved_identity_count,
+        "nutrition_values_emitted": False,
+    }
+
+
+def _load_portion_evidence(path: Path | None, plan_path: Path | None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if path is None:
+        return [], _not_supplied_report("portion-evidence-0.1.0", "measured/institutional portion evidence input was not supplied")
+    evidence_bytes = path.read_bytes()
+    evidence_sha256 = _sha256(evidence_bytes)
+    payload = json.loads(evidence_bytes.decode("utf-8"))
+    candidates = payload.get("candidates") if isinstance(payload, dict) else payload
+    if not isinstance(candidates, list):
+        raise ValueError("portion evidence must contain a candidates array")
+    packaged = [
+        {
+            **candidate,
+            "source_type": "institutional_reference",
+            "source_evidence_sha256": evidence_sha256,
+            "review_status": "proposal",
+            "publication_status": "not_published",
+            "project_measurement_required": candidate.get("quality_state") == "not_directly_usable_for_edible_portion",
+            "human_review_required": True,
+        }
+        for candidate in candidates
+        if isinstance(candidate, dict)
+    ]
+    plan_sha256 = None
+    if plan_path is not None:
+        plan_sha256 = _sha256(plan_path.read_bytes())
+    return packaged, {
+        "report_version": "portion-evidence-0.1.0",
+        "status": "review_required",
+        "source_path": str(path),
+        "source_sha256": evidence_sha256,
+        "measurement_plan_path": str(plan_path) if plan_path else None,
+        "measurement_plan_sha256": plan_sha256,
+        "candidate_count": len(packaged),
+        "institutional_reference_candidate_count": len(packaged),
+        "project_measurement_required_count": sum(1 for item in packaged if item["project_measurement_required"]),
+        "published_portion_count": 0,
+    }
 
 
 def _not_supplied_report(report_version: str, detail: str) -> dict[str, Any]:
