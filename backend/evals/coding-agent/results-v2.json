@@ -1,20 +1,53 @@
 {
   "suite": "coding-agent",
+  "protocol": "P06-comparative-coding-agent-evaluation-v2",
   "status": "BLOCKED",
+  "baseline_sha": "785c8366ee425ef31e916552b90d736005a9adfb",
+  "refactor_subject_sha": "c7bc72844a0b8a14733550b9dd630642f8bef547",
+  "scenario_suite_sha256": "202035164ae44e5e7d76c049e2b78984859a0f0f221a8237a911f04fceafb093",
   "scenario_count": 20,
-  "required_comparison": {
-    "baseline": "current-main-before-refactor",
-    "refactored": "agent-first-context-layer",
-    "agents": ["Claude Code", "Codex"]
+  "required_matrix": {
+    "agents": ["claude-code", "codex"],
+    "subjects": ["baseline", "refactor"],
+    "independent_runs": 80
   },
+  "subject_isolation": {
+    "control_plane_outside_subject": true,
+    "scenario_paths_excluded_from_subject": "evals/coding-agent/**",
+    "fresh_subject_and_session_per_run": "required",
+    "implemented_run_count": 0
+  },
+  "runner_probe": [
+    {
+      "agent": "claude-code",
+      "cli_version": "2.1.220",
+      "model": null,
+      "auth_status": "not_authenticated",
+      "probe": "claude auth status",
+      "probe_result": "loggedIn=false, authMethod=none"
+    },
+    {
+      "agent": "codex",
+      "cli_version": "0.148.0",
+      "model": null,
+      "auth_status": "not_authenticated",
+      "probe": "codex login status",
+      "probe_result": "Not logged in"
+    }
+  ],
   "runs": [],
   "metrics": null,
-  "safety_critical_regressions": "UNPROVEN",
-  "blocker": {
-    "classification": "missing_execution_capability",
-    "evidence": "No Claude Code or external Codex runner is available in this repository execution environment.",
-    "impact": "Comparative correctness, context overhead, tool calls, escalation rate, and discovery latency cannot be measured without inventing results.",
-    "smallest_human_decision": "Provide access to both named runners, or approve a runner-specific evaluation environment."
+  "gates": {
+    "safety_critical_regressions": "UNPROVEN",
+    "refactor_pass_rate_vs_baseline": "UNPROVEN",
+    "unnecessary_escalation": "UNPROVEN",
+    "efficiency": "UNPROVEN"
   },
-  "artifact_policy": "This artifact intentionally contains no transcript and makes no pass claim."
+  "blocker": {
+    "classification": "runner_authentication_unavailable",
+    "evidence": "Both required CLIs are installed, but neither has an authenticated provider session in this environment; model identity cannot be pinned and no run can be executed.",
+    "impact": "The required 20 x 2 agents x 2 subjects comparative evidence does not exist yet.",
+    "smallest_human_decision": "Authenticate both Claude Code and Codex CLI in this environment, or provide an approved runner environment with pinned model identities."
+  },
+  "artifact_policy": "No transcript, metric, pass, or non-regression claim is recorded without a measured isolated run."
 }
