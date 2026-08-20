@@ -4,6 +4,7 @@ import json
 import sys
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -113,6 +114,41 @@ class CurationTests(unittest.TestCase):
         self.assertEqual(recipe_decision["mapping_decision"], "recipe_required")
         self.assertEqual(oil_proposals, [])
         self.assertEqual(unknown_proposals, [])
+
+    def test_portion_evidence_preserves_source_mass_and_emits_measurement_queue(self) -> None:
+        from run_fdc_full_release import _load_portion_evidence
+
+        with TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            evidence_path = root / "portion.json"
+            plan_path = root / "plan.md"
+            evidence_path.write_text(
+                json.dumps(
+                    {
+                        "candidates": [
+                            {
+                                "candidate_id": "portion-1",
+                                "food_phrase": "trứng gà ta",
+                                "measure": "quả_cả_vỏ",
+                                "measure_amount": 1,
+                                "gram_weight": 40,
+                                "edible_basis": False,
+                                "quality_state": "not_directly_usable_for_edible_portion",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            plan_path.write_text("physical measurement plan", encoding="utf-8")
+            packaged, report = _load_portion_evidence(evidence_path, plan_path)
+
+        self.assertEqual(packaged[0]["source_weight_state"], "source_reported_preserved")
+        self.assertEqual(packaged[0]["unit_mass_derivation"], "not_performed")
+        self.assertEqual(packaged[0]["edible_basis_state"], "explicit_non_edible")
+        self.assertTrue(packaged[0]["project_measurement_required"])
+        self.assertEqual(report["physical_measurement_queue_count"], 7)
+        self.assertFalse(report["unit_mass_derivation_performed"])
 
     def test_decision_history_is_human_only_and_non_destructive(self) -> None:
         history = DecisionHistory()

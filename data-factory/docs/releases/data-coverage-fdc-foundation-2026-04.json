@@ -26,9 +26,9 @@
     "regression_status": "matched"
   },
   "package": {
-    "relative_artifact_path": "artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v21/full-catalog-package",
-    "manifest_sha256": "fe8564c841f43e75281ec6f1cd4450cebcfef9ef45d18d67d28bdf9938d2a955",
-    "checksums_sha256": "819c004b345201d716b384600bf5ec3881eb8e512db9414bfdf89ef01f8a8f7f",
+    "relative_artifact_path": "artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v22/full-catalog-package",
+    "manifest_sha256": "b858640595ca60f2e61f8fb1f63ee203cd378fcde2f91ea8bfce5c4688074788",
+    "checksums_sha256": "aa24fa0a577d440600d994f3fdf8877d89308b6727bd943e76e2b3771d08656b",
     "import_mode": "staged_only",
     "production_eligible": false,
     "activation_attempted": false,
@@ -58,6 +58,7 @@
     "recipes": 0,
     "recipe_components": 0,
     "portion_evidence_candidates": 4,
+    "portion_measurement_queue_candidates": 7,
     "portion_observations": 0
   },
   "accounting": {
@@ -175,7 +176,23 @@
       "status": "review_required",
       "institutional_candidates": 4,
       "published": 0,
-      "project_measurement_required": 1
+      "project_measurement_required": 1,
+      "source_weight_preserved": 4,
+      "edible_basis_explicit": 2,
+      "edible_basis_unknown": 2,
+      "not_directly_usable_for_edible_portion": 1,
+      "physical_measurement_queue": 7,
+      "unit_mass_derivation_performed": false,
+      "policy_version": "portion-evidence-0.2.0",
+      "measurement_queue_priority": [
+        "cơm trắng × bát",
+        "phở bò × tô",
+        "bún bò Huế × phần",
+        "sữa tươi × ly",
+        "rau muống × nắm",
+        "bánh mì × ổ",
+        "trứng luộc × quả"
+      ]
     }
   },
   "unresolved_gaps": [
@@ -183,7 +200,7 @@
     "152 source nutrient IDs have no approved product semantic mapping",
     "Vietnamese review remains owner-directed: 15 candidates, 0 semantically compatible FDC mapping proposals, 4 non-approved identity decisions",
     "4 recipe evidence candidates remain review_required; 0 compile-ready; 21 missing-evidence items; 16 ingredient identities have no semantic candidate",
-    "4 portion evidence candidates remain review_required; 0 published",
+    "4 portion evidence candidates remain review_required; 0 published; 7 residual measurement contexts; 2 candidates have unconfirmed edible basis",
     "Production activation and backend import were not attempted"
   ]
 }

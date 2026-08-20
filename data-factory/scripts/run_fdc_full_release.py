@@ -144,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
         "recipe_ingredient_identity_no_candidate": recipe_report.get("ingredient_identity_no_candidate_count", 0),
         "recipe_non_mass_quantities": recipe_report.get("non_mass_quantity_count", 0),
         "portion_evidence_candidates": len(portion_evidence_candidates),
+        "portion_measurement_queue_candidates": portion_report.get("physical_measurement_queue_count", 0),
         "recipes": len(recipes),
         "recipe_components": len(recipe_components),
         "portion_observations": len(portions),
@@ -192,7 +193,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"0 compile-ready; {recipe_report['missing_evidence_item_count']} missing-evidence items; "
                 f"{recipe_report['ingredient_identity_no_candidate_count']} ingredient identities have no semantic candidate"
             ),
-            "Measured portion evidence was not supplied" if not args.portion_evidence else f"{len(portion_evidence_candidates)} portion evidence candidates remain review_required; 0 published",
+            "Measured portion evidence was not supplied"
+            if not args.portion_evidence
+            else (
+                f"{len(portion_evidence_candidates)} portion evidence candidates remain review_required; 0 published; "
+                f"{portion_report['physical_measurement_queue_count']} residual measurement contexts; "
+                f"{portion_report['edible_basis_unknown_count']} candidates have unconfirmed edible basis"
+            ),
             "Production activation and backend import were not attempted",
         ],
     }
@@ -967,6 +974,62 @@ def _propose_recipe_ingredient_sources(
     ], profile
 
 
+PORTION_EVIDENCE_POLICY_VERSION = "portion-evidence-0.2.0"
+
+
+_RESIDUAL_PORTION_MEASUREMENT_QUEUE: tuple[dict[str, Any], ...] = (
+    {
+        "food_phrase": "cơm trắng",
+        "preparation": "cooked",
+        "measure_context": "bát",
+        "priority": "high",
+        "reason": "No reviewed portion pair is bound to the benchmark's specific cooked-rice bowl context.",
+    },
+    {
+        "food_phrase": "phở bò",
+        "preparation": "prepared dish",
+        "measure_context": "tô",
+        "priority": "high",
+        "reason": "Recipe evidence lacks broth/output context and no exact bowl context is source-backed.",
+    },
+    {
+        "food_phrase": "bún bò Huế",
+        "preparation": "prepared dish",
+        "measure_context": "phần",
+        "priority": "high",
+        "reason": "Composite dish has no published recipe yield or exact portion context.",
+    },
+    {
+        "food_phrase": "sữa tươi",
+        "preparation": "as consumed",
+        "measure_context": "ly",
+        "priority": "normal",
+        "reason": "Packaged volume may resolve this context; otherwise vessel-specific measurement is required.",
+    },
+    {
+        "food_phrase": "rau muống",
+        "preparation": "as consumed",
+        "measure_context": "nắm",
+        "priority": "normal",
+        "reason": "No source-backed household-unit mass is available for the benchmark context.",
+    },
+    {
+        "food_phrase": "bánh mì",
+        "preparation": "as consumed",
+        "measure_context": "ổ",
+        "priority": "normal",
+        "reason": "Food identity is ambiguous between bread and the composite sandwich dish.",
+    },
+    {
+        "food_phrase": "trứng luộc",
+        "preparation": "boiled",
+        "measure_context": "quả",
+        "priority": "normal",
+        "reason": "Egg type and edible cooked mass are unresolved; do not infer from shell-weight evidence.",
+    },
+)
+
+
 def _load_portion_evidence(path: Path | None, plan_path: Path | None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if path is None:
         return [], _not_supplied_report("portion-evidence-0.1.0", "measured/institutional portion evidence input was not supplied")
@@ -976,24 +1039,58 @@ def _load_portion_evidence(path: Path | None, plan_path: Path | None) -> tuple[l
     candidates = payload.get("candidates") if isinstance(payload, dict) else payload
     if not isinstance(candidates, list):
         raise ValueError("portion evidence must contain a candidates array")
-    packaged = [
-        {
-            **candidate,
-            "source_type": "institutional_reference",
-            "source_evidence_sha256": evidence_sha256,
-            "review_status": "proposal",
-            "publication_status": "not_published",
-            "project_measurement_required": candidate.get("quality_state") == "not_directly_usable_for_edible_portion",
-            "human_review_required": True,
-        }
-        for candidate in candidates
-        if isinstance(candidate, dict)
-    ]
     plan_sha256 = None
     if plan_path is not None:
         plan_sha256 = _sha256(plan_path.read_bytes())
+    packaged = []
+    edible_basis_unknown_count = 0
+    not_directly_usable_count = 0
+    source_weight_preserved_count = 0
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        blockers = _portion_publication_blockers(candidate)
+        edible_basis = candidate.get("edible_basis")
+        if not isinstance(edible_basis, bool):
+            edible_basis_unknown_count += 1
+        if candidate.get("quality_state") == "not_directly_usable_for_edible_portion":
+            not_directly_usable_count += 1
+        if isinstance(candidate.get("gram_weight"), (int, float)) and not isinstance(candidate.get("gram_weight"), bool):
+            source_weight_preserved_count += 1
+        packaged.append(
+            {
+                **candidate,
+                "source_type": "institutional_reference",
+                "source_evidence_sha256": evidence_sha256,
+                "review_status": "review_required",
+                "publication_status": "not_published",
+                "project_measurement_required": candidate.get("quality_state") == "not_directly_usable_for_edible_portion",
+                "source_weight_state": "source_reported_preserved",
+                "unit_mass_derivation": "not_performed",
+                "edible_basis_state": (
+                    "explicit_edible" if edible_basis is True
+                    else "explicit_non_edible" if edible_basis is False
+                    else "unconfirmed"
+                ),
+                "publication_blockers": blockers,
+                "human_review_required": True,
+            }
+        )
+    measurement_queue = [
+        {
+            **item,
+            "queue_rank": rank,
+            "source_type": "project_physical_measurement",
+            "measurement_plan_sha256": plan_sha256,
+            "status": "measurement_required",
+            "published": False,
+            "human_protocol_required": True,
+            "mass_inference_forbidden": True,
+        }
+        for rank, item in enumerate(_RESIDUAL_PORTION_MEASUREMENT_QUEUE, start=1)
+    ]
     return packaged, {
-        "report_version": "portion-evidence-0.1.0",
+        "report_version": PORTION_EVIDENCE_POLICY_VERSION,
         "status": "review_required",
         "source_path": str(path),
         "source_sha256": evidence_sha256,
@@ -1002,8 +1099,33 @@ def _load_portion_evidence(path: Path | None, plan_path: Path | None) -> tuple[l
         "candidate_count": len(packaged),
         "institutional_reference_candidate_count": len(packaged),
         "project_measurement_required_count": sum(1 for item in packaged if item["project_measurement_required"]),
+        "source_weight_preserved_count": source_weight_preserved_count,
+        "edible_basis_explicit_count": sum(1 for item in packaged if item.get("edible_basis_state") in {"explicit_edible", "explicit_non_edible"}),
+        "edible_basis_unknown_count": edible_basis_unknown_count,
+        "not_directly_usable_for_edible_portion_count": not_directly_usable_count,
+        "physical_measurement_queue_count": len(measurement_queue),
+        "physical_measurement_queue": measurement_queue,
+        "unit_mass_derivation_performed": False,
         "published_portion_count": 0,
     }
+
+
+def _portion_publication_blockers(candidate: dict[str, Any]) -> list[str]:
+    blockers = [
+        "institutional source and rights review required",
+        "food identity, preparation, and measure semantics review required",
+    ]
+    if not isinstance(candidate.get("gram_weight"), (int, float)) or isinstance(candidate.get("gram_weight"), bool):
+        blockers.append("source-reported gram weight is missing or non-numeric")
+    if not isinstance(candidate.get("measure_amount"), (int, float)) or isinstance(candidate.get("measure_amount"), bool):
+        blockers.append("source-reported measure amount is missing or non-numeric")
+    if not isinstance(candidate.get("edible_basis"), bool):
+        blockers.append("edible basis is not explicit")
+    elif candidate["edible_basis"] is False:
+        blockers.append("source weight is not directly usable for edible portion")
+    if candidate.get("quality_state") == "not_directly_usable_for_edible_portion":
+        blockers.append("project measurement or edible-basis evidence required")
+    return blockers
 
 
 def _not_supplied_report(report_version: str, detail: str) -> dict[str, Any]:
