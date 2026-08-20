@@ -46,27 +46,42 @@ pub(crate) async fn live() -> Json<HealthResponse> {
 }
 
 pub(crate) async fn ready(State(state): State<AppState>) -> Response {
-    match sqlx::query_scalar::<_, i32>("SELECT 1")
+    let started = std::time::Instant::now();
+    if sqlx::query_scalar::<_, i32>("SELECT 1")
         .fetch_one(&state.pool)
         .await
+        .is_ok()
     {
-        Ok(_) => (
+        record_readiness_metrics(&state, "success", started);
+        (
             StatusCode::OK,
             Json(HealthResponse {
                 status: "ready",
                 application_version: env!("CARGO_PKG_VERSION"),
             }),
         )
-            .into_response(),
-        Err(_) => (
+            .into_response()
+    } else {
+        record_readiness_metrics(&state, "failure", started);
+        (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(HealthResponse {
                 status: "not_ready",
                 application_version: env!("CARGO_PKG_VERSION"),
             }),
         )
-            .into_response(),
+            .into_response()
     }
+}
+
+fn record_readiness_metrics(state: &AppState, outcome: &'static str, started: std::time::Instant) {
+    metrics::counter!("nutrition_db_readiness_total", "outcome" => outcome).increment(1);
+    metrics::histogram!("nutrition_db_readiness_duration_seconds")
+        .record(started.elapsed().as_secs_f64());
+    metrics::gauge!("nutrition_db_pool_size").set(f64::from(state.pool.size()));
+    let idle_connections = u32::try_from(state.pool.num_idle()).unwrap_or(u32::MAX);
+    metrics::gauge!("nutrition_db_pool_idle").set(f64::from(idle_connections));
+    metrics::gauge!("nutrition_db_ready").set(if outcome == "success" { 1.0 } else { 0.0 });
 }
 
 pub(crate) async fn analyze(

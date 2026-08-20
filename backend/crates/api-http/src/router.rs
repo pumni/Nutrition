@@ -3,6 +3,7 @@ use axum::{
     Router,
     extract::DefaultBodyLimit,
     http::HeaderName,
+    middleware,
     routing::{delete, get, post},
 };
 use tower_http::{
@@ -50,7 +51,17 @@ pub(crate) fn build_router(state: AppState) -> Router {
         .with_state(state)
         .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &axum::extract::Request| {
+                let request_id = crate::observability::safe_request_id(request);
+                tracing::info_span!(
+                    "http_request",
+                    method = %request.method(),
+                    request_id = %request_id
+                )
+            }),
+        )
+        .layer(middleware::from_fn(crate::observability::observe_http))
         .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))
 }
 

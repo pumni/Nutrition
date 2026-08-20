@@ -27,6 +27,10 @@ to a UUIDv7 internal user identity.
 - `DELETE /v1/nutrition/me` is ownership-scoped and returns only a deletion event type, timestamp,
   and opaque request reference. It removes external identity mapping only after owned data purge;
   global catalog/composition evidence is retained.
+- Prometheus-compatible operational metrics are exposed only on the separately configured internal
+  metrics listener. Labels use normalized route/operation classes and never contain meal text,
+  tokens, authorization material, user IDs, analysis IDs, provider payloads, database URLs, or raw
+  request paths. See [the observability runbook](OBSERVABILITY.md).
 
 ## Worker
 

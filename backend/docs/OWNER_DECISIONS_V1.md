@@ -167,6 +167,47 @@ production traffic, production activation, or release authorization.
 - Production authorization: `false`.
 - The P1-103 PR must still pass the trusted context, backend, PostgreSQL, and attestation gates.
 
+## OWNER-BE-009 — P2-104 privacy-safe observability implementation
+
+**Status:** Owner-approved on 2026-08-20 for implementation and staging verification only.
+
+The owner authorizes the P2-104 observability contract to use a Prometheus-compatible pull model
+with a bounded, versioned implementation. The API exposes an internal operational `/metrics`
+endpoint backed by `metrics` and `metrics-exporter-prometheus`; the worker exposes the same
+low-cardinality metric contract through a separately bound operational metrics listener. These
+listeners are staging artifacts until the production infrastructure gate is explicitly closed.
+
+The implementation must emit the following privacy-safe, low-cardinality dimensions only:
+
+- HTTP method, route class, status class, and outcome;
+- parser mode, provider outcome, circuit state, and retry class;
+- database operation class and pool/readiness outcome;
+- worker job class/outcome and outbox outcome;
+- catalog release and privacy-retention operation outcomes.
+
+Request IDs remain correlation fields in structured logs and response headers, never metric labels.
+User IDs, analysis IDs, meal text, tokens, authorization material, database URLs, provider payloads,
+and arbitrary request paths are prohibited from logs, labels, and metric values. HTTP route classes
+must be normalized to templates before telemetry is emitted.
+
+Alert rules are versioned Prometheus-compatible recording/alerting artifacts in `deploy/` and use
+the approved OWNER-BE-004 targets: sustained availability/error-budget burn, SLO latency, parser
+circuit open, worker dead jobs, and database readiness failure. Staging failure scenarios must
+prove both telemetry emission and alert rule evaluation; no production dashboard, alert receiver,
+traffic, provider activation, catalog activation, or release authorization is implied.
+
+Approved dependency boundary: add only the `metrics` facade and the
+`metrics-exporter-prometheus` exporter, with versions pinned by the workspace lockfile. Do not add
+an OpenTelemetry collector, hosted telemetry service, queue, or new production infrastructure in
+P2-104. Any further telemetry dependency or change to the metric label contract requires a new
+owner decision.
+
+- Approved scope: `crates/api-http/**`, `crates/worker/**`, `crates/adapters/**`,
+  `crates/persistence-postgres/**`, `Cargo.toml`, `Cargo.lock`, `deploy/**`, and `docs/**`.
+- Production authorization: `false`.
+- Production activation remains blocked by OWNER-BE-006 and its provider/privacy, benchmark,
+  catalog, staging SLO/restore, and release/rollback gates.
+
 ## Source integrity
 
 This repository record was imported from the owner decision package

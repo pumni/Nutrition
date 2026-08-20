@@ -1,0 +1,135 @@
+groups:
+  - name: nutrition-backend-slo
+    interval: 30s
+    rules:
+      - alert: NutritionApiErrorBudgetBurn
+        expr: >-
+          (
+            sum(rate(nutrition_http_requests_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(nutrition_http_requests_total[5m])), 1)
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: page
+          owner_action: api-error-triage
+        annotations:
+          summary: API server-error rate is burning the non-hosted error budget
+          runbook: docs/OBSERVABILITY.md#nutritionapierrorbudgetburn
+
+      - alert: NutritionReadP95AboveTarget
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (
+              rate(nutrition_http_request_duration_seconds_bucket{
+                route=~"analysis_read|analysis_list|analysis_workflow|analysis_revision|health_ready"
+              }[5m])
+            )
+          ) > 0.300
+        for: 10m
+        labels:
+          severity: ticket
+          owner_action: read-latency-triage
+        annotations:
+          summary: Read or readiness p95 exceeds the OWNER-BE-004 target
+          runbook: docs/OBSERVABILITY.md#nutritionreadp95abovetarget
+
+      - alert: NutritionReadP99AboveTarget
+        expr: >-
+          histogram_quantile(
+            0.99,
+            sum by (le, route) (
+              rate(nutrition_http_request_duration_seconds_bucket{
+                route=~"analysis_read|analysis_list|analysis_workflow|analysis_revision|health_ready"
+              }[5m])
+            )
+          ) > 0.800
+        for: 10m
+        labels:
+          severity: page
+          owner_action: read-latency-triage
+        annotations:
+          summary: Read p99 exceeds the OWNER-BE-004 target
+          runbook: docs/OBSERVABILITY.md#nutritionreadp99abovetarget
+
+      - alert: NutritionMutationP95AboveTarget
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (
+              rate(nutrition_http_request_duration_seconds_bucket{
+                route=~"analysis_create|analysis_clarification|analysis_correction|privacy_delete"
+              }[5m])
+            )
+          ) > 0.750
+        for: 10m
+        labels:
+          severity: ticket
+          owner_action: mutation-latency-triage
+        annotations:
+          summary: Non-hosted mutation p95 exceeds the OWNER-BE-004 target
+          runbook: docs/OBSERVABILITY.md#nutritionmutationp95abovetarget
+
+      - alert: NutritionHostedAnalysisP95AboveTarget
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(nutrition_http_request_duration_seconds_bucket{route="analysis_create"}[5m])
+            )
+          ) > 6
+        for: 10m
+        labels:
+          severity: ticket
+          owner_action: hosted-parser-latency-triage
+        annotations:
+          summary: Hosted analysis p95 exceeds the OWNER-BE-004 target
+          runbook: docs/OBSERVABILITY.md#nutritionhostedanalysisp95abovetarget
+
+      - alert: NutritionHostedAnalysisP99AboveTarget
+        expr: >-
+          histogram_quantile(
+            0.99,
+            sum by (le) (
+              rate(nutrition_http_request_duration_seconds_bucket{route="analysis_create"}[5m])
+            )
+          ) > 10
+        for: 10m
+        labels:
+          severity: page
+          owner_action: hosted-parser-latency-triage
+        annotations:
+          summary: Hosted analysis p99 exceeds the OWNER-BE-004 target
+          runbook: docs/OBSERVABILITY.md#nutritionhostedanalysisp99abovetarget
+
+      - alert: NutritionParserCircuitOpen
+        expr: nutrition_parser_circuit_open > 0
+        for: 1m
+        labels:
+          severity: page
+          owner_action: parser-circuit-triage
+        annotations:
+          summary: Hosted parser circuit breaker is open
+          runbook: docs/OBSERVABILITY.md#nutritionparsercircuitopen
+
+      - alert: NutritionWorkerDeadJobs
+        expr: increase(nutrition_worker_dead_jobs_total[5m]) > 0
+        labels:
+          severity: page
+          owner_action: dead-job-triage
+        annotations:
+          summary: Worker dead-letter jobs were observed
+          runbook: docs/OBSERVABILITY.md#nutritionworkerdeadjobs
+
+      - alert: NutritionDatabaseReadinessFailure
+        expr: >-
+          nutrition_db_ready < 1
+          or increase(nutrition_db_readiness_total{outcome="failure"}[2m]) > 0
+        for: 2m
+        labels:
+          severity: page
+          owner_action: database-readiness-triage
+        annotations:
+          summary: PostgreSQL readiness has failed for the alert window
+          runbook: docs/OBSERVABILITY.md#nutritiondatabasereadinessfailure

@@ -1,0 +1,88 @@
+rule_files:
+  - nutrition-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'nutrition_parser_circuit_open'
+        values: '0 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: NutritionParserCircuitOpen
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              owner_action: parser-circuit-triage
+            exp_annotations:
+              summary: Hosted parser circuit breaker is open
+              runbook: docs/OBSERVABILITY.md#nutritionparsercircuitopen
+
+  - interval: 1m
+    input_series:
+      - series: 'nutrition_db_ready'
+        values: '1 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: NutritionDatabaseReadinessFailure
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              owner_action: database-readiness-triage
+            exp_annotations:
+              summary: PostgreSQL readiness has failed for the alert window
+              runbook: docs/OBSERVABILITY.md#nutritiondatabasereadinessfailure
+
+  - interval: 1m
+    input_series:
+      - series: 'nutrition_http_requests_total{status_class="2xx",method="GET",route="analysis_read",outcome="success"}'
+        values: '0 90 180 270 360 450 540 630 720 810 900'
+      - series: 'nutrition_http_requests_total{status_class="5xx",method="GET",route="analysis_read",outcome="server_error"}'
+        values: '0 10 20 30 40 50 60 70 80 90 100'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NutritionApiErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              owner_action: api-error-triage
+            exp_annotations:
+              summary: API server-error rate is burning the non-hosted error budget
+              runbook: docs/OBSERVABILITY.md#nutritionapierrorbudgetburn
+
+  - interval: 1m
+    input_series:
+      - series: 'nutrition_worker_dead_jobs_total{job_class="unsupported"}'
+        values: '0 0 0 0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: NutritionWorkerDeadJobs
+        exp_alerts:
+          - exp_labels:
+              severity: page
+              owner_action: dead-job-triage
+              job_class: unsupported
+            exp_annotations:
+              summary: Worker dead-letter jobs were observed
+              runbook: docs/OBSERVABILITY.md#nutritionworkerdeadjobs
+
+  - interval: 1m
+    input_series:
+      - series: 'nutrition_http_request_duration_seconds_bucket{le="0.3",route="analysis_list"}'
+        values: '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+      - series: 'nutrition_http_request_duration_seconds_bucket{le="0.8",route="analysis_list"}'
+        values: '0 0 0 0 0 10 20 30 40 50 60 70 80 90 100 110 120'
+      - series: 'nutrition_http_request_duration_seconds_bucket{le="+Inf",route="analysis_list"}'
+        values: '0 0 0 0 0 10 20 30 40 50 60 70 80 90 100 110 120'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: NutritionReadP95AboveTarget
+        exp_alerts:
+          - exp_labels:
+              severity: ticket
+              owner_action: read-latency-triage
+              route: analysis_list
+            exp_annotations:
+              summary: Read or readiness p95 exceeds the OWNER-BE-004 target
+              runbook: docs/OBSERVABILITY.md#nutritionreadp95abovetarget

@@ -1,9 +1,14 @@
+use metrics_exporter_prometheus::PrometheusBuilder;
 use persistence_postgres::{
     FdcFoundationImportRequest, claim_jobs, complete_job, deliver_outbox_batch, fail_job,
     import_fdc_foundation_json, run_privacy_retention,
 };
 use sqlx::PgPool;
-use std::{env, fs, time::Duration};
+use std::{
+    env, fs,
+    net::SocketAddr,
+    time::{Duration, Instant},
+};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -17,6 +22,7 @@ async fn main() {
 
     let environment = AppEnvironment::from_env();
     let config = WorkerConfig::from_env(environment);
+    initialize_metrics(config.metrics_bind_addr);
     let run_fdc_import = env_bool("RUN_FDC_FOUNDATION_IMPORT", false);
     let run_privacy_cleanup = env_bool("RUN_PRIVACY_RETENTION", false);
     assert!(
@@ -44,14 +50,33 @@ async fn main() {
         info!("test-only foundation fixture seed applied");
     }
     if run_fdc_import {
-        run_fdc_foundation_import(&pool)
-            .await
-            .expect("FDC Foundation import failed");
+        let started = Instant::now();
+        let result = run_fdc_foundation_import(&pool).await;
+        metrics::counter!(
+            "nutrition_catalog_release_operations_total",
+            "operation" => "foundation_import",
+            "outcome" => if result.is_ok() { "success" } else { "failure" }
+        )
+        .increment(1);
+        metrics::histogram!(
+            "nutrition_catalog_release_operation_duration_seconds",
+            "operation" => "foundation_import"
+        )
+        .record(started.elapsed().as_secs_f64());
+        result.expect("FDC Foundation import failed");
     }
     if run_privacy_cleanup {
-        let report = run_privacy_retention(&pool)
-            .await
-            .expect("privacy retention job failed");
+        let started = Instant::now();
+        let result = run_privacy_retention(&pool).await;
+        metrics::counter!(
+            "nutrition_privacy_retention_runs_total",
+            "operation" => "retention",
+            "outcome" => if result.is_ok() { "success" } else { "failure" }
+        )
+        .increment(1);
+        metrics::histogram!("nutrition_privacy_retention_duration_seconds")
+            .record(started.elapsed().as_secs_f64());
+        let report = result.expect("privacy retention job failed");
         info!(
             deleted_parser_telemetry = report.deleted_parser_telemetry,
             deleted_audit_events = report.deleted_audit_events,
@@ -134,10 +159,19 @@ fn env_bool(name: &str, default: bool) -> bool {
 }
 
 async fn sqlx_healthcheck(pool: &sqlx::PgPool) {
-    sqlx::query("SELECT 1")
-        .execute(pool)
-        .await
-        .expect("database health check failed");
+    let started = Instant::now();
+    let result = sqlx::query("SELECT 1").execute(pool).await;
+    metrics::counter!(
+        "nutrition_db_readiness_total",
+        "outcome" => if result.is_ok() { "success" } else { "failure" }
+    )
+    .increment(1);
+    metrics::histogram!("nutrition_db_readiness_duration_seconds")
+        .record(started.elapsed().as_secs_f64());
+    metrics::gauge!("nutrition_db_pool_size").set(f64::from(pool.size()));
+    let idle_connections = u32::try_from(pool.num_idle()).unwrap_or(u32::MAX);
+    metrics::gauge!("nutrition_db_pool_idle").set(f64::from(idle_connections));
+    result.expect("database health check failed");
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -187,6 +221,7 @@ struct WorkerConfig {
     batch_size: i64,
     poll_interval: Duration,
     mode: WorkerMode,
+    metrics_bind_addr: Option<SocketAddr>,
 }
 
 impl WorkerConfig {
@@ -228,7 +263,49 @@ impl WorkerConfig {
                 60_000,
             ))),
             mode,
+            metrics_bind_addr: configured_metrics_bind_addr(environment),
         }
+    }
+}
+
+fn configured_metrics_bind_addr(environment: AppEnvironment) -> Option<SocketAddr> {
+    match env::var("WORKER_METRICS_BIND_ADDR") {
+        Ok(value) => Some(
+            value
+                .parse()
+                .expect("WORKER_METRICS_BIND_ADDR must be a valid socket address"),
+        ),
+        Err(env::VarError::NotPresent) if environment.allows_development_adapters() => None,
+        Err(env::VarError::NotPresent) => {
+            panic!("WORKER_METRICS_BIND_ADDR is required when APP_ENV is staging or production")
+        }
+        Err(env::VarError::NotUnicode(_)) => {
+            panic!("WORKER_METRICS_BIND_ADDR must be valid Unicode")
+        }
+    }
+}
+
+fn initialize_metrics(address: Option<SocketAddr>) {
+    if let Some(address) = address {
+        let builder = PrometheusBuilder::new()
+            .set_buckets(&[
+                0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0,
+                15.0, 30.0,
+            ])
+            .expect("default Prometheus histogram buckets are valid");
+        builder
+            .with_http_listener(address)
+            .install()
+            .expect("failed to install Prometheus metrics exporter");
+    } else {
+        PrometheusBuilder::new()
+            .set_buckets(&[
+                0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0,
+                15.0, 30.0,
+            ])
+            .expect("default Prometheus histogram buckets are valid")
+            .install_recorder()
+            .expect("failed to install Prometheus metrics recorder");
     }
 }
 
@@ -245,25 +322,63 @@ fn env_u32(name: &str, default: u32, minimum: u32, maximum: u32) -> u32 {
 }
 
 async fn process_once(pool: &PgPool, config: &WorkerConfig) -> u64 {
+    let outbox_started = Instant::now();
     let delivered = deliver_outbox_batch(pool, &config.worker_id, config.batch_size)
         .await
         .expect("outbox delivery failed");
+    metrics::counter!(
+        "nutrition_worker_outbox_events_total",
+        "outcome" => if delivered == 0 { "empty" } else { "delivered" }
+    )
+    .increment(if delivered == 0 { 1 } else { delivered });
+    metrics::histogram!("nutrition_worker_outbox_duration_seconds")
+        .record(outbox_started.elapsed().as_secs_f64());
+    let claim_started = Instant::now();
     let jobs = claim_jobs(pool, &config.worker_id, config.batch_size)
         .await
         .expect("job claim failed");
+    metrics::counter!("nutrition_worker_jobs_claimed_total").increment(jobs.len() as u64);
+    metrics::histogram!("nutrition_worker_claim_duration_seconds")
+        .record(claim_started.elapsed().as_secs_f64());
     for job in &jobs {
         if job.job_type == "foundation_noop" {
             complete_job(pool, job.id)
                 .await
                 .expect("noop job completion failed");
+            metrics::counter!(
+                "nutrition_worker_jobs_total",
+                "job_class" => "foundation_noop",
+                "outcome" => "completed"
+            )
+            .increment(1);
         } else {
-            warn!(job_id = %job.id, job_type = %job.job_type, "unsupported job type");
+            warn!(job_class = "unsupported", "unsupported worker job type");
             fail_job(pool, job, "unsupported_job_type")
                 .await
                 .expect("job failure transition failed");
+            let outcome = if job.attempts >= job.max_attempts {
+                "dead"
+            } else {
+                "retry"
+            };
+            metrics::counter!(
+                "nutrition_worker_jobs_total",
+                "job_class" => "unsupported",
+                "outcome" => outcome
+            )
+            .increment(1);
+            if outcome == "dead" {
+                metrics::counter!(
+                    "nutrition_worker_dead_jobs_total",
+                    "job_class" => "unsupported"
+                )
+                .increment(1);
+            }
         }
     }
-    delivered + u64::try_from(jobs.len()).expect("job batch length fits u64")
+    let processed = delivered + u64::try_from(jobs.len()).expect("job batch length fits u64");
+    metrics::counter!("nutrition_worker_batches_total", "outcome" => "success").increment(1);
+    processed
 }
 
 async fn run_loop(pool: &PgPool, config: &WorkerConfig) {

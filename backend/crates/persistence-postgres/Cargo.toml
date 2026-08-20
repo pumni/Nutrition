@@ -10,6 +10,7 @@ application.workspace = true
 async-trait.workspace = true
 domain.workspace = true
 hex.workspace = true
+metrics.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true

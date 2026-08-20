@@ -68,9 +68,20 @@ pub(crate) async fn build() -> (SocketAddr, AppState) {
         .await
         .expect("API could not connect to PostgreSQL");
     let cursor_hmac_secret = configured_cursor_hmac_secret(environment);
-    let catalog_release_id = active_catalog_release_id(&pool)
-        .await
-        .expect("an active catalog release is required");
+    let catalog_started = std::time::Instant::now();
+    let catalog_result = active_catalog_release_id(&pool).await;
+    metrics::counter!(
+        "nutrition_catalog_release_operations_total",
+        "operation" => "active_release_lookup",
+        "outcome" => if catalog_result.is_ok() { "success" } else { "failure" }
+    )
+    .increment(1);
+    metrics::histogram!(
+        "nutrition_catalog_release_operation_duration_seconds",
+        "operation" => "active_release_lookup"
+    )
+    .record(catalog_started.elapsed().as_secs_f64());
+    let catalog_release_id = catalog_result.expect("an active catalog release is required");
     let (parser, prompt_version, model_provider_version) =
         configured_parser(&pool, &parser_mode).expect("parser configuration is invalid");
     let versions = BehaviorVersions {
@@ -110,6 +121,26 @@ pub(crate) async fn build() -> (SocketAddr, AppState) {
         cursor_hmac_secret: Arc::new(cursor_hmac_secret),
     };
     (address, state)
+}
+
+pub(crate) fn metrics_bind_addr() -> SocketAddr {
+    let environment = AppEnvironment::from_env();
+    match env::var("API_METRICS_BIND_ADDR") {
+        Ok(value) => value
+            .parse()
+            .expect("API_METRICS_BIND_ADDR must be a valid socket address"),
+        Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
+            "127.0.0.1:9090"
+                .parse()
+                .expect("default metrics address is valid")
+        }
+        Err(env::VarError::NotPresent) => {
+            panic!("API_METRICS_BIND_ADDR is required when APP_ENV is staging or production")
+        }
+        Err(env::VarError::NotUnicode(_)) => {
+            panic!("API_METRICS_BIND_ADDR must be valid Unicode")
+        }
+    }
 }
 
 fn configured_cursor_hmac_secret(environment: AppEnvironment) -> Vec<u8> {

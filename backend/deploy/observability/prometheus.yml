@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/nutrition-alerts.yml
+
+scrape_configs:
+  - job_name: nutrition-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:9090"]
+
+  - job_name: nutrition-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["worker:9091"]

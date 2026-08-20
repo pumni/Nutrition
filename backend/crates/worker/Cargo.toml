@@ -6,6 +6,8 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
 persistence-postgres.workspace = true
 sqlx.workspace = true
 tokio.workspace = true
@@ -14,4 +16,3 @@ tracing-subscriber.workspace = true
 
 [lints]
 workspace = true
-

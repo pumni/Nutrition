@@ -7,6 +7,7 @@ mod parser_telemetry;
 mod portion_repository;
 mod privacy;
 mod seed;
+mod telemetry;
 
 pub use analysis_repository::PostgresAnalysisRepository;
 pub use catalog_activation::{
@@ -35,7 +36,7 @@ pub use privacy::{
 pub use seed::seed_foundation_fixture;
 
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
@@ -57,11 +58,19 @@ pub enum PersistenceError {
 /// Returns [`PersistenceError::Connect`] when a connection cannot be established within the
 /// configured acquisition timeout.
 pub async fn connect(database_url: &str, max_connections: u32) -> Result<PgPool, PersistenceError> {
-    PgPoolOptions::new()
+    let started = Instant::now();
+    let result = PgPoolOptions::new()
         .max_connections(max_connections)
         .acquire_timeout(Duration::from_secs(5))
         .connect(database_url)
-        .await
+        .await;
+    telemetry::record_db_operation(
+        "connect",
+        started,
+        if result.is_ok() { "success" } else { "failure" },
+    );
+    result
+        .inspect(telemetry::record_pool_metrics)
         .map_err(PersistenceError::Connect)
 }
 
@@ -72,5 +81,12 @@ pub async fn connect(database_url: &str, max_connections: u32) -> Result<PgPool,
 /// Returns [`PersistenceError::Migrate`] when `PostgreSQL` rejects a migration or the migration
 /// history is inconsistent.
 pub async fn migrate(pool: &PgPool) -> Result<(), PersistenceError> {
-    MIGRATOR.run(pool).await.map_err(PersistenceError::Migrate)
+    let started = Instant::now();
+    let result = MIGRATOR.run(pool).await;
+    telemetry::record_db_operation(
+        "migrate",
+        started,
+        if result.is_ok() { "success" } else { "failure" },
+    );
+    result.map_err(PersistenceError::Migrate)
 }

@@ -42,6 +42,19 @@ impl PostgresAnalysisRepository {
         key: &str,
         request_hash: &str,
     ) -> Result<Option<Value>, ApplicationError> {
+        crate::telemetry::observe_db_future(
+            "idempotency_reserve",
+            self.reserve_idempotency_inner(scope_key, key, request_hash),
+        )
+        .await
+    }
+
+    async fn reserve_idempotency_inner(
+        &self,
+        scope_key: &str,
+        key: &str,
+        request_hash: &str,
+    ) -> Result<Option<Value>, ApplicationError> {
         for _ in 0..50 {
             let claimed = sqlx::query(
                 r"
@@ -112,6 +125,19 @@ impl PostgresAnalysisRepository {
         key: &str,
         request_hash: &str,
     ) -> Result<Option<Value>, ApplicationError> {
+        crate::telemetry::observe_db_future(
+            "idempotency_replay_lookup",
+            self.find_idempotent_response_inner(scope_key, key, request_hash),
+        )
+        .await
+    }
+
+    async fn find_idempotent_response_inner(
+        &self,
+        scope_key: &str,
+        key: &str,
+        request_hash: &str,
+    ) -> Result<Option<Value>, ApplicationError> {
         let row = sqlx::query(
             r"
             SELECT record.request_hash,
@@ -152,17 +178,20 @@ impl PostgresAnalysisRepository {
         analysis_id: AnalysisId,
         user_id: UserId,
     ) -> Result<bool, ApplicationError> {
-        sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS (
+        crate::telemetry::observe_db_future("analysis_authorize", async {
+            sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS (
                 SELECT 1 FROM analysis.meal_analysis
                 WHERE id = $1 AND user_id = $2
             )",
-        )
-        .bind(analysis_id.as_uuid())
-        .bind(user_id.as_uuid())
-        .fetch_one(&self.pool)
+            )
+            .bind(analysis_id.as_uuid())
+            .bind(user_id.as_uuid())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|_| ApplicationError::Persistence)
+        })
         .await
-        .map_err(|_| ApplicationError::Persistence)
     }
 
     /// Resolves an OIDC `(issuer, subject)` pair to a stable internal user identity.
@@ -212,21 +241,30 @@ impl PostgresAnalysisRepository {
 #[async_trait]
 impl AnalysisRepository for PostgresAnalysisRepository {
     async fn save(&self, snapshot: &AnalysisSnapshot) -> Result<(), ApplicationError> {
-        persist_snapshot(&self.pool, snapshot).await
+        crate::telemetry::observe_db_future("analysis_save", persist_snapshot(&self.pool, snapshot))
+            .await
     }
 
     async fn save_clarification(
         &self,
         clarification: &ClarificationAnalysis,
     ) -> Result<(), ApplicationError> {
-        persist_clarification(&self.pool, clarification).await
+        crate::telemetry::observe_db_future(
+            "analysis_save_clarification",
+            persist_clarification(&self.pool, clarification),
+        )
+        .await
     }
 
     async fn find_open_clarification(
         &self,
         analysis_id: AnalysisId,
     ) -> Result<Option<ClarificationAnalysis>, ApplicationError> {
-        find_open_clarification(&self.pool, analysis_id).await
+        crate::telemetry::observe_db_future(
+            "analysis_find_open_clarification",
+            find_open_clarification(&self.pool, analysis_id),
+        )
+        .await
     }
 
     async fn append_clarification_answer(
@@ -234,7 +272,11 @@ impl AnalysisRepository for PostgresAnalysisRepository {
         answer: &ClarificationAnswerRequest,
         snapshot: &AnalysisSnapshot,
     ) -> Result<(), ApplicationError> {
-        persist_clarification_answer(&self.pool, answer, snapshot).await
+        crate::telemetry::observe_db_future(
+            "analysis_append_clarification_answer",
+            persist_clarification_answer(&self.pool, answer, snapshot),
+        )
+        .await
     }
 
     async fn append_correction(
@@ -242,7 +284,11 @@ impl AnalysisRepository for PostgresAnalysisRepository {
         request: &CorrectionRequest,
         snapshot: &AnalysisSnapshot,
     ) -> Result<(), ApplicationError> {
-        persist_correction(&self.pool, request, snapshot).await
+        crate::telemetry::observe_db_future(
+            "analysis_append_correction",
+            persist_correction(&self.pool, request, snapshot),
+        )
+        .await
     }
 }
 
@@ -252,22 +298,25 @@ impl AnalysisSnapshotReader for PostgresAnalysisRepository {
         &self,
         analysis_id: AnalysisId,
     ) -> Result<Option<AnalysisSnapshot>, ApplicationError> {
-        let row = sqlx::query(
-            r"
+        crate::telemetry::observe_db_future("analysis_find", async {
+            let row = sqlx::query(
+                r"
             SELECT revision.result_snapshot, revision.snapshot_hash
             FROM analysis.meal_analysis meal
             JOIN analysis.analysis_revision revision
               ON revision.id = meal.current_revision_id
             WHERE meal.id = $1
             ",
-        )
-        .bind(analysis_id.as_uuid())
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|_| ApplicationError::Persistence)?;
+            )
+            .bind(analysis_id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|_| ApplicationError::Persistence)?;
 
-        row.map(|snapshot_row| decode_snapshot_row(&snapshot_row))
-            .transpose()
+            row.map(|snapshot_row| decode_snapshot_row(&snapshot_row))
+                .transpose()
+        })
+        .await
     }
 
     async fn find_revision(
@@ -275,37 +324,43 @@ impl AnalysisSnapshotReader for PostgresAnalysisRepository {
         analysis_id: AnalysisId,
         revision_number: u32,
     ) -> Result<Option<Value>, ApplicationError> {
-        let row = sqlx::query(
-            r"
+        crate::telemetry::observe_db_future("analysis_find_revision", async {
+            let row = sqlx::query(
+                r"
             SELECT revision.result_snapshot, revision.snapshot_hash
             FROM analysis.analysis_revision revision
             WHERE revision.meal_analysis_id = $1
               AND revision.revision_number = $2
             ",
-        )
-        .bind(analysis_id.as_uuid())
-        .bind(i32::try_from(revision_number).map_err(|_| {
-            ApplicationError::InvalidInput("revision number is too large".to_owned())
-        })?)
-        .fetch_optional(&self.pool)
+            )
+            .bind(analysis_id.as_uuid())
+            .bind(i32::try_from(revision_number).map_err(|_| {
+                ApplicationError::InvalidInput("revision number is too large".to_owned())
+            })?)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|_| ApplicationError::Persistence)?;
+            row.map(|snapshot_row| verified_snapshot_value(&snapshot_row))
+                .transpose()
+        })
         .await
-        .map_err(|_| ApplicationError::Persistence)?;
-        row.map(|snapshot_row| verified_snapshot_value(&snapshot_row))
-            .transpose()
     }
 
     async fn current_revision_id(
         &self,
         analysis_id: AnalysisId,
     ) -> Result<Option<AnalysisRevisionId>, ApplicationError> {
-        sqlx::query_scalar::<_, Uuid>(
-            "SELECT current_revision_id FROM analysis.meal_analysis WHERE id = $1",
-        )
-        .bind(analysis_id.as_uuid())
-        .fetch_optional(&self.pool)
-        .await
-        .map(|value| value.map(AnalysisRevisionId::from_uuid))
-        .map_err(|_| ApplicationError::Persistence)
+        let revision_id = crate::telemetry::observe_db_future("analysis_current_revision", async {
+            sqlx::query_scalar::<_, Uuid>(
+                "SELECT current_revision_id FROM analysis.meal_analysis WHERE id = $1",
+            )
+            .bind(analysis_id.as_uuid())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|_| ApplicationError::Persistence)
+        })
+        .await?;
+        Ok(revision_id.map(AnalysisRevisionId::from_uuid))
     }
 
     async fn list(
@@ -313,8 +368,9 @@ impl AnalysisSnapshotReader for PostgresAnalysisRepository {
         user_id: UserId,
         query: AnalysisListQuery,
     ) -> Result<Vec<AnalysisListEntry>, ApplicationError> {
-        let rows = sqlx::query(
-            r#"
+        crate::telemetry::observe_db_future("analysis_list", async {
+            let rows = sqlx::query(
+                r#"
             SELECT meal.id,
                    meal.status,
                    meal.locale,
@@ -338,58 +394,61 @@ impl AnalysisSnapshotReader for PostgresAnalysisRepository {
             ORDER BY meal.created_at DESC, meal.id DESC
             LIMIT $7
             "#,
-        )
-        .bind(user_id.as_uuid())
-        .bind(query.status.as_deref())
-        .bind(query.locale.as_deref())
-        .bind(query.snapshot_epoch_seconds)
-        .bind(query.after_created_at.as_deref())
-        .bind(query.after_analysis_id.map(AnalysisId::as_uuid))
-        .bind(query.limit)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|_| ApplicationError::Persistence)?;
+            )
+            .bind(user_id.as_uuid())
+            .bind(query.status.as_deref())
+            .bind(query.locale.as_deref())
+            .bind(query.snapshot_epoch_seconds)
+            .bind(query.after_created_at.as_deref())
+            .bind(query.after_analysis_id.map(AnalysisId::as_uuid))
+            .bind(query.limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|_| ApplicationError::Persistence)?;
 
-        rows.into_iter()
-            .map(|row| {
-                let revision_number: Option<i32> = row
-                    .try_get("revision_number")
-                    .map_err(|_| ApplicationError::Persistence)?;
-                Ok(AnalysisListEntry {
-                    analysis_id: AnalysisId::from_uuid(
-                        row.try_get("id")
+            rows.into_iter()
+                .map(|row| {
+                    let revision_number: Option<i32> = row
+                        .try_get("revision_number")
+                        .map_err(|_| ApplicationError::Persistence)?;
+                    Ok(AnalysisListEntry {
+                        analysis_id: AnalysisId::from_uuid(
+                            row.try_get("id")
+                                .map_err(|_| ApplicationError::Persistence)?,
+                        ),
+                        status: row
+                            .try_get("status")
                             .map_err(|_| ApplicationError::Persistence)?,
-                    ),
-                    status: row
-                        .try_get("status")
-                        .map_err(|_| ApplicationError::Persistence)?,
-                    locale: row
-                        .try_get("locale")
-                        .map_err(|_| ApplicationError::Persistence)?,
-                    created_at: row
-                        .try_get("created_at")
-                        .map_err(|_| ApplicationError::Persistence)?,
-                    current_revision_number: revision_number
-                        .map(|value| {
-                            u32::try_from(value).map_err(|_| ApplicationError::Persistence)
-                        })
-                        .transpose()?,
-                    result_status: row
-                        .try_get("result_status")
-                        .map_err(|_| ApplicationError::Persistence)?,
-                    quality_label: row
-                        .try_get("quality_label")
-                        .map_err(|_| ApplicationError::Persistence)?,
+                        locale: row
+                            .try_get("locale")
+                            .map_err(|_| ApplicationError::Persistence)?,
+                        created_at: row
+                            .try_get("created_at")
+                            .map_err(|_| ApplicationError::Persistence)?,
+                        current_revision_number: revision_number
+                            .map(|value| {
+                                u32::try_from(value).map_err(|_| ApplicationError::Persistence)
+                            })
+                            .transpose()?,
+                        result_status: row
+                            .try_get("result_status")
+                            .map_err(|_| ApplicationError::Persistence)?,
+                        quality_label: row
+                            .try_get("quality_label")
+                            .map_err(|_| ApplicationError::Persistence)?,
+                    })
                 })
-            })
-            .collect()
+                .collect()
+        })
+        .await
     }
 
     async fn workflow(
         &self,
         analysis_id: AnalysisId,
     ) -> Result<Option<AnalysisWorkflow>, ApplicationError> {
-        let row = sqlx::query(
+        let started = std::time::Instant::now();
+        let row_result = sqlx::query(
             r"
             SELECT meal.id,
                    meal.status,
@@ -411,7 +470,17 @@ impl AnalysisSnapshotReader for PostgresAnalysisRepository {
         .bind(analysis_id.as_uuid())
         .fetch_optional(&self.pool)
         .await
-        .map_err(|_| ApplicationError::Persistence)?;
+        .map_err(|_| ApplicationError::Persistence);
+        crate::telemetry::record_db_operation(
+            "analysis_workflow",
+            started,
+            if row_result.is_ok() {
+                "success"
+            } else {
+                "failure"
+            },
+        );
+        let row = row_result?;
         let Some(row) = row else {
             return Ok(None);
         };
