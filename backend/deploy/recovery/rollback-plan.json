@@ -1,0 +1,56 @@
+{
+  "schema_version": "recovery-rollback-plan-0.1.0",
+  "owner_decision": "OWNER-BE-005",
+  "production_authorization": false,
+  "scope": "staging preparation and isolated recovery drills only",
+  "application": {
+    "rollback_unit": "immutable application image digest plus reviewed configuration fingerprint",
+    "preconditions": [
+      "freeze promotion and preserve the candidate release evidence",
+      "select the previously approved image digest and configuration fingerprint",
+      "verify the target database migration inventory is compatible with the rollback image",
+      "run readiness, API contract, privacy, and observability checks in the isolated target"
+    ],
+    "execution": [
+      "deploy the previous image digest through the staging deployment mechanism",
+      "apply only the matching non-secret configuration reference",
+      "verify health/readiness and owner-scoped API behavior",
+      "record the rollback target, observed duration, and evidence hashes"
+    ],
+    "production_status": "not authorized by this plan"
+  },
+  "configuration": {
+    "secret_handling": "configuration fingerprints and secret-manager references only; never copy secret values into evidence",
+    "rollback_target": "the exact previously accepted candidate manifest, image digests, and configuration fingerprint"
+  },
+  "catalog": {
+    "rollback_strategy": "create a new staged immutable rollback snapshot from the prior superseded release",
+    "required_validation": [
+      "source release is superseded and carries valid human review and validation evidence",
+      "rollback manifest checksum is recomputed and recorded",
+      "membership counts and release invariants are checked",
+      "activation uses the existing explicit catalog activation gate"
+    ],
+    "prohibited_actions": [
+      "mutate a superseded release",
+      "activate a catalog release automatically",
+      "promote engineering fixtures or non-production-eligible evidence"
+    ]
+  },
+  "migrations": {
+    "policy": "forward-only",
+    "rollback": "restore a compatible database backup and redeploy the compatible application; do not edit or reverse applied migration files",
+    "incompatibility": "stop promotion and create a new forward migration after owner review"
+  },
+  "backup_restore": {
+    "postgres": "encrypted daily backup plus continuous WAL/PITR where supported",
+    "rpo_minutes": 15,
+    "rto_hours": 4,
+    "retention_days": 35,
+    "restore_frequency": {
+      "staging": "monthly",
+      "production_backup_copies": "at least quarterly"
+    },
+    "privacy": "reapply deletion and retention tombstones before restored user data can serve traffic"
+  }
+}
