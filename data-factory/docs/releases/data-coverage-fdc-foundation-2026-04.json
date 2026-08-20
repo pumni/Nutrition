@@ -1,0 +1,86 @@
+{
+  "report_version": "data-coverage-evidence-0.1.0",
+  "release_status": "candidate_review_required",
+  "scope": "full_approved_source_release",
+  "source": {
+    "code": "usda_fdc_foundation",
+    "release": "2026-04-30",
+    "rights_state": "approved",
+    "archive_sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+    "extracted_json_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
+    "schema_fingerprint": "2da322eea296a96ea304c68d235538b6d93412619e72a3cbe7c91032937139c1"
+  },
+  "backend": {
+    "repository": "pumni/Nutrition_backend",
+    "branch": "main",
+    "baseline_sha": "479ac773b372599e2648437bfe5b56620f1b706d",
+    "regression_selection_sha256": "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2",
+    "regression_status": "matched"
+  },
+  "package": {
+    "relative_artifact_path": "artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v7/full-catalog-package",
+    "manifest_sha256": "d1626cdfc3538a57618e2d05ccf7c91b105ebbd1770dbe4944d64fe18c0acaf4",
+    "checksums_sha256": "c75aa56f055a2453bb357badab19fc19f8db2f1ca200d98cb86d38b06bcbec2b",
+    "import_mode": "staged_only",
+    "production_eligible": false,
+    "activation_attempted": false,
+    "pinned_retrieved_at": "2026-08-20T00:00:00+00:00",
+    "reproduction_status": "full-package-checksums-match-repeat-run"
+  },
+  "counts": {
+    "raw_source_rows": 395,
+    "accepted_source_records": 363,
+    "quarantined_source_rows": 32,
+    "normalized_records": 363,
+    "raw_nutrient_observations": 15193,
+    "quarantined_nutrient_observations": 105,
+    "composition_values": 9733,
+    "source_nutrient_registry_entries": 228,
+    "food_concept_candidates": 363,
+    "food_name_candidates": 363,
+    "source_food_mapping_candidates": 363,
+    "vietnamese_identity_candidates": 0,
+    "recipes": 0,
+    "recipe_components": 0,
+    "portion_observations": 0
+  },
+  "accounting": {
+    "raw_equals_accepted_plus_quarantined": true,
+    "every_accepted_source_record_normalized": true,
+    "every_raw_nutrient_preserved_in_source_records": true,
+    "package_checksums_verified": true
+  },
+  "quarantine": {
+    "by_kind": {
+      "source_record": 32,
+      "nutrient_observation": 105
+    },
+    "by_reason": {
+      "null_record": 32,
+      "forbidden_energy": 95,
+      "negative_value": 10
+    },
+    "source_quality_error_count": 10
+  },
+  "nutrient_mapping_coverage": {
+    "unique_source_nutrient_ids": 228,
+    "approved_ids": 76,
+    "source_preserved_unmapped_ids": 152,
+    "raw_observations_with_unmapped_mapping": 5156,
+    "forbidden_observations": 95,
+    "invalid_observations_quarantined": 105
+  },
+  "identity_recipe_portion_coverage": {
+    "vietnamese_identity": "not_supplied",
+    "recipes": "not_supplied",
+    "measured_portions": "not_supplied"
+  },
+  "unresolved_gaps": [
+    "10 full-source quality errors require review or remain quarantined",
+    "152 source nutrient IDs have no approved product semantic mapping",
+    "Vietnamese identity corpus was not supplied",
+    "Recipe evidence was not supplied",
+    "Measured portion evidence was not supplied",
+    "Production activation and backend import were not attempted"
+  ]
+}
