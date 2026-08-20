@@ -91,6 +91,7 @@ Build the human release-gate packet after a candidate is created:
 python scripts/build_release_review_packet.py `
   --run-dir artifacts/derived/usda_fdc_foundation/2026-04-30/dry-run-v4 `
   --package-dir artifacts/derived/usda_fdc_foundation/2026-04-30/dry-run-v4/candidate-package `
+  --backend-head <read-only-backend-commit> `
   --output artifacts/derived/usda_fdc_foundation/2026-04-30/dry-run-v4/release-gate-report.json
 ```
 

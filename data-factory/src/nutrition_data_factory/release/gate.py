@@ -30,6 +30,7 @@ def build_release_gate_report(
     package_dir: Path,
     run_dir: Path,
     compatibility_manifest: Path,
+    backend_head: str | None = None,
 ) -> dict[str, Any]:
     package_dir = package_dir.resolve()
     run_dir = run_dir.resolve()
@@ -48,6 +49,7 @@ def build_release_gate_report(
         _reproducibility_check(package_dir, manifest, acquisition),
         _quality_check(source_quality, candidate_quality, validation),
         _compatibility_check(compatibility, selection),
+        _backend_baseline_check(selection, backend_head),
         _nutrient_check(package_dir),
         _curation_check(package_dir, selection),
         _not_applicable_check("recipes", "recipe evidence is outside this FDC composition candidate"),
@@ -157,6 +159,24 @@ def _compatibility_check(report: dict[str, Any], selection: dict[str, Any]) -> G
             "observed_hash": report.get("observed_selection_sha256"),
         },
         "exact reviewed backend selection reproduced" if passed else "backend selection does not match the approved fingerprint",
+    )
+
+
+def _backend_baseline_check(selection: dict[str, Any], backend_head: str | None) -> GateCheck:
+    expected = selection.get("backend_baseline")
+    if backend_head is None:
+        return GateCheck(
+            "backend_baseline",
+            "review_required",
+            {"expected_head": expected, "observed_head": None},
+            "current backend HEAD must be captured before accepting compatibility evidence",
+        )
+    passed = backend_head == expected
+    return GateCheck(
+        "backend_baseline",
+        "passed" if passed else "review_required",
+        {"expected_head": expected, "observed_head": backend_head},
+        "compatibility evidence is bound to the current backend baseline" if passed else "backend HEAD differs from the handoff baseline; refresh compatibility evidence or explicitly approve the baseline change",
     )
 
 

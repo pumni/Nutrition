@@ -54,6 +54,7 @@ class ReleaseGateTests(unittest.TestCase):
             self.assertFalse(report["production_eligible"])
             self.assertTrue(any(item["gate_id"] == "quality" and item["status"] == "review_required" for item in report["checks"]))
             self.assertTrue(any(item["gate_id"] == "curation" or item["gate_id"] == "identity_curation" for item in report["checks"]))
+            self.assertTrue(any(item["gate_id"] == "backend_baseline" for item in report["checks"]))
 
     @staticmethod
     def _write(path: Path, value: object) -> None:

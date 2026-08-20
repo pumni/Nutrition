@@ -16,13 +16,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--package-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--backend-head", help="read-only backend commit used to audit the compatibility baseline")
     parser.add_argument(
         "--compatibility-manifest",
         type=Path,
         default=ROOT / "config" / "backend-fdc-selection.json",
     )
     args = parser.parse_args(argv)
-    report = build_release_gate_report(args.package_dir, args.run_dir, args.compatibility_manifest)
+    report = build_release_gate_report(args.package_dir, args.run_dir, args.compatibility_manifest, args.backend_head)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(args.output.resolve()), "status": report["status"]}, sort_keys=True))
