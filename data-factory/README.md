@@ -79,8 +79,11 @@ python scripts/run_fdc_dry_run.py `
   --output artifacts/derived/usda_fdc_foundation/2026-04-30/dry-run
 ```
 
-The run records acquisition, parse, quality, compatibility, crosswalk and validation reports. It
-creates a candidate package only when every hard gate passes, and it never activates production.
+The run records acquisition, parse, full-source quality, selected-candidate quality, compatibility,
+crosswalk and validation reports. The candidate quality gate is scoped to the reviewed backend
+selection; full-source anomalies remain visible in `source-quality-report.json`. It creates a
+candidate package only when every hard gate for that selection passes, and it never activates
+production.
 
 ## Ready-task verification
 

@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         for record in parsed.accepted_records
     ]
-    quality = profile_records(
+    source_quality = profile_records(
         records,
         metadata=metadata,
         artifact_sha256=EXTRACTED_SHA256,
@@ -113,9 +113,16 @@ def main(argv: list[str] | None = None) -> int:
     compatibility_manifest = load_compatibility_manifest(ROOT / "config" / "backend-fdc-selection.json")
     expected_ids = set(compatibility_manifest["fdc_ids"])
     selected_source_records = [record for record in parsed.accepted_records if record.fdc_id in expected_ids]
+    selected_records = [record for record in records if int(record["fdc_id"]) in expected_ids]
     compatibility = compare_fdc_selection(
         compatibility_manifest,
         [record.fdc_id for record in selected_source_records],
+    )
+    quality = profile_records(
+        selected_records,
+        metadata=metadata,
+        artifact_sha256=EXTRACTED_SHA256,
+        expected_artifact_sha256=EXTRACTED_SHA256,
     )
     normalized_records: list[NormalizedRecord] = []
     crosswalk_reports = []
@@ -167,6 +174,8 @@ def main(argv: list[str] | None = None) -> int:
             "accepted_record_count": len(parsed.accepted_records),
             "rejected_record_count": len(parsed.rejected_records),
             "selected_record_count": len(selected_source_records),
+            "source_quality_error_count": len(source_quality.errors),
+            "source_quality_warning_count": len(source_quality.warnings),
         },
     )
     impact = build_impact_report({}, {}).to_dict()
@@ -182,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         },
     )
     _write_json(output / "fdc-parse-report.json", parsed.to_dict())
+    _write_json(output / "source-quality-report.json", source_quality.to_dict())
     _write_json(output / "quality-report.json", quality.to_dict())
     _write_json(output / "compatibility-report.json", compatibility.to_dict())
     _write_json(output / "nutrient-crosswalk-report.json", {"records": crosswalk_reports})
@@ -190,6 +200,9 @@ def main(argv: list[str] | None = None) -> int:
         "production_eligible": False,
         "activation_attempted": False,
         "candidate_package_created": False,
+        "candidate_quality_scope": "reviewed_backend_selection",
+        "source_quality_passed": source_quality.passed,
+        "source_quality_error_count": len(source_quality.errors),
     })
     package_path = output / "candidate-package"
     if validation.passed:
@@ -209,6 +222,9 @@ def main(argv: list[str] | None = None) -> int:
             "activation_attempted": False,
             "candidate_package_created": True,
             "candidate_package": str(package_path),
+            "candidate_quality_scope": "reviewed_backend_selection",
+            "source_quality_passed": source_quality.passed,
+            "source_quality_error_count": len(source_quality.errors),
         })
     return 0 if validation.passed else 1
 
@@ -223,4 +239,3 @@ def _sha256(payload: bytes) -> str:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
