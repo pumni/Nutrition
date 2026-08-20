@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/schemas/vietnamese-catalog-evidence-package-0.1.0.json",
+  "title": "Vietnamese catalog evidence package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "package_id", "package_kind", "owner_decision_ref", "source_refs", "release", "records"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "package_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
+    "package_kind": {"const": "vietnamese-catalog-evidence"},
+    "owner_decision_ref": {"const": "docs/OWNER_DECISIONS_V1.md#owner-be-002--initial-vietnamese-catalog-scope"},
+    "source_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source_ref"}},
+    "release": {"$ref": "#/$defs/release"},
+    "records": {"type": "array", "minItems": 1, "items": {"oneOf": [
+      {"$ref": "#/$defs/identity_record"},
+      {"$ref": "#/$defs/alias_record"},
+      {"$ref": "#/$defs/recipe_record"},
+      {"$ref": "#/$defs/portion_record"}
+    ]}}
+  },
+  "$defs": {
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "sha256"],
+      "properties": {
+        "source_ref": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_ref", "sha256"],
+        "properties": {
+          "evidence_ref": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewer_ref", "reviewer_role", "decision_ref"],
+      "properties": {
+        "status": {"enum": ["proposed", "owner_approved", "domain_reviewed"]},
+        "reviewer_ref": {"type": "string", "minLength": 1},
+        "reviewer_role": {"enum": ["none", "human_owner", "human_domain_reviewer"]},
+        "decision_ref": {"const": "docs/OWNER_DECISIONS_V1.md#owner-be-002--initial-vietnamese-catalog-scope"}
+      }
+    },
+    "common": {
+      "type": "object",
+      "required": ["record_id", "locale", "review", "provenance", "release_status", "production_eligible"],
+      "properties": {
+        "record_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
+        "locale": {"const": "vi-VN"},
+        "review": {"$ref": "#/$defs/review"},
+        "provenance": {"$ref": "#/$defs/provenance"},
+        "release_status": {"enum": ["draft", "staged"]},
+        "production_eligible": {"const": false}
+      }
+    },
+    "identity_record": {
+      "allOf": [
+        {"$ref": "#/$defs/common"},
+        {"type": "object", "additionalProperties": false, "required": ["record_id", "record_kind", "locale", "canonical_food_id", "canonical_name", "review", "provenance", "release_status", "production_eligible"], "properties": {
+          "record_id": {"type": "string"}, "record_kind": {"const": "identity"}, "locale": {"const": "vi-VN"}, "canonical_food_id": {"type": "string", "minLength": 1}, "canonical_name": {"type": "string", "minLength": 1}, "review": {"$ref": "#/$defs/review"}, "provenance": {"$ref": "#/$defs/provenance"}, "release_status": {"enum": ["draft", "staged"]}, "production_eligible": {"const": false}
+        }}
+      ]
+    },
+    "alias_record": {
+      "allOf": [
+        {"$ref": "#/$defs/common"},
+        {"type": "object", "additionalProperties": false, "required": ["record_id", "record_kind", "locale", "canonical_food_id", "alias", "review", "provenance", "release_status", "production_eligible"], "properties": {
+          "record_id": {"type": "string"}, "record_kind": {"const": "alias"}, "locale": {"const": "vi-VN"}, "canonical_food_id": {"type": "string", "minLength": 1}, "alias": {"type": "string", "minLength": 1}, "review": {"$ref": "#/$defs/review"}, "provenance": {"$ref": "#/$defs/provenance"}, "release_status": {"enum": ["draft", "staged"]}, "production_eligible": {"const": false}
+        }}
+      ]
+    },
+    "recipe_record": {
+      "allOf": [
+        {"$ref": "#/$defs/common"},
+        {"type": "object", "additionalProperties": false, "required": ["record_id", "record_kind", "locale", "recipe_id", "ingredients", "cooked_yield", "review", "provenance", "release_status", "production_eligible"], "properties": {
+          "record_id": {"type": "string"}, "record_kind": {"const": "recipe"}, "locale": {"const": "vi-VN"}, "recipe_id": {"type": "string", "minLength": 1}, "ingredients": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["food_id", "quantity", "unit"], "properties": {"food_id": {"type": "string", "minLength": 1}, "quantity": {"type": "number", "exclusiveMinimum": 0}, "unit": {"type": "string", "minLength": 1}}}}, "cooked_yield": {"type": "object", "additionalProperties": false, "required": ["quantity", "unit"], "properties": {"quantity": {"type": "number", "exclusiveMinimum": 0}, "unit": {"type": "string", "minLength": 1}}}, "review": {"$ref": "#/$defs/review"}, "provenance": {"$ref": "#/$defs/provenance"}, "release_status": {"enum": ["draft", "staged"]}, "production_eligible": {"const": false}
+        }}
+      ]
+    },
+    "portion_record": {
+      "allOf": [
+        {"$ref": "#/$defs/common"},
+        {"type": "object", "additionalProperties": false, "required": ["record_id", "record_kind", "locale", "food_id", "preparation_state", "measure", "represented_quantity", "study_id", "protocol_version", "independent_samples", "estimate", "review", "provenance", "release_status", "production_eligible"], "properties": {
+          "record_id": {"type": "string"}, "record_kind": {"const": "portion"}, "locale": {"const": "vi-VN"}, "food_id": {"type": "string", "minLength": 1}, "preparation_state": {"type": "string", "minLength": 1}, "measure": {"type": "object", "additionalProperties": false, "required": ["class", "code", "context"], "properties": {"class": {"type": "string", "minLength": 1}, "code": {"type": "string", "minLength": 1}, "context": {"type": "string", "minLength": 1}}}, "represented_quantity": {"type": "number", "exclusiveMinimum": 0}, "study_id": {"type": "string", "minLength": 1}, "protocol_version": {"type": "string", "minLength": 1}, "independent_samples": {"type": "array", "minItems": 1, "items": {"type": "number", "exclusiveMinimum": 0}}, "estimate": {"type": "object", "additionalProperties": false, "required": ["lower_gram_weight", "gram_weight", "upper_gram_weight", "sample_count"], "properties": {"lower_gram_weight": {"type": "number", "exclusiveMinimum": 0}, "gram_weight": {"type": "number", "exclusiveMinimum": 0}, "upper_gram_weight": {"type": "number", "exclusiveMinimum": 0}, "sample_count": {"type": "integer", "minimum": 1}}}, "review": {"$ref": "#/$defs/review"}, "provenance": {"$ref": "#/$defs/provenance"}, "release_status": {"enum": ["draft", "staged"]}, "production_eligible": {"const": false}
+        }}
+      ]
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release_id", "release_version", "status", "production_eligible", "activation_authorized"],
+      "properties": {
+        "release_id": {"type": "string", "minLength": 1},
+        "release_version": {"type": "string", "minLength": 1},
+        "status": {"enum": ["draft", "staged"]},
+        "production_eligible": {"const": false},
+        "activation_authorized": {"const": false}
+      }
+    }
+  }
+}
