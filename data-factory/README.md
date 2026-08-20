@@ -80,7 +80,7 @@ python scripts/run_fdc_full_release.py `
   --archive artifacts/raw/usda_fdc_foundation/2026-04-30/FoodData_Central_foundation_food_json_2026-04-30.zip `
   --extracted artifacts/raw/usda_fdc_foundation/2026-04-30/extracted/FoodData_Central_foundation_food_json_2026-04-30.json `
   --object-store artifacts/objects `
-  --output artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v16 `
+  --output artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v21 `
   --backend-baseline 479ac773b372599e2648437bfe5b56620f1b706d `
   --retrieved-at 2026-08-20T00:00:00+00:00
 ```
@@ -96,9 +96,13 @@ When an evidence unblock pack is available, add its inputs to the same run:
 
 Vietnamese phrases become proposal-only review packets. Semantic source mapping proposals are emitted
 only when all identity/preparation/specificity constraints match; no compatible FDC mapping is emitted
-for the current Vietnamese corpus in the v16 evidence snapshot. Institutional recipe and portion sources
+for the current Vietnamese corpus in the v21 evidence snapshot. Institutional recipe and portion sources
 become evidence candidates with hashes and missing-evidence reports; they do not become approved
 recipes, calculated profiles or published portions automatically.
+
+Recipe evidence reports also emit per-ingredient semantic review, non-mass quantity states and a
+deterministic priority queue. Unknown ingredients fail closed; only exact or constraint-compatible
+source records become review proposals, and no proposal compiles a recipe automatically.
 
 The runner verifies the pinned archive and extracted JSON hashes, accounts for every raw source
 row, preserves raw nutrient observations, and writes `full-catalog-package/`. The package is

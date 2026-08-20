@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -115,7 +116,11 @@ def main(argv: list[str] | None = None) -> int:
     recipes: list[dict[str, Any]] = []
     recipe_components: list[dict[str, Any]] = []
     portions: list[dict[str, Any]] = []
-    recipe_evidence_candidates, recipe_report = _load_recipe_evidence(args.recipe_evidence, parsed.accepted_records)
+    recipe_evidence_candidates, recipe_report = _load_recipe_evidence(
+        args.recipe_evidence,
+        parsed.accepted_records,
+        metadata.code,
+    )
     portion_evidence_candidates, portion_report = _load_portion_evidence(args.portion_evidence, args.portion_plan)
 
     counts = {
@@ -134,6 +139,10 @@ def main(argv: list[str] | None = None) -> int:
         "vietnamese_review_packets": len(vietnamese_review_packets),
         "vietnamese_source_mapping_proposals": vietnamese_report.get("source_mapping_proposal_count", 0),
         "recipe_evidence_candidates": len(recipe_evidence_candidates),
+        "recipe_ingredient_identity_review_required": recipe_report.get("ingredient_identity_review_required_count", 0),
+        "recipe_ingredient_identity_proposals": recipe_report.get("ingredient_identity_proposal_count", 0),
+        "recipe_ingredient_identity_no_candidate": recipe_report.get("ingredient_identity_no_candidate_count", 0),
+        "recipe_non_mass_quantities": recipe_report.get("non_mass_quantity_count", 0),
         "portion_evidence_candidates": len(portion_evidence_candidates),
         "recipes": len(recipes),
         "recipe_components": len(recipe_components),
@@ -176,7 +185,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"{vietnamese_report['source_mapping_proposal_count']} semantically compatible FDC mapping proposals, "
                 f"{vietnamese_report['unresolved_identity_count']} non-approved identity decisions"
             ),
-            "Recipe evidence was not supplied" if not args.recipe_evidence else f"{len(recipe_evidence_candidates)} recipe evidence candidates remain review_required; 0 compile-ready",
+            "Recipe evidence was not supplied"
+            if not args.recipe_evidence
+            else (
+                f"{len(recipe_evidence_candidates)} recipe evidence candidates remain review_required; "
+                f"0 compile-ready; {recipe_report['missing_evidence_item_count']} missing-evidence items; "
+                f"{recipe_report['ingredient_identity_no_candidate_count']} ingredient identities have no semantic candidate"
+            ),
             "Measured portion evidence was not supplied" if not args.portion_evidence else f"{len(portion_evidence_candidates)} portion evidence candidates remain review_required; 0 published",
             "Production activation and backend import were not attempted",
         ],
@@ -642,12 +657,17 @@ def _propose_vietnamese_source_foods(
     required_term_groups = profile["_required_term_groups"]
     for record in source_records:
         description = normalize_label(record.description)
-        if not all(any(term in description for term in group) for group in required_term_groups):
+        if not all(any(_source_description_has_term(description, term) for term in group) for group in required_term_groups):
             continue
-        if any(term in description for term in profile["_forbidden_terms"]):
+        if any(_source_description_has_term(description, term) for term in profile["_forbidden_terms"]):
             continue
         score = 2 * len(required_term_groups)
-        score += sum(1 for group in required_term_groups for term in group if term in description)
+        score += sum(
+            1
+            for group in required_term_groups
+            for term in group
+            if _source_description_has_term(description, term)
+        )
         scored.append((score, record.fdc_id, record))
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [
@@ -665,7 +685,94 @@ def _propose_vietnamese_source_foods(
     ], profile
 
 
-def _load_recipe_evidence(path: Path | None, records: tuple[FdcSourceRecord, ...]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+RECIPE_INGREDIENT_MAPPING_POLICY_VERSION = "recipe-ingredient-semantic-proposal-0.1.0"
+
+
+_RECIPE_INGREDIENT_PROFILES: dict[str, dict[str, Any]] = {
+    "bánh phở": {
+        "identity_classification": "rice_noodle_candidate",
+        "decision_reason": "Rice noodle identity requires a source record that identifies rice noodles; flour or rice-grain records are not substitutes.",
+        "required_source_constraints": [
+            "source description must identify rice noodles",
+            "rice flour and rice grain records are not equivalent",
+        ],
+        "_required_term_groups": (("rice",), ("noodle", "noodles")),
+        "_forbidden_terms": ("flour", "grain"),
+    },
+    "thịt bò": {
+        "identity_classification": "generic_beef_candidate",
+        "decision_reason": "Generic beef ingredient cannot be mapped to an arbitrary cut or processed beef product.",
+        "required_source_constraints": [
+            "source description must identify beef",
+            "source description must not select a specific cut, preparation, or processed beef product",
+        ],
+        "_required_term_groups": (("beef",),),
+        "_forbidden_terms": (
+            "frankfurter", "sausage", "ground", "loin", "round", "ribeye", "steak", "roast",
+            "chuck", "flank", "tenderloin", "sirloin", "porterhouse", "t-bone", "short loin",
+        ),
+    },
+    "dầu ăn": {
+        "identity_classification": "generic_cooking_oil_candidate",
+        "decision_reason": "Generic cooking oil does not identify a specific edible oil source.",
+        "required_source_constraints": [
+            "source description must identify an edible cooking oil",
+            "specific oil types require additional identity evidence",
+        ],
+        "_required_term_groups": (("oil",),),
+        "_forbidden_terms": (
+            "olive", "canola", "soybean", "corn", "sunflower", "sesame", "coconut", "peanut",
+            "safflower", "cottonseed", "palm", "vegetable",
+        ),
+    },
+    "giá đỗ": {
+        "identity_classification": "bean_sprout_candidate",
+        "decision_reason": "Bean-sprout identity requires source evidence for bean/mung sprouts; unrelated sprouts are not substitutes.",
+        "required_source_constraints": [
+            "source description must identify bean or mung-bean sprouts",
+            "unrelated sprouts are not equivalent",
+        ],
+        "_required_term_groups": (("sprout", "sprouts"), ("bean", "mung")),
+        "_forbidden_terms": (),
+    },
+    "hành lá": {
+        "identity_classification": "green_onion_candidate",
+        "decision_reason": "Green-onion identity requires a source record for green onion, scallion, or spring onion.",
+        "required_source_constraints": [
+            "source description must identify green onion, scallion, or spring onion",
+            "bulb onion records are not equivalent by default",
+        ],
+        "_required_term_groups": (("green onion", "scallion", "spring onion"),),
+        "_forbidden_terms": ("bulb",),
+    },
+    "gạo tẻ": {
+        "identity_classification": "non_glutinous_rice_candidate",
+        "decision_reason": "Non-glutinous rice ingredient may propose raw rice records, but the exact variety and processing state still require review.",
+        "required_source_constraints": [
+            "source description must identify rice in raw grain form",
+            "source description must not be flour, cooked rice, glutinous rice, or another color variety",
+        ],
+        "_required_term_groups": (("rice",), ("raw",)),
+        "_forbidden_terms": ("flour", "cooked", "glutinous", "wild", "black", "red", "brown"),
+    },
+    "thịt gà ta": {
+        "identity_classification": "native_chicken_candidate",
+        "decision_reason": "Native chicken requires source evidence for the relevant breed/context and cannot fall back to an arbitrary chicken cut.",
+        "required_source_constraints": [
+            "source description must identify native, free-range, or otherwise compatible chicken context",
+            "source description must not select an arbitrary cut or preparation",
+        ],
+        "_required_term_groups": (("chicken",), ("native", "free-range", "heritage")),
+        "_forbidden_terms": ("breast", "thigh", "drumstick", "wing", "ground", "raw", "cooked"),
+    },
+}
+
+
+def _load_recipe_evidence(
+    path: Path | None,
+    records: tuple[FdcSourceRecord, ...],
+    source_code: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if path is None:
         return [], _not_supplied_report("recipe-evidence-0.1.0", "recipe evidence input was not supplied")
     evidence_bytes = path.read_bytes()
@@ -674,29 +781,54 @@ def _load_recipe_evidence(path: Path | None, records: tuple[FdcSourceRecord, ...
     candidates = payload.get("candidates") if isinstance(payload, dict) else payload
     if not isinstance(candidates, list):
         raise ValueError("recipe evidence must contain a candidates array")
-    source_labels = {normalize_label(record.description): str(record.fdc_id) for record in records}
     packaged: list[dict[str, Any]] = []
+    ingredient_count = 0
+    ingredient_identity_proposal_count = 0
     unresolved_identity_count = 0
+    non_mass_quantity_count = 0
+    dish_counts = Counter(
+        str(candidate.get("dish", "")).casefold()
+        for candidate in candidates
+        if isinstance(candidate, dict)
+    )
     for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
         evidence = candidate.get("evidence", {})
         identity_review = []
+        candidate_non_mass_quantity_count = 0
         if isinstance(evidence, dict):
             for key in sorted(evidence):
                 label = str(key).removesuffix("_g").replace("_", " ")
-                normalized_label = normalize_label(label)
-                exact_source_id = source_labels.get(normalized_label)
+                quantity = evidence[key]
+                quantity_review = _recipe_quantity_review(key, quantity)
+                if quantity_review["state"] != "exact_gram":
+                    non_mass_quantity_count += 1
+                    candidate_non_mass_quantity_count += 1
+                source_foods, ingredient_profile = _propose_recipe_ingredient_sources(
+                    label,
+                    records,
+                    source_code,
+                )
+                ingredient_count += 1
+                if source_foods:
+                    ingredient_identity_proposal_count += 1
+                else:
+                    unresolved_identity_count += 1
                 identity_review.append(
                     {
+                        "evidence_key": key,
                         "observed_ingredient": label,
-                        "status": "proposal_exact_source_match" if exact_source_id else "unresolved_identity",
-                        "source_id": exact_source_id,
+                        "raw_quantity": quantity,
+                        "quantity_review": quantity_review,
+                        "status": "proposal_semantic_source_matches" if source_foods else "unresolved_identity",
+                        "mapping_decision": "deferred" if source_foods else "none",
+                        "decision_reason": ingredient_profile["decision_reason"],
+                        "required_source_constraints": ingredient_profile["required_source_constraints"],
+                        "source_food_proposals": source_foods,
                         "human_review_required": True,
                     }
                 )
-                if exact_source_id is None:
-                    unresolved_identity_count += 1
         packaged.append(
             {
                 **candidate,
@@ -704,12 +836,39 @@ def _load_recipe_evidence(path: Path | None, records: tuple[FdcSourceRecord, ...
                 "review_status": "review_required",
                 "compilation_status": "not_compile_ready",
                 "ingredient_identity_review": identity_review,
+                "ingredient_count": len(identity_review),
+                "non_mass_quantity_count": candidate_non_mass_quantity_count,
                 "nutrition_values_emitted": False,
+            }
+        )
+    priority_items = sorted(
+        packaged,
+        key=lambda item: (
+            -dish_counts[str(item.get("dish", "")).casefold()],
+            len(item.get("missing_for_compile", [])),
+            str(item.get("candidate_id", "")),
+        ),
+    )
+    priority_queue = []
+    for priority_rank, item in enumerate(priority_items, start=1):
+        priority = "high" if dish_counts[str(item.get("dish", "")).casefold()] > 1 else "normal"
+        item["evidence_priority"] = priority
+        item["evidence_priority_rank"] = priority_rank
+        priority_queue.append(
+            {
+                "priority_rank": priority_rank,
+                "priority": priority,
+                "candidate_id": item.get("candidate_id"),
+                "dish": item.get("dish"),
+                "missing_evidence_count": len(item.get("missing_for_compile", [])),
+                "ingredient_count": item.get("ingredient_count", 0),
+                "non_mass_quantity_count": item.get("non_mass_quantity_count", 0),
+                "blocking_fields": item.get("missing_for_compile", []),
             }
         )
     missing_field_count = sum(len(item.get("missing_for_compile", [])) for item in packaged)
     return packaged, {
-        "report_version": "recipe-evidence-0.1.0",
+        "report_version": "recipe-evidence-0.2.0",
         "status": "review_required",
         "source_path": str(path),
         "source_sha256": evidence_sha256,
@@ -717,8 +876,95 @@ def _load_recipe_evidence(path: Path | None, records: tuple[FdcSourceRecord, ...
         "compile_ready_count": 0,
         "missing_evidence_item_count": missing_field_count,
         "unresolved_ingredient_identity_count": unresolved_identity_count,
+        "ingredient_identity_review_required_count": ingredient_count,
+        "ingredient_identity_proposal_count": ingredient_identity_proposal_count,
+        "ingredient_identity_no_candidate_count": unresolved_identity_count,
+        "non_mass_quantity_count": non_mass_quantity_count,
+        "priority_queue": priority_queue,
+        "mapping_policy_version": RECIPE_INGREDIENT_MAPPING_POLICY_VERSION,
         "nutrition_values_emitted": False,
     }
+
+
+def _recipe_quantity_review(key: str, quantity: Any) -> dict[str, Any]:
+    if isinstance(quantity, (int, float)) and not isinstance(quantity, bool) and key.casefold().endswith("_g"):
+        return {"state": "exact_gram", "value_g": quantity}
+    if isinstance(quantity, str) and quantity.strip():
+        return {"state": "non_mass_quantity", "raw_value": quantity}
+    return {"state": "unresolved_quantity", "raw_value": quantity}
+
+
+def _source_description_has_term(description: str, term: str) -> bool:
+    return re.search(
+        rf"(?<![a-z0-9]){re.escape(term.casefold())}(?![a-z0-9])",
+        description.casefold(),
+    ) is not None
+
+
+def _propose_recipe_ingredient_sources(
+    label: str,
+    source_records: tuple[FdcSourceRecord, ...],
+    source_code: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    normalized_label = normalize_label(label)
+    profile = _RECIPE_INGREDIENT_PROFILES.get(normalized_label)
+    if profile is None:
+        exact_matches = [
+            record for record in source_records if normalize_label(record.description) == normalized_label
+        ]
+        profile = {
+            "identity_classification": "unresolved_identity",
+            "decision_reason": "No bounded semantic ingredient profile exists; exact source identity or human clarification is required.",
+            "required_source_constraints": ["exact source identity or human ingredient clarification is required"],
+            "_required_term_groups": (),
+            "_forbidden_terms": (),
+        }
+        if exact_matches:
+            return [
+                {
+                    "source_code": source_code,
+                    "source_id": str(record.fdc_id),
+                    "description": record.description,
+                    "match_score": 100,
+                    "status": "proposal_exact_source_match",
+                    "human_review_required": True,
+                    "semantic_policy_version": RECIPE_INGREDIENT_MAPPING_POLICY_VERSION,
+                    "matched_constraints": list(profile["required_source_constraints"]),
+                }
+                for record in sorted(exact_matches, key=lambda item: item.fdc_id)[:5]
+            ], profile
+        return [], profile
+
+    scored: list[tuple[int, int, FdcSourceRecord]] = []
+    required_term_groups = profile["_required_term_groups"]
+    for record in source_records:
+        description = normalize_label(record.description)
+        if not all(any(_source_description_has_term(description, term) for term in group) for group in required_term_groups):
+            continue
+        if any(_source_description_has_term(description, term) for term in profile["_forbidden_terms"]):
+            continue
+        score = 2 * len(required_term_groups)
+        score += sum(
+            1
+            for group in required_term_groups
+            for term in group
+            if _source_description_has_term(description, term)
+        )
+        scored.append((score, record.fdc_id, record))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return [
+        {
+            "source_code": source_code,
+            "source_id": str(record.fdc_id),
+            "description": record.description,
+            "match_score": score,
+            "status": "proposal",
+            "human_review_required": True,
+            "semantic_policy_version": RECIPE_INGREDIENT_MAPPING_POLICY_VERSION,
+            "matched_constraints": list(profile["required_source_constraints"]),
+        }
+        for score, _, record in scored[:5]
+    ], profile
 
 
 def _load_portion_evidence(path: Path | None, plan_path: Path | None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
