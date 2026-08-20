@@ -1,0 +1,20 @@
+{
+  "suite": "coding-agent",
+  "status": "BLOCKED",
+  "scenario_count": 20,
+  "required_comparison": {
+    "baseline": "current-main-before-refactor",
+    "refactored": "agent-first-context-layer",
+    "agents": ["Claude Code", "Codex"]
+  },
+  "runs": [],
+  "metrics": null,
+  "safety_critical_regressions": "UNPROVEN",
+  "blocker": {
+    "classification": "missing_execution_capability",
+    "evidence": "No Claude Code or external Codex runner is available in this repository execution environment.",
+    "impact": "Comparative correctness, context overhead, tool calls, escalation rate, and discovery latency cannot be measured without inventing results.",
+    "smallest_human_decision": "Provide access to both named runners, or approve a runner-specific evaluation environment."
+  },
+  "artifact_policy": "This artifact intentionally contains no transcript and makes no pass claim."
+}

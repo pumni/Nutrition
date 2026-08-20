@@ -9,15 +9,13 @@ pub fn run(root: &Path) -> Result<(), Box<dyn Error>> {
     let crates = runtime_crates(root)?;
     let mut violations = Vec::new();
     for (name, manifest) in &crates {
-        let dependencies = dependency_names(&fs::read_to_string(manifest)?);
-        for dependency in forbidden_dependencies(name) {
-            if dependencies.contains(*dependency) {
-                violations.push(format!(
-                    "[architecture] violation\ncrate: {name}\nforbidden dependency: {dependency}\nexpected: {}\nsource: {}\nsee: docs/architecture/index.md#dependency-direction",
-                    expected_rule(name),
-                    manifest.display()
-                ));
-            }
+        let content = fs::read_to_string(manifest)?;
+        for violation in violations_for_manifest(name, &content) {
+            violations.push(format!(
+                "[architecture] violation\ncrate: {name}\nforbidden dependency: {violation}\nexpected: {}\nsource: {}\nsee: docs/architecture/index.md#dependency-direction",
+                expected_rule(name),
+                manifest.display()
+            ));
         }
     }
     if violations.is_empty() {
@@ -26,6 +24,15 @@ pub fn run(root: &Path) -> Result<(), Box<dyn Error>> {
     } else {
         Err(violations.join("\n\n").into())
     }
+}
+
+pub fn violations_for_manifest(crate_name: &str, manifest: &str) -> Vec<String> {
+    let dependencies = dependency_names(manifest);
+    forbidden_dependencies(crate_name)
+        .iter()
+        .filter(|dependency| dependencies.contains(**dependency))
+        .map(|dependency| (*dependency).to_owned())
+        .collect()
 }
 
 fn runtime_crates(root: &Path) -> Result<BTreeMap<String, std::path::PathBuf>, Box<dyn Error>> {
@@ -117,7 +124,7 @@ fn expected_rule(crate_name: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::dependency_names;
+    use super::{dependency_names, violations_for_manifest};
 
     #[test]
     fn parses_workspace_dependency_forms() {
@@ -129,7 +136,16 @@ mod tests {
 
     #[test]
     fn rejects_forbidden_domain_dependency_in_fixture() {
-        let dependencies = dependency_names("[dependencies]\nsqlx.workspace = true");
-        assert!(dependencies.contains("sqlx"));
+        let violations = violations_for_manifest(
+            "domain",
+            "[dependencies]\nsqlx.workspace = true\nserde = \"1\"",
+        );
+        assert_eq!(violations, vec!["sqlx"]);
+    }
+
+    #[test]
+    fn allows_domain_foundation_dependencies() {
+        let violations = violations_for_manifest("domain", "[dependencies]\nserde = \"1\"");
+        assert!(violations.is_empty());
     }
 }

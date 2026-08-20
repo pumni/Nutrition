@@ -76,8 +76,8 @@ pub fn run(root: &Path) -> Result<(), Box<dyn Error>> {
             compose[2].clone(),
             compose[3].clone(),
             compose[4].clone(),
-            "stop".to_owned(),
-            "postgres".to_owned(),
+            "down".to_owned(),
+            "--remove-orphans".to_owned(),
         ],
         &[],
     );

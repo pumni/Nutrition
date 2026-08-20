@@ -9,6 +9,8 @@ struct Entry {
 
 pub fn run(root: &Path, record_new: bool) -> Result<(), Box<dyn Error>> {
     let manifest_path = root.join("migrations/manifest.sha256");
+    let files = migration_files(root)?;
+    validate_migration_files(&files)?;
     if record_new {
         record_new_entries(root, &manifest_path)?;
     }
@@ -68,6 +70,7 @@ fn verify_entries(root: &Path, entries: &[Entry]) -> Result<(), Box<dyn Error>> 
             .into());
         }
         previous = Some(entry.path.as_str());
+        validate_migration_name(Path::new(&entry.path))?;
         let path = root.join("migrations").join(&entry.path);
         if !path.is_file() {
             return Err(format!(
@@ -121,6 +124,58 @@ fn migration_files(root: &Path) -> Result<Vec<std::path::PathBuf>, Box<dyn Error
     Ok(files)
 }
 
+fn validate_migration_files(files: &[std::path::PathBuf]) -> Result<(), Box<dyn Error>> {
+    let mut previous_number = None;
+    for file in files {
+        let number = validate_migration_name(file)?;
+        if let Some(previous) = previous_number
+            && number <= previous
+        {
+            return Err(format!(
+                "[migrations] SQL migration order must increase strictly: {}",
+                file.display()
+            )
+            .into());
+        }
+        previous_number = Some(number);
+    }
+    Ok(())
+}
+
+fn validate_migration_name(path: &Path) -> Result<u32, Box<dyn Error>> {
+    let name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| {
+            format!(
+                "[migrations] invalid migration filename: {}",
+                path.display()
+            )
+        })?;
+    let stem = name
+        .strip_suffix(".sql")
+        .ok_or_else(|| format!("[migrations] migration must use .sql: {name}"))?;
+    let (number, description) = stem
+        .split_once('_')
+        .ok_or_else(|| format!("[migrations] migration must be NNNN_description.sql: {name}"))?;
+    if number.len() != 4 || !number.chars().all(|character| character.is_ascii_digit()) {
+        return Err(
+            format!("[migrations] migration number must be exactly four digits: {name}").into(),
+        );
+    }
+    if description.is_empty()
+        || !description.chars().all(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_'
+        })
+    {
+        return Err(format!(
+            "[migrations] migration description must use lowercase snake_case: {name}"
+        )
+        .into());
+    }
+    Ok(number.parse()?)
+}
+
 fn digest(path: &Path) -> Result<String, Box<dyn Error>> {
     let mut hasher = Sha256::new();
     hasher.update(fs::read(path)?);
@@ -129,7 +184,8 @@ fn digest(path: &Path) -> Result<String, Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_manifest;
+    use super::{parse_manifest, validate_migration_files, validate_migration_name};
+    use std::path::PathBuf;
 
     #[test]
     fn parses_comments_and_entries() {
@@ -140,5 +196,24 @@ mod tests {
     #[test]
     fn rejects_malformed_entries() {
         assert!(parse_manifest("0001.sql nope\n").is_err());
+    }
+
+    #[test]
+    fn validates_forward_only_migration_names_and_order() {
+        let files = vec![
+            PathBuf::from("0001_foundations.sql"),
+            PathBuf::from("0014_new_policy.sql"),
+        ];
+        assert!(validate_migration_files(&files).is_ok());
+        assert!(validate_migration_name(PathBuf::from("0015_Bad.sql").as_path()).is_err());
+    }
+
+    #[test]
+    fn rejects_duplicate_or_out_of_order_migrations() {
+        let files = vec![
+            PathBuf::from("0002_second.sql"),
+            PathBuf::from("0001_first.sql"),
+        ];
+        assert!(validate_migration_files(&files).is_err());
     }
 }
