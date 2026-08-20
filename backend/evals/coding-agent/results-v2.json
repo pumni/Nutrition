@@ -3,7 +3,7 @@
   "protocol": "P06-comparative-coding-agent-evaluation-v2",
   "status": "BLOCKED",
   "baseline_sha": "785c8366ee425ef31e916552b90d736005a9adfb",
-  "refactor_subject_sha": "c7bc72844a0b8a14733550b9dd630642f8bef547",
+  "refactor_subject_sha": "74d5a6cf5decfaf43db7e7fa0efe7795e153fd6d",
   "scenario_suite_sha256": "202035164ae44e5e7d76c049e2b78984859a0f0f221a8237a911f04fceafb093",
   "scenario_count": 20,
   "required_matrix": {
@@ -12,8 +12,12 @@
     "independent_runs": 80
   },
   "subject_isolation": {
+    "runner": "evals/coding-agent/control/run-eval.ps1",
     "control_plane_outside_subject": true,
     "scenario_paths_excluded_from_subject": "evals/coding-agent/**",
+    "exclusion_verified_by_runner": true,
+    "prompt_sections_injected": ["Starting state", "User task"],
+    "evaluator_outcome_and_rubric_injected": false,
     "fresh_subject_and_session_per_run": "required",
     "implemented_run_count": 0
   },
