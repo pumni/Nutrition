@@ -137,7 +137,7 @@ The read path verifies the persisted snapshot SHA-256 before deserialization.
 
 ## PostgreSQL
 
-The eleven migrations create seven logical schemas, the minimal walking-skeleton tables, search
+The migrations create seven logical schemas, the minimal walking-skeleton tables, search
 indexes, behavior version fields, snapshot persistence, scoped idempotency, release membership,
 workflow state enforcement, worker leases, audit storage, ownership, parser invocation telemetry,
 and immutability guards.
