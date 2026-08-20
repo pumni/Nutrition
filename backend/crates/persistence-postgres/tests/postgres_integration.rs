@@ -12,7 +12,7 @@ use persistence_postgres::{
     deliver_outbox_batch, fail_job, migrate, seed_foundation_fixture,
 };
 use rust_decimal::Decimal;
-use std::{env, str::FromStr};
+use std::{env, str::FromStr, time::Duration};
 
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
@@ -292,6 +292,31 @@ async fn worker_claim_retry_and_outbox_delivery_are_bounded() {
             .await
             .expect("outbox fixture delivery must be readable");
     assert!(fixture_published);
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn database_acquisition_pressure_returns_with_existing_bound() {
+    let database_url =
+        env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
+    let pool = connect(&database_url, 1)
+        .await
+        .expect("integration database must connect");
+    let held = pool
+        .acquire()
+        .await
+        .expect("the single pool connection must be acquirable");
+
+    let acquisition = tokio::time::timeout(Duration::from_secs(7), pool.acquire())
+        .await
+        .expect("pool acquisition must return within the existing bounded timeout");
+    assert!(
+        acquisition.is_err(),
+        "a saturated one-connection pool must not grant a second connection"
+    );
+
+    drop(held);
+    pool.close().await;
 }
 
 fn assert_contextual_snapshot(expected: &AnalysisSnapshot, actual: &AnalysisSnapshot) {
