@@ -85,6 +85,19 @@ selection; full-source anomalies remain visible in `source-quality-report.json`.
 candidate package only when every hard gate for that selection passes, and it never activates
 production.
 
+Build the human release-gate packet after a candidate is created:
+
+```powershell
+python scripts/build_release_review_packet.py `
+  --run-dir artifacts/derived/usda_fdc_foundation/2026-04-30/dry-run-v4 `
+  --package-dir artifacts/derived/usda_fdc_foundation/2026-04-30/dry-run-v4/candidate-package `
+  --output artifacts/derived/usda_fdc_foundation/2026-04-30/dry-run-v4/release-gate-report.json
+```
+
+The packet distinguishes technical `passed` checks from `review_required` decisions. It cannot
+turn machine curation proposals, source anomalies, impact gaps or missing rollback approval into
+an activation decision.
+
 ## Ready-task verification
 
 ```text
