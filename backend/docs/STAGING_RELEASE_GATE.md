@@ -1,0 +1,66 @@
+# Staging release gate evidence
+
+Status: candidate-evidence preparation only. Production publication, production traffic, and
+catalog activation are not authorized.
+
+`scripts/prepare-staging-release-gate.ps1` assembles a deterministic, fail-closed gate record for
+an exact candidate. It consumes two external JSON documents:
+
+1. candidate evidence from `scripts/prepare-release-evidence.ps1`;
+2. a gate-input document containing the external staging/auth/review evidence and the six required
+   M0–M5 gate statuses.
+
+All input and output paths must be outside the repository. The script binds the candidate file
+SHA-256, current clean Git commit, migration set, parser/schema/provider identity, catalog release,
+behavior vector, externally hashed auth configuration evidence, externally hashed rollback-target
+evidence, container digests, and the versioned rollback plan SHA-256. It never reads or writes secrets, deploys an image, calls a hosted provider, changes
+traffic, activates a catalog, creates a tag, or publishes `v1.0.0`.
+
+## Required gates
+
+The gate input must contain exactly one record for each ID below. A `pass` record requires an
+external artifact path; the script computes its SHA-256 and compares it with the declared digest,
+then validates a wrapper containing the exact task ID, gate ID, candidate SHA, subject commit,
+result, scope, and `production_authorization=false`. A `blocked` record must carry a safe evidence
+reference but no artifact or waiver. Waivers are fail-closed for P0-106 until a new, explicitly
+scoped owner decision authorizes one; OWNER-BE-007 is limited to P1-101 and is not accepted here.
+
+- `M0-governance`
+- `M1-provider-privacy`
+- `M2-vietnamese-benchmark`
+- `M3-catalog-production-eligibility`
+- `M4-staging-slo-load-restore`
+- `M5-release-rollback`
+
+The output is `status=blocked` when any gate is blocked. When all six gates are closed, the output
+is only `ready_for_owner_release_review`; it is never a release approval.
+
+## Candidate preparation
+
+```powershell
+$candidateInput = Join-Path $env:TEMP "nutrition-release-inputs.json"
+$candidate = Join-Path $env:TEMP "nutrition-release-evidence-candidate.json"
+pwsh -NoLogo -NoProfile -File .\scripts\prepare-release-evidence.ps1 `
+  -ReleaseInputsPath $candidateInput -OutputPath $candidate
+```
+
+The candidate input must be owner/platform evidence. Do not replace missing catalog, provider,
+auth, or container evidence with guessed values. A foundation fixture may be used for a synthetic
+local drill only and is not production-eligible.
+
+## Gate assembly
+
+```powershell
+$gateInputs = Join-Path $env:TEMP "nutrition-staging-gate-input.json"
+$gateEvidence = Join-Path $env:TEMP "nutrition-staging-gate-evidence.json"
+pwsh -NoLogo -NoProfile -File .\scripts\prepare-staging-release-gate.ps1 `
+  -CandidateEvidencePath $candidate `
+  -GateInputsPath $gateInputs `
+  -OutputPath $gateEvidence
+Get-Content -Raw $gateEvidence
+```
+
+The gate record is the durable handoff for owner review. `OWNER-BE-006` still requires provider
+privacy, benchmark, `production_eligible` catalog evidence, staging SLO/load/restore evidence, and
+reviewed release/rollback targets before production activation. The owner remains the sole authority
+for canonical publication and production release.

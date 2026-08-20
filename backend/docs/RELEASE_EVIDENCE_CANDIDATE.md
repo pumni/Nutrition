@@ -48,3 +48,7 @@ document. It never copies secrets or credentials into evidence.
 
 This is an evidence preparation aid for issue #16. A human owner must still review the evidence,
 staging behavior, security/privacy conditions, and release policy before any production action.
+
+For the complete staging gate assembly, continue with
+[STAGING_RELEASE_GATE.md](STAGING_RELEASE_GATE.md). That second step binds this candidate to the
+six M0–M5 gate records and remains candidate-only.
