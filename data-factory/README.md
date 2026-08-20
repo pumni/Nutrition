@@ -80,7 +80,7 @@ python scripts/run_fdc_full_release.py `
   --archive artifacts/raw/usda_fdc_foundation/2026-04-30/FoodData_Central_foundation_food_json_2026-04-30.zip `
   --extracted artifacts/raw/usda_fdc_foundation/2026-04-30/extracted/FoodData_Central_foundation_food_json_2026-04-30.json `
   --object-store artifacts/objects `
-  --output artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v9 `
+  --output artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v12 `
   --backend-baseline 479ac773b372599e2648437bfe5b56620f1b706d `
   --retrieved-at 2026-08-20T00:00:00+00:00
 ```

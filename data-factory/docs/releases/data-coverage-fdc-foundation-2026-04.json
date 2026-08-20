@@ -26,9 +26,9 @@
     "regression_status": "matched"
   },
   "package": {
-    "relative_artifact_path": "artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v9/full-catalog-package",
-    "manifest_sha256": "373f79eba39ebb15d8e9398a2fe7db48f72ae29866f0416442d736abef2d9bb0",
-    "checksums_sha256": "804344a60edd7b86a35ad85a844379dcd3fda9b7ee44d511dfe74ece013005d5",
+    "relative_artifact_path": "artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v12/full-catalog-package",
+    "manifest_sha256": "205e000e17b66d1f80090ec86ea1d18d9cd39570feaf7bfd69d1a98cad9ffe2a",
+    "checksums_sha256": "f780a2200c7379e1c638a38ca173c431ebcd72b3e66d754f658bb5e9ba7ab858",
     "import_mode": "staged_only",
     "production_eligible": false,
     "activation_attempted": false,
@@ -45,7 +45,7 @@
     "composition_values": 9733,
     "source_nutrient_registry_entries": 228,
     "food_concept_candidates": 363,
-    "food_name_candidates": 363,
+    "food_name_candidates": 378,
     "source_food_mapping_candidates": 363,
     "vietnamese_identity_candidates": 15,
     "vietnamese_review_packets": 15,
@@ -86,7 +86,10 @@
       "status": "proposal_only",
       "observations": 22,
       "unique_candidates": 15,
-      "review_packets": 15
+      "review_packets": 15,
+      "candidate_with_source_mapping_proposals": 10,
+      "unresolved_identity_candidates": 5,
+      "recipe_required_candidates": 3
     },
     "recipes": {
       "status": "review_required",
@@ -105,7 +108,7 @@
   "unresolved_gaps": [
     "10 full-source quality errors require review or remain quarantined",
     "152 source nutrient IDs have no approved product semantic mapping",
-    "15 Vietnamese identity candidates remain proposals pending human review",
+    "15 Vietnamese identity candidates remain proposals pending human review (10 have ranked source-food proposals; 5 remain unresolved)",
     "4 recipe evidence candidates remain review_required; 0 compile-ready",
     "4 portion evidence candidates remain review_required; 0 published",
     "Production activation and backend import were not attempted"

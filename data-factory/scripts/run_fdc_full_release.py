@@ -105,7 +105,11 @@ def main(argv: list[str] | None = None) -> int:
         "raw_source_rows_accounted_for": parsed.raw_record_count == len(parsed.accepted_records) + len(parsed.rejected_records),
     }
 
-    vietnamese_candidates, vietnamese_report, vietnamese_review_packets = _load_vietnamese_candidates(args.vietnamese_corpus)
+    vietnamese_candidates, vietnamese_report, vietnamese_review_packets = _load_vietnamese_candidates(
+        args.vietnamese_corpus,
+        parsed.accepted_records,
+        metadata.code,
+    )
     food_concepts, source_names, source_mappings = _food_identity_candidates(parsed.accepted_records, metadata.code)
     food_names = [*source_names, *vietnamese_candidates]
     recipes: list[dict[str, Any]] = []
@@ -312,39 +316,115 @@ def _food_identity_candidates(records: tuple[FdcSourceRecord, ...], source_code:
     return concepts, names, mappings
 
 
-def _load_vietnamese_candidates(path: Path | None) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
+def _load_vietnamese_candidates(
+    path: Path | None,
+    source_records: tuple[FdcSourceRecord, ...],
+    source_code: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
     if path is None:
         return [], _not_supplied_report("vietnamese-identity-0.1.0", "Vietnamese corpus was not supplied"), []
     corpus_bytes = path.read_bytes()
     corpus_sha256 = _sha256(corpus_bytes)
     payload = json.loads(corpus_bytes.decode("utf-8"))
     result = extract_candidates(payload, ExtractionPolicy())
-    candidates = [
-        {
-            "name_id": item["candidate_id"],
-            "locale": "vi-VN",
-            "name": item["phrase"],
-            "normalized_phrase": item["normalized_phrase"],
-            "status": "proposal",
-            "review_status": item["review_status"],
-            "evidence_refs": item["context_refs"],
-            "source_corpus_sha256": corpus_sha256,
-            "source_classes": item.get("source_classes", []),
-            "negated_observation_count": item.get("negated_observation_count", 0),
-        }
-        for item in result.candidates
-    ]
+    candidates = []
     review_packets = []
     for candidate in result.candidates:
+        source_foods, classification = _propose_vietnamese_source_foods(candidate["normalized_phrase"], source_records, source_code)
+        candidates.append(
+            {
+                "name_id": candidate["candidate_id"],
+                "locale": "vi-VN",
+                "name": candidate["phrase"],
+                "normalized_phrase": candidate["normalized_phrase"],
+                "status": "proposal",
+                "review_status": candidate["review_status"],
+                "evidence_refs": candidate["context_refs"],
+                "source_corpus_sha256": corpus_sha256,
+                "source_classes": candidate.get("source_classes", []),
+                "negated_observation_count": candidate.get("negated_observation_count", 0),
+                "identity_classification": classification,
+                "mapping_proposals": source_foods,
+            }
+        )
         packet = build_review_packet(
             candidate,
+            candidate_concept={
+                "classification": classification,
+                "mapping_status": "proposal",
+                "human_review_required": True,
+            },
+            source_foods=source_foods,
             evidence_refs=[f"vietnamese-corpus-sha256:{corpus_sha256}"],
         )
         packet["source_classes"] = candidate.get("source_classes", [])
         packet["negated_observation_count"] = candidate.get("negated_observation_count", 0)
         packet["source_corpus_sha256"] = corpus_sha256
         review_packets.append(packet)
-    return candidates, {"corpus_available": True, "corpus_path": str(path), "corpus_sha256": corpus_sha256, "status": "proposal_only", **result.report, "candidate_count": len(candidates), "review_packet_count": len(review_packets)}, review_packets
+    source_proposal_count = sum(1 for item in candidates if item["mapping_proposals"])
+    unresolved_count = len(candidates) - source_proposal_count
+    recipe_required_count = sum(1 for item in candidates if item["identity_classification"] == "recipe_required")
+    return candidates, {
+        "corpus_available": True,
+        "corpus_path": str(path),
+        "corpus_sha256": corpus_sha256,
+        "status": "proposal_only",
+        **result.report,
+        "candidate_count": len(candidates),
+        "review_packet_count": len(review_packets),
+        "candidate_with_source_mapping_proposals": source_proposal_count,
+        "unresolved_identity_count": unresolved_count,
+        "recipe_required_count": recipe_required_count,
+    }, review_packets
+
+
+_VIETNAMESE_SOURCE_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
+    "trứng gà luộc": ("egg", "whole"),
+    "trứng luộc": ("egg", "whole"),
+    "cơm trắng": ("rice", "white"),
+    "thịt bò": ("beef",),
+    "bơ": ("avocado",),
+    "thịt gà": ("chicken",),
+    "thịt gà luộc": ("chicken", "cooked"),
+    "sữa tươi": ("milk", "whole"),
+    "cơm": ("rice",),
+    "da gà": ("chicken", "skin"),
+}
+_VIETNAMESE_RECIPE_PHRASES = frozenset({"cơm gà", "phở bò", "bún bò huế"})
+
+
+def _propose_vietnamese_source_foods(
+    normalized_phrase: str,
+    source_records: tuple[FdcSourceRecord, ...],
+    source_code: str,
+) -> tuple[list[dict[str, Any]], str]:
+    phrase_key = normalized_phrase.casefold()
+    if phrase_key in _VIETNAMESE_RECIPE_PHRASES:
+        return [], "recipe_required"
+    terms = _VIETNAMESE_SOURCE_SEARCH_TERMS.get(phrase_key, ())
+    if not terms:
+        return [], "unresolved_identity"
+    scored: list[tuple[int, int, FdcSourceRecord]] = []
+    primary_term = terms[0]
+    for record in source_records:
+        description = normalize_label(record.description)
+        if primary_term not in description:
+            continue
+        score = 2 + sum(1 for term in terms[1:] if term in description)
+        if score > 0:
+            scored.append((score, record.fdc_id, record))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    return [
+        {
+            "source_code": source_code,
+            "source_id": str(record.fdc_id),
+            "description": record.description,
+            "match_score": score,
+            "status": "proposal",
+            "human_review_required": True,
+        }
+        for score, _, record in scored[:5]
+    ], "basic_food_identity_candidate"
 
 
 def _load_recipe_evidence(path: Path | None, records: tuple[FdcSourceRecord, ...]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
