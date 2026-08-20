@@ -1,6 +1,7 @@
 use crate::{
-    AnalysisSnapshot, ClarificationAnalysis, ClarificationAnswerRequest, CorrectionRequest,
-    ParseRequest, ParsedMealDocument, ParsedMealItem, ParserInvocationRecord, PortionSuggestion,
+    AnalysisListEntry, AnalysisListQuery, AnalysisSnapshot, AnalysisWorkflow,
+    ClarificationAnalysis, ClarificationAnswerRequest, CorrectionRequest, ParseRequest,
+    ParsedMealDocument, ParsedMealItem, ParserInvocationRecord, PortionSuggestion,
     ResolvedFoodEvidence, ResolvedPortionEvidence,
 };
 use async_trait::async_trait;
@@ -11,6 +12,8 @@ use thiserror::Error;
 pub enum ApplicationError {
     #[error("invalid input: {0}")]
     InvalidInput(String),
+    #[error("invalid cursor")]
+    InvalidCursor,
     #[error("meal parser unavailable: {0}")]
     ParserUnavailable(String),
     #[error("food or portion evidence is insufficient: {0}")]
@@ -112,4 +115,15 @@ pub trait AnalysisSnapshotReader: Send + Sync {
         &self,
         analysis_id: AnalysisId,
     ) -> Result<Option<AnalysisRevisionId>, ApplicationError>;
+
+    async fn list(
+        &self,
+        user_id: domain::UserId,
+        query: AnalysisListQuery,
+    ) -> Result<Vec<AnalysisListEntry>, ApplicationError>;
+
+    async fn workflow(
+        &self,
+        analysis_id: AnalysisId,
+    ) -> Result<Option<AnalysisWorkflow>, ApplicationError>;
 }

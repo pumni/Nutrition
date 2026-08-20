@@ -409,6 +409,7 @@ async fn assert_clarification_revision_flow(
         question_id: pending.question.id,
         option_id: "unit:bát".to_owned(),
         mass_g: None,
+        idempotency: None,
     };
     let completed = revision_service
         .answer(pending.analysis_id, answer.clone())

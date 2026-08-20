@@ -24,6 +24,10 @@ Required in every environment:
 - `AUTH_MODE`
 - `PARSER_MODE`
 
+`API_CURSOR_HMAC_SECRET` must contain at least 32 bytes in `staging` and `production`; it signs the
+owner/filter-bound analysis listing cursor. Local and CI use a non-deployment-only verification fallback
+when it is omitted.
+
 `APP_BIND_ADDR` may be omitted only for `local` and `ci`, where it defaults to `127.0.0.1:8080`. Staging and production must set it explicitly. The production API container defaults it to `0.0.0.0:8080`.
 
 ### Authentication

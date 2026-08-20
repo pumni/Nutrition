@@ -1,0 +1,111 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nutrition Backend API",
+    "version": "1.0.0",
+    "description": "Owner-approved public API v1 for owner-scoped analysis history and workflow continuation.",
+    "x-owner-decision-ref": "docs/OWNER_DECISIONS_V1.md#owner-be-003--product-api-v1",
+    "x-production-gate": "docs/OWNER_DECISIONS_V1.md#owner-be-006--production-gate"
+  },
+  "servers": [{"url": "/"}],
+  "security": [{"bearerAuth": []}],
+  "paths": {
+    "/health/live": {"get": {"operationId": "live", "security": [], "responses": {"200": {"description": "Process is alive.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}}}}}},
+    "/health/ready": {"get": {"operationId": "ready", "security": [], "responses": {"200": {"description": "Dependencies are ready.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}}}, "503": {"description": "Dependency is not ready.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HealthResponse"}}}}}}},
+    "/v1/nutrition/analyses": {
+      "get": {
+        "operationId": "listAnalyses",
+        "summary": "List the authenticated owner's analysis summaries.",
+        "parameters": [{"$ref": "#/components/parameters/StatusFilter"}, {"$ref": "#/components/parameters/LocaleFilter"}, {"$ref": "#/components/parameters/PageSize"}, {"$ref": "#/components/parameters/Cursor"}],
+        "responses": {
+          "200": {"description": "Stable owner-scoped page.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisListResponse"}}}},
+          "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "500": {"$ref": "#/components/responses/InternalError"}
+        }
+      },
+      "post": {
+        "operationId": "createAnalysis", "summary": "Create an analysis.",
+        "parameters": [{"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisRequest"}}}},
+        "responses": {
+          "200": {"description": "Completed or clarification-required analysis.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisOutcome"}}}},
+          "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "409": {"$ref": "#/components/responses/IdempotencyConflict"}, "422": {"$ref": "#/components/responses/InsufficientEvidence"}, "500": {"$ref": "#/components/responses/InternalError"}, "503": {"$ref": "#/components/responses/ParserUnavailable"}
+        }
+      }
+    },
+    "/v1/nutrition/analyses/{analysis_id}": {
+      "get": {
+        "operationId": "getAnalysis", "parameters": [{"$ref": "#/components/parameters/AnalysisId"}],
+        "responses": {"200": {"description": "Owner-authorized analysis snapshot.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisSnapshot"}}}}, "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}}
+      }
+    },
+    "/v1/nutrition/analyses/{analysis_id}/workflow": {
+      "get": {
+        "operationId": "getAnalysisWorkflow", "parameters": [{"$ref": "#/components/parameters/AnalysisId"}],
+        "responses": {"200": {"description": "Safe continuation state and allowed actions.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisWorkflow"}}}}, "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}}
+      }
+    },
+    "/v1/nutrition/analyses/{analysis_id}/clarifications": {
+      "post": {
+        "operationId": "answerClarification", "parameters": [{"$ref": "#/components/parameters/AnalysisId"}, {"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ClarificationAnswerRequest"}}}},
+        "responses": {"200": {"description": "New completed revision.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisSnapshot"}}}}, "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "409": {"$ref": "#/components/responses/StaleClarification"}, "422": {"$ref": "#/components/responses/InsufficientEvidence"}, "500": {"$ref": "#/components/responses/InternalError"}}
+      }
+    },
+    "/v1/nutrition/analyses/{analysis_id}/corrections": {
+      "post": {
+        "operationId": "correctAnalysis", "parameters": [{"$ref": "#/components/parameters/AnalysisId"}, {"$ref": "#/components/parameters/IdempotencyKey"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CorrectionRequest"}}}},
+        "responses": {"200": {"description": "New corrected revision.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AnalysisSnapshot"}}}}, "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "409": {"$ref": "#/components/responses/Conflict"}, "422": {"$ref": "#/components/responses/InsufficientEvidence"}, "500": {"$ref": "#/components/responses/InternalError"}, "503": {"$ref": "#/components/responses/ParserUnavailable"}}
+      }
+    },
+    "/v1/nutrition/analyses/{analysis_id}/revisions/{revision_number}": {
+      "get": {
+        "operationId": "getAnalysisRevision", "parameters": [{"$ref": "#/components/parameters/AnalysisId"}, {"$ref": "#/components/parameters/RevisionNumber"}],
+        "responses": {"200": {"description": "Owner-authorized immutable revision snapshot.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/JsonObject"}}}}, "400": {"$ref": "#/components/responses/InvalidRequest"}, "401": {"$ref": "#/components/responses/Unauthorized"}, "403": {"$ref": "#/components/responses/Forbidden"}, "404": {"$ref": "#/components/responses/NotFound"}, "500": {"$ref": "#/components/responses/InternalError"}}
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}},
+    "parameters": {
+      "AnalysisId": {"name": "analysis_id", "in": "path", "required": true, "schema": {"type": "string", "format": "uuid"}},
+      "RevisionNumber": {"name": "revision_number", "in": "path", "required": true, "schema": {"type": "integer", "minimum": 1}},
+      "StatusFilter": {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["received", "parsing", "resolving", "needs_clarification", "completed", "insufficient_evidence", "confirmed", "corrected", "abandoned"]}},
+      "LocaleFilter": {"name": "locale", "in": "query", "schema": {"type": "string", "minLength": 1, "maxLength": 32, "pattern": "^[\\x20-\\x7E]+$"}},
+      "PageSize": {"name": "page_size", "in": "query", "schema": {"type": "integer", "default": 20, "minimum": 1, "maximum": 50}},
+      "Cursor": {"name": "cursor", "in": "query", "schema": {"type": "string", "minLength": 1}},
+      "IdempotencyKey": {"name": "Idempotency-Key", "in": "header", "required": true, "schema": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[\\x20-\\x7E]{1,128}$"}}
+    },
+    "responses": {
+      "InvalidRequest": {"description": "Invalid request or invalid cursor.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "Unauthorized": {"description": "Authentication is required.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "Forbidden": {"description": "The principal does not own the resource.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "NotFound": {"description": "The resource does not exist.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "Conflict": {"description": "A stale revision or idempotency conflict.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "StaleClarification": {"description": "The clarification is stale.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "IdempotencyConflict": {"description": "The key was reused with a different typed request.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "InsufficientEvidence": {"description": "Evidence is insufficient.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "ParserUnavailable": {"description": "The parser is unavailable.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}},
+      "InternalError": {"description": "An internal error occurred.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}}}
+    },
+    "schemas": {
+      "JsonObject": {"type": "object"},
+      "HealthResponse": {"type": "object", "required": ["status", "application_version"], "properties": {"status": {"type": "string"}, "application_version": {"type": "string"}}, "additionalProperties": false},
+      "ErrorEnvelope": {"type": "object", "required": ["error"], "properties": {"error": {"type": "object", "required": ["code", "message"], "properties": {"code": {"type": "string", "enum": ["invalid_request", "invalid_cursor", "unauthorized", "forbidden", "analysis_not_found", "revision_conflict", "stale_clarification", "idempotency_conflict", "analysis_insufficient", "parser_unavailable", "internal_error"]}, "message": {"type": "string"}}, "additionalProperties": false}}, "additionalProperties": false},
+      "AnalysisRequest": {"type": "object", "required": ["text", "locale"], "properties": {"text": {"type": "string", "minLength": 1}, "locale": {"type": "string", "minLength": 1}, "mode": {"type": "string", "enum": ["fast", "balanced", "precise"], "default": "balanced"}}, "additionalProperties": false},
+      "ClarificationAnswerRequest": {"type": "object", "required": ["expected_revision_id", "question_id", "option_id"], "properties": {"expected_revision_id": {"type": "string", "format": "uuid"}, "question_id": {"type": "string", "format": "uuid"}, "option_id": {"type": "string", "minLength": 1}, "mass_g": {"type": ["number", "null"], "exclusiveMinimum": 0}}, "additionalProperties": false},
+      "CorrectionRequest": {"type": "object", "required": ["base_revision_id", "item_corrections"], "properties": {"base_revision_id": {"type": "string", "format": "uuid"}, "item_corrections": {"type": "array", "minItems": 1, "maxItems": 10, "items": {"type": "object", "required": ["item_index", "quantity", "unit"], "properties": {"item_index": {"type": "integer", "minimum": 0}, "quantity": {"type": "number", "exclusiveMinimum": 0}, "unit": {"type": "string", "minLength": 1}}, "additionalProperties": false}}}, "additionalProperties": false},
+      "ClarificationOption": {"type": "object", "required": ["id", "label"], "properties": {"id": {"type": "string"}, "label": {"type": "string"}}, "additionalProperties": false},
+      "ClarificationQuestion": {"type": "object", "required": ["id", "dimension", "prompt", "options"], "properties": {"id": {"type": "string", "format": "uuid"}, "dimension": {"type": "string"}, "prompt": {"type": "string"}, "options": {"type": "array", "items": {"$ref": "#/components/schemas/ClarificationOption"}}}, "additionalProperties": false},
+      "AnalysisWorkflow": {"type": "object", "required": ["analysis_id", "current_revision_id", "current_revision_number", "state", "pending_question", "allowed_actions"], "properties": {"analysis_id": {"type": "string", "format": "uuid"}, "current_revision_id": {"type": ["string", "null"], "format": "uuid"}, "current_revision_number": {"type": ["integer", "null"], "minimum": 1}, "state": {"type": "string"}, "pending_question": {"anyOf": [{"$ref": "#/components/schemas/WorkflowQuestion"}, {"type": "null"}]}, "allowed_actions": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false},
+      "WorkflowQuestion": {"type": "object", "required": ["question_id", "dimension", "prompt", "options"], "properties": {"question_id": {"type": "string", "format": "uuid"}, "dimension": {"type": "string"}, "prompt": {"type": "string"}, "options": {"type": "array", "items": {"$ref": "#/components/schemas/ClarificationOption"}}}, "additionalProperties": false},
+      "AnalysisListSummary": {"type": "object", "required": ["analysis_id", "status", "locale", "created_at", "current_revision_number", "result_status", "quality_label"], "properties": {"analysis_id": {"type": "string", "format": "uuid"}, "status": {"type": "string"}, "locale": {"type": "string"}, "created_at": {"type": "string", "format": "date-time"}, "current_revision_number": {"type": ["integer", "null"], "minimum": 1}, "result_status": {"type": ["string", "null"]}, "quality_label": {"type": ["string", "null"]}}, "additionalProperties": false},
+      "AnalysisListResponse": {"type": "object", "required": ["items", "next_cursor"], "properties": {"items": {"type": "array", "items": {"$ref": "#/components/schemas/AnalysisListSummary"}}, "next_cursor": {"type": ["string", "null"]}}, "additionalProperties": false},
+      "AnalysisOutcome": {"oneOf": [{"$ref": "#/components/schemas/AnalysisSnapshot"}, {"$ref": "#/components/schemas/ClarificationAnalysis"}]},
+      "ClarificationAnalysis": {"type": "object", "required": ["analysis_id", "revision_id", "revision_number", "status", "locale", "versions", "question"], "properties": {"analysis_id": {"type": "string", "format": "uuid"}, "revision_id": {"type": "string", "format": "uuid"}, "revision_number": {"type": "integer", "minimum": 1}, "status": {"const": "needs_clarification"}, "locale": {"type": "string"}, "versions": {"$ref": "#/components/schemas/BehaviorVersions"}, "question": {"$ref": "#/components/schemas/ClarificationQuestion"}}, "additionalProperties": false},
+      "AnalysisSnapshot": {"type": "object", "required": ["analysis_id", "revision_id", "revision_number", "status", "locale", "versions", "items", "requested_nutrients", "calculation", "is_estimate"], "properties": {"analysis_id": {"type": "string", "format": "uuid"}, "revision_id": {"type": "string", "format": "uuid"}, "revision_number": {"type": "integer", "minimum": 1}, "status": {"type": "string", "enum": ["completed", "insufficient_evidence"]}, "locale": {"type": "string"}, "versions": {"$ref": "#/components/schemas/BehaviorVersions"}, "items": {"type": "array", "items": {"$ref": "#/components/schemas/AnalysisItem"}}, "requested_nutrients": {"type": "array", "items": {"type": "string"}}, "calculation": {"type": "object"}, "is_estimate": {"type": "boolean"}}, "additionalProperties": false},
+      "AnalysisItem": {"type": "object", "required": ["source_text", "food_id", "food_name", "profile_id", "estimated_mass_g", "mass_resolution_method", "evidence_quality", "assumptions"], "properties": {"source_text": {"type": "string"}, "food_id": {"type": "string", "format": "uuid"}, "food_name": {"type": "string"}, "quantity": {"type": ["number", "null"]}, "unit_phrase": {"type": ["string", "null"]}, "profile_id": {"type": "string", "format": "uuid"}, "portion_observation_id": {"type": ["string", "null"], "format": "uuid"}, "estimated_mass_g": {"type": "number"}, "lower_mass_g": {"type": ["number", "null"]}, "upper_mass_g": {"type": ["number", "null"]}, "mass_resolution_method": {"type": "string"}, "evidence_quality": {"type": "string"}, "assumptions": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false},
+      "BehaviorVersions": {"type": "object", "required": ["application_version", "parser_schema_version", "prompt_version", "model_provider_version", "normalization_version", "resolution_policy_version", "portion_policy_version", "composition_policy_version", "clarification_policy_version", "correction_policy_version", "calculation_engine_version", "catalog_release_id"], "properties": {"application_version": {"type": "string"}, "parser_schema_version": {"type": "string"}, "prompt_version": {"type": "string"}, "model_provider_version": {"type": "string"}, "normalization_version": {"type": "string"}, "resolution_policy_version": {"type": "string"}, "portion_policy_version": {"type": "string"}, "composition_policy_version": {"type": "string"}, "clarification_policy_version": {"type": "string"}, "correction_policy_version": {"type": "string"}, "calculation_engine_version": {"type": "string"}, "catalog_release_id": {"type": "string", "format": "uuid"}}, "additionalProperties": false}
+    }
+  }
+}

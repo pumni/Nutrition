@@ -16,6 +16,7 @@ pub enum AnalysisMode {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct AnalysisRequest {
     pub text: String,
     pub locale: String,
@@ -161,6 +162,45 @@ pub struct AnalysisSnapshot {
     pub owner_id: Option<UserId>,
 }
 
+#[derive(Clone, Debug)]
+pub struct AnalysisListQuery {
+    pub status: Option<String>,
+    pub locale: Option<String>,
+    pub snapshot_epoch_seconds: i64,
+    pub after_created_at: Option<String>,
+    pub after_analysis_id: Option<AnalysisId>,
+    pub limit: i64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct AnalysisListEntry {
+    pub analysis_id: AnalysisId,
+    pub status: String,
+    pub locale: String,
+    pub created_at: String,
+    pub current_revision_number: Option<u32>,
+    pub result_status: Option<String>,
+    pub quality_label: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct WorkflowQuestion {
+    pub question_id: ClarificationQuestionId,
+    pub dimension: String,
+    pub prompt: String,
+    pub options: Vec<ClarificationOption>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct AnalysisWorkflow {
+    pub analysis_id: AnalysisId,
+    pub current_revision_id: Option<AnalysisRevisionId>,
+    pub current_revision_number: Option<u32>,
+    pub state: String,
+    pub pending_question: Option<WorkflowQuestion>,
+    pub allowed_actions: Vec<String>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ClarificationOption {
     pub id: String,
@@ -217,14 +257,18 @@ impl AnalysisOutcome {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ClarificationAnswerRequest {
     pub expected_revision_id: AnalysisRevisionId,
     pub question_id: ClarificationQuestionId,
     pub option_id: String,
     pub mass_g: Option<Decimal>,
+    #[serde(skip)]
+    pub idempotency: Option<IdempotencyContext>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct PortionCorrection {
     pub item_index: usize,
     pub quantity: Decimal,
@@ -232,6 +276,7 @@ pub struct PortionCorrection {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct CorrectionRequest {
     pub base_revision_id: AnalysisRevisionId,
     pub item_corrections: Vec<PortionCorrection>,

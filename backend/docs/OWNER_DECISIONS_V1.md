@@ -151,6 +151,22 @@ gate. The waiver is not a benchmark pass and does not make an AI subagent an ann
 - This waiver does not apply to P1-102, P1-103, P2-104, P2-105, P0-106, production activation,
   catalog release, real-user traffic, or canonical publication.
 
+## OWNER-BE-008 — P1-103 verification harness synchronization
+
+**Status:** Owner-approved on 2026-08-20 for the P1-103 staging verification gate only.
+
+The owner approves a narrowly scoped update to `scripts/verify-postgres.ps1` so its API smoke
+requests send the required `Idempotency-Key` for analysis creation, clarification creation, and
+clarification answers under OWNER-BE-003. This decision permits verification-harness alignment
+only; it does not change runtime behavior, database schema, migration intent, provider policy,
+production traffic, production activation, or release authorization.
+
+- Approved path: `scripts/verify-postgres.ps1` only.
+- Allowed change: add deterministic test-only idempotency headers and assertions needed to exercise
+  the already-approved v1 contract.
+- Production authorization: `false`.
+- The P1-103 PR must still pass the trusted context, backend, PostgreSQL, and attestation gates.
+
 ## Source integrity
 
 This repository record was imported from the owner decision package

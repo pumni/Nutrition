@@ -94,10 +94,11 @@ the snapshot and hash before changing it to `completed`.
 
 ## Idempotency scope
 
-Analyses without an idempotency key may be created repeatedly. HTTP create keys are scoped to the
-anonymous create endpoint; correction keys additionally include the analysis ID. The request hash
-and immutable response revision are stored in the same transaction as the workflow write. A key
-with the same body replays that revision; a different body returns an idempotency conflict.
+HTTP create, clarification, and correction requests require an idempotency key. Keys are scoped to the
+authenticated principal and operation; clarification and correction keys additionally include the
+analysis ID. The versioned typed request hash and immutable response revision are stored in the same
+transaction as the workflow write. A key with the same body replays that revision; a different body
+returns an idempotency conflict.
 
 ## Behavior version vector
 

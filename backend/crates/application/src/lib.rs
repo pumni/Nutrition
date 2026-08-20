@@ -6,11 +6,12 @@ mod revise;
 
 pub use analyze::{AnalyzeMeal, MealAnalysisService};
 pub use model::{
-    AnalysisItemSnapshot, AnalysisMode, AnalysisOutcome, AnalysisRequest, AnalysisSnapshot,
-    AnalysisStatus, BehaviorVersions, ClarificationAnalysis, ClarificationAnswerRequest,
-    ClarificationContext, ClarificationOption, ClarificationQuestion, CorrectionRequest,
-    IdempotencyContext, ParseRequest, ParsedMealDocument, ParsedMealItem, ParserInvocationRecord,
-    PortionCorrection, PortionSuggestion, ResolvedFoodEvidence, ResolvedPortionEvidence,
+    AnalysisItemSnapshot, AnalysisListEntry, AnalysisListQuery, AnalysisMode, AnalysisOutcome,
+    AnalysisRequest, AnalysisSnapshot, AnalysisStatus, AnalysisWorkflow, BehaviorVersions,
+    ClarificationAnalysis, ClarificationAnswerRequest, ClarificationContext, ClarificationOption,
+    ClarificationQuestion, CorrectionRequest, IdempotencyContext, ParseRequest, ParsedMealDocument,
+    ParsedMealItem, ParserInvocationRecord, PortionCorrection, PortionSuggestion,
+    ResolvedFoodEvidence, ResolvedPortionEvidence, WorkflowQuestion,
 };
 pub use normalization::normalize_vi_search_key;
 pub use ports::{

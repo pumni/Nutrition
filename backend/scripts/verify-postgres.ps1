@@ -81,6 +81,8 @@ try {
 
         $verificationRunId = [guid]::NewGuid().ToString("N")
         $createKey = "foundation-create-04-$verificationRunId"
+        $clarificationCreateKey = "foundation-clarification-create-04-$verificationRunId"
+        $clarificationAnswerKey = "foundation-clarification-answer-04-$verificationRunId"
         $correctionKey = "foundation-correction-04-$verificationRunId"
         $authorization = "Bearer dev:0198f100-0000-7000-8000-000000000098"
         $createHeaders = @{
@@ -90,6 +92,14 @@ try {
         $correctionHeaders = @{
             Authorization = $authorization
             "Idempotency-Key" = $correctionKey
+        }
+        $clarificationCreateHeaders = @{
+            Authorization = $authorization
+            "Idempotency-Key" = $clarificationCreateKey
+        }
+        $clarificationAnswerHeaders = @{
+            Authorization = $authorization
+            "Idempotency-Key" = $clarificationAnswerKey
         }
         $authHeaders = @{Authorization = $authorization}
         $requestBody = @{
@@ -167,7 +177,7 @@ try {
         $clarification = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses" `
-            -Headers $authHeaders `
+            -Headers $clarificationCreateHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($clarificationBody)) `
             -TimeoutSec 5
@@ -180,7 +190,7 @@ try {
         $answered = Invoke-RestMethod `
             -Method Post `
             -Uri "http://127.0.0.1:8080/v1/nutrition/analyses/$($clarification.analysis_id)/clarifications" `
-            -Headers $authHeaders `
+            -Headers $clarificationAnswerHeaders `
             -ContentType "application/json; charset=utf-8" `
             -Body ([Text.Encoding]::UTF8.GetBytes($answerBody)) `
             -TimeoutSec 5

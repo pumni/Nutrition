@@ -20,6 +20,7 @@ pub(crate) struct AppState {
     pub(crate) reader: Arc<dyn AnalysisSnapshotReader>,
     pub(crate) repository: PostgresAnalysisRepository,
     pub(crate) pool: sqlx::PgPool,
+    pub(crate) cursor_hmac_secret: Arc<Vec<u8>>,
 }
 
 #[derive(Serialize)]
@@ -43,30 +44,67 @@ pub(crate) struct ApiError(pub(crate) ApplicationError);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, code) = match &self.0 {
-            ApplicationError::InvalidInput(_) => (StatusCode::BAD_REQUEST, "invalid_request"),
-            ApplicationError::ParserUnavailable(_) => {
-                (StatusCode::SERVICE_UNAVAILABLE, "parser_unavailable")
+        let (status, code, message) = match &self.0 {
+            ApplicationError::InvalidInput(_) => (
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+                "invalid request",
+            ),
+            ApplicationError::InvalidCursor => {
+                (StatusCode::BAD_REQUEST, "invalid_cursor", "invalid cursor")
             }
-            ApplicationError::InsufficientEvidence(_) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, "analysis_insufficient")
-            }
-            ApplicationError::Calculation(_) | ApplicationError::Persistence => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
-            }
-            ApplicationError::NotFound => (StatusCode::NOT_FOUND, "analysis_not_found"),
-            ApplicationError::RevisionConflict => (StatusCode::CONFLICT, "revision_conflict"),
-            ApplicationError::StaleClarification => (StatusCode::CONFLICT, "stale_clarification"),
-            ApplicationError::IdempotencyConflict => (StatusCode::CONFLICT, "idempotency_conflict"),
-            ApplicationError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
-            ApplicationError::Forbidden => (StatusCode::FORBIDDEN, "forbidden"),
+            ApplicationError::ParserUnavailable(_) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "parser_unavailable",
+                "parser unavailable",
+            ),
+            ApplicationError::InsufficientEvidence(_) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "analysis_insufficient",
+                "analysis evidence is insufficient",
+            ),
+            ApplicationError::Calculation(_) | ApplicationError::Persistence => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "internal server error",
+            ),
+            ApplicationError::NotFound => (
+                StatusCode::NOT_FOUND,
+                "analysis_not_found",
+                "analysis not found",
+            ),
+            ApplicationError::RevisionConflict => (
+                StatusCode::CONFLICT,
+                "revision_conflict",
+                "analysis revision conflict",
+            ),
+            ApplicationError::StaleClarification => (
+                StatusCode::CONFLICT,
+                "stale_clarification",
+                "clarification is stale",
+            ),
+            ApplicationError::IdempotencyConflict => (
+                StatusCode::CONFLICT,
+                "idempotency_conflict",
+                "idempotency key conflict",
+            ),
+            ApplicationError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "authentication is required",
+            ),
+            ApplicationError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                "forbidden",
+                "resource access is forbidden",
+            ),
         };
         (
             status,
             Json(ErrorEnvelope {
                 error: ErrorBody {
                     code,
-                    message: self.0.to_string(),
+                    message: message.to_owned(),
                 },
             }),
         )

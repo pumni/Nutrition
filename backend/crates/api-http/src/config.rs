@@ -67,6 +67,7 @@ pub(crate) async fn build() -> (SocketAddr, AppState) {
     let pool = persistence_postgres::connect(&database_url, 8)
         .await
         .expect("API could not connect to PostgreSQL");
+    let cursor_hmac_secret = configured_cursor_hmac_secret(environment);
     let catalog_release_id = active_catalog_release_id(&pool)
         .await
         .expect("an active catalog release is required");
@@ -106,8 +107,25 @@ pub(crate) async fn build() -> (SocketAddr, AppState) {
         reader: Arc::new(repository.clone()),
         repository,
         pool,
+        cursor_hmac_secret: Arc::new(cursor_hmac_secret),
     };
     (address, state)
+}
+
+fn configured_cursor_hmac_secret(environment: AppEnvironment) -> Vec<u8> {
+    match env::var("API_CURSOR_HMAC_SECRET") {
+        Ok(value) if value.len() >= 32 => value.into_bytes(),
+        Ok(_) => panic!("API_CURSOR_HMAC_SECRET must contain at least 32 bytes"),
+        Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
+            b"ci-only-api-cursor-hmac-secret-v1-not-for-deployment".to_vec()
+        }
+        Err(env::VarError::NotPresent) => {
+            panic!("API_CURSOR_HMAC_SECRET is required when APP_ENV is staging or production")
+        }
+        Err(env::VarError::NotUnicode(_)) => {
+            panic!("API_CURSOR_HMAC_SECRET must be valid Unicode")
+        }
+    }
 }
 
 fn required_nutrients() -> Vec<NutrientCode> {
@@ -226,7 +244,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{AppEnvironment, validate_auth_mode, validate_parser_mode};
+    use super::{
+        AppEnvironment, configured_cursor_hmac_secret, validate_auth_mode, validate_parser_mode,
+    };
 
     #[test]
     fn environment_policy_is_explicit() {
@@ -259,5 +279,13 @@ mod tests {
         assert!(validate_parser_mode(AppEnvironment::Staging, "fixture").is_err());
         assert!(validate_parser_mode(AppEnvironment::Production, "fixture").is_err());
         assert!(validate_parser_mode(AppEnvironment::Production, "hosted").is_ok());
+    }
+
+    #[test]
+    fn cursor_secret_requires_deployment_configuration() {
+        assert!(configured_cursor_hmac_secret(AppEnvironment::Ci).len() >= 32);
+        let panic =
+            std::panic::catch_unwind(|| configured_cursor_hmac_secret(AppEnvironment::Production));
+        assert!(panic.is_err());
     }
 }
