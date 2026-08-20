@@ -1,0 +1,23 @@
+{
+  "corpus_version": "synthetic-corpus-0.1.0",
+  "observations": [
+    {
+      "case_id": "bench-synthetic-001",
+      "phrase": "cơm trắng",
+      "context": "1 bát cơm trắng",
+      "context_allowed": false
+    },
+    {
+      "case_id": "bench-synthetic-002",
+      "phrase": "Đậu phụ chiên",
+      "context": "2 miếng Đậu phụ chiên",
+      "context_allowed": false
+    },
+    {
+      "case_id": "bench-synthetic-003",
+      "phrase": "cơm trắng",
+      "context": "cơm trắng",
+      "context_allowed": true
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[project]
+name = "nutrition-data-factory"
+version = "0.1.0"
+description = "Deterministic, evidence-first nutrition data factory scaffold"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.nutrition-data-factory]
+generator-version = "scaffold-0.1.0"
+test-command = "python scripts/test.py"
+

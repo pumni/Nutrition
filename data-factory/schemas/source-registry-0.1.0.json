@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/source-registry-0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sources"],
+  "properties": {
+    "schema_version": {
+      "const": "source-registry-0.1.0"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "publisher",
+          "purpose",
+          "release",
+          "locator",
+          "status_initial",
+          "rights_state",
+          "production_ingestion",
+          "access_status",
+          "approval_reference",
+          "allowed_uses",
+          "prohibited_uses",
+          "priority",
+          "production_eligible"
+        ],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "publisher": {"type": "string", "minLength": 1},
+          "purpose": {"type": "string", "minLength": 1},
+          "release": {"type": "string", "minLength": 1},
+          "locator": {"type": "string", "minLength": 1},
+          "status_initial": {"type": "string", "minLength": 1},
+          "rights_state": {
+            "enum": ["approved", "reference_only", "pending_unknown", "prohibited", "test_only"]
+          },
+          "production_ingestion": {"type": "string", "minLength": 1},
+          "access_status": {"type": "string", "minLength": 1},
+          "approval_reference": {"type": "string", "minLength": 1},
+          "allowed_uses": {"type": "array", "items": {"type": "string"}},
+          "prohibited_uses": {"type": "array", "items": {"type": "string"}},
+          "priority": {"type": "integer", "minimum": 0},
+          "production_eligible": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

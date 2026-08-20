@@ -1,0 +1,56 @@
+{
+  "policy_version": "fdc-nutrient-crosswalk-0.1.0",
+  "mappings": [
+    {
+      "source_nutrient_id": 1003,
+      "source_label": "Protein",
+      "source_unit": "G",
+      "source_method": "declared_or_analytical",
+      "target_code": "protein_g",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.1.0"
+    },
+    {
+      "source_nutrient_id": 1004,
+      "source_label": "Total lipid (fat)",
+      "source_unit": "G",
+      "source_method": "declared_or_analytical",
+      "target_code": "fat_g",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.1.0"
+    },
+    {
+      "source_nutrient_id": 1005,
+      "source_label": "Carbohydrate, by difference",
+      "source_unit": "G",
+      "source_method": "declared_or_analytical",
+      "target_code": "carbohydrate_g",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.1.0"
+    },
+    {
+      "source_nutrient_id": 2048,
+      "source_label": "Energy (Atwater Specific)",
+      "source_unit": "KCAL",
+      "source_method": "atwater_specific",
+      "target_code": "energy_kcal",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.1.0"
+    },
+    {
+      "source_nutrient_id": 2047,
+      "source_label": "Energy (Atwater General)",
+      "source_unit": "KCAL",
+      "source_method": "atwater_general",
+      "target_code": "energy_kcal",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.1.0"
+    }
+  ],
+  "forbidden_source_ids": [1008]
+}

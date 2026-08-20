@@ -1,0 +1,28 @@
+{
+  "FoundationFoods": [
+    {
+      "fdcId": 990000001,
+      "dataType": "Foundation",
+      "description": "Synthetic Foundation fixture alpha",
+      "foodCharacteristics": [
+        {"code": "fixture_only", "description": "not a real food record"}
+      ],
+      "foodNutrients": [
+        {"amount": 1.0, "nutrient": {"id": 1003, "name": "Protein", "unitName": "G"}},
+        {"amount": 2.0, "nutrient": {"id": 1004, "name": "Total lipid (fat)", "unitName": "G"}},
+        {"amount": 3.0, "nutrient": {"id": 1005, "name": "Carbohydrate, by difference", "unitName": "G"}},
+        {"amount": 40.0, "nutrient": {"id": 2048, "name": "Energy (Atwater Specific)", "unitName": "KCAL"}, "foodNutrientDerivation": {"code": "AS"}}
+      ],
+      "foodPortions": [
+        {"portionDescription": "synthetic fixture portion", "modifier": "fixture-only"}
+      ]
+    },
+    null,
+    {
+      "fdcId": "invalid",
+      "dataType": "Foundation",
+      "description": "Invalid synthetic row",
+      "foodNutrients": []
+    }
+  ]
+}
