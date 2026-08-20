@@ -11,9 +11,16 @@ runtime change.
 
 The inventory is derived from:
 
-- [`crates/api-http/src/main.rs`](../../crates/api-http/src/main.rs): route
-  registration, authentication, ownership, idempotency, body limit, request
-  IDs, readiness, and error mapping;
+- [`crates/api-http/src/main.rs`](../../crates/api-http/src/main.rs): process
+  entry point and lifecycle wiring;
+- [`crates/api-http/src/router.rs`](../../crates/api-http/src/router.rs): route
+  registration and middleware/layer construction;
+- [`crates/api-http/src/handlers.rs`](../../crates/api-http/src/handlers.rs):
+  authentication, ownership, idempotency, readiness, and HTTP handlers;
+- [`crates/api-http/src/app.rs`](../../crates/api-http/src/app.rs): shared state,
+  error envelopes, and status mapping;
+- [`crates/api-http/src/config.rs`](../../crates/api-http/src/config.rs):
+  environment, authentication/parser validation, and bootstrap state construction;
 - [`crates/application/src/model.rs`](../../crates/application/src/model.rs):
   serialized request/outcome types;
 - [`crates/application/src/ports.rs`](../../crates/application/src/ports.rs):
