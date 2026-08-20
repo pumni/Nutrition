@@ -3,7 +3,7 @@
   "protocol": "P06-comparative-coding-agent-evaluation-v2",
   "status": "BLOCKED",
   "baseline_sha": "785c8366ee425ef31e916552b90d736005a9adfb",
-  "refactor_subject_sha": "74d5a6cf5decfaf43db7e7fa0efe7795e153fd6d",
+  "refactor_subject_sha": "2a09957efdc909a38026ff1b24aae422ddfad254",
   "scenario_suite_sha256": "202035164ae44e5e7d76c049e2b78984859a0f0f221a8237a911f04fceafb093",
   "scenario_count": 20,
   "required_matrix": {
