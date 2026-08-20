@@ -73,7 +73,9 @@ cargo run -p api-http
 `APP_ENV` is required and must be `local`, `ci`, `staging`, or `production`.
 `AUTH_MODE=development`, `PARSER_MODE=fixture`, and the foundation fixture seed are accepted only
 for `local` and `ci`. Staging and production fail closed if a development-only adapter is selected.
-Production authentication remains intentionally blocked until the OIDC adapter is implemented.
+`AUTH_MODE=oidc` selects the implemented provider-neutral OIDC adapter for staging and production.
+It does not select or approve a production identity provider; issuer configuration, provider/deployment
+approval, and production traffic authorization remain explicit release gates.
 See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the complete runtime configuration matrix.
 
 Hosted mode uses a provider-neutral HTTPS envelope:
@@ -90,6 +92,9 @@ Optional bounded settings are `LLM_TIMEOUT_MS` (default 3000),
 `LLM_MAXIMUM_RESPONSE_BYTES` (65536), `LLM_CIRCUIT_FAILURE_THRESHOLD` (5), and
 `LLM_CIRCUIT_COOLDOWN_SECONDS` (30). See
 [`docs/HOSTED_PARSER.md`](docs/HOSTED_PARSER.md) for the transport contract and privacy boundary.
+The hosted transport is implemented, but production hosted mode remains disabled until provider
+mapping, privacy/legal, data-residency, retention, benchmark, capacity, secret-management, and
+operational gates are complete.
 
 Health and readiness:
 
@@ -132,7 +137,7 @@ The read path verifies the persisted snapshot SHA-256 before deserialization.
 
 ## PostgreSQL
 
-The eleven migrations create seven logical schemas, the minimal walking-skeleton tables, search
+The migrations create seven logical schemas, the minimal walking-skeleton tables, search
 indexes, behavior version fields, snapshot persistence, scoped idempotency, release membership,
 workflow state enforcement, worker leases, audit storage, ownership, parser invocation telemetry,
 and immutability guards.
@@ -183,6 +188,21 @@ The initial governance artifacts are
 [`VietnameseMealBench manifest`](fixtures/vietnamese-meal-bench/manifest.json). The benchmark
 structure and aggregate report contract are documented in
 [`docs/VIETNAMESE_MEAL_BENCH.md`](docs/VIETNAMESE_MEAL_BENCH.md).
+
+## Current release boundary
+
+- Ownership-scoped privacy export, deletion, and retention paths are implemented, but they are
+  foundation capabilities and do not certify production readiness. Raw meal text and authorization
+  material remain excluded from logs and telemetry.
+- `VietnameseMealBench` `foundation-0.5.1` and its tooling remain development-only. Public
+  annotations are pending human review; sealed and challenge evidence is externally controlled, and
+  the tooling cannot authorize production traffic.
+- The release-pinned FDC importer records provenance and stages a reviewed selection; it never
+  activates a catalog release or publishes a composition profile. Activation still requires the
+  validation, reviewer, production-eligibility, and rollback evidence described in
+  [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
+- Production traffic, provider selection, catalog activation, and release publication remain
+  owner-controlled gates. This repository does not claim production readiness.
 
 ## AI coding context layer
 
