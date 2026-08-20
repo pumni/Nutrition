@@ -1,7 +1,7 @@
-mod analysis_repository;
+mod analysis;
 mod catalog_activation;
 mod catalog_repository;
-mod fdc_importer;
+mod fdc;
 mod ops_repository;
 mod parser_telemetry;
 mod portion_repository;
@@ -9,14 +9,14 @@ mod privacy;
 mod seed;
 mod telemetry;
 
-pub use analysis_repository::PostgresAnalysisRepository;
+pub use analysis::PostgresAnalysisRepository;
 pub use catalog_activation::{
     CatalogReleaseActivationError, CatalogReleaseActivationReport, CatalogReleaseActivationRequest,
     CatalogReleaseRollbackReport, CatalogReleaseRollbackRequest, activate_catalog_release,
     stage_catalog_rollback,
 };
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
-pub use fdc_importer::{
+pub use fdc::{
     FDC_ENERGY_MAPPING_POLICY_VERSION, FDC_FOUNDATION_2026_04_ARCHIVE_SHA256,
     FDC_FOUNDATION_2026_04_EXTRACTED_JSON_SHA256, FDC_FOUNDATION_2026_04_NULL_TAIL_POLICY_VERSION,
     FDC_FOUNDATION_2026_04_RELEASE_VERSION, FDC_FOUNDATION_IMPORTER_VERSION,

@@ -9,7 +9,7 @@
     "schema_version": {"const": "0.1.0"},
     "package_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
     "package_kind": {"const": "vietnamese-catalog-evidence"},
-    "owner_decision_ref": {"const": "docs/OWNER_DECISIONS_V1.md#owner-be-002--initial-vietnamese-catalog-scope"},
+    "owner_decision_ref": {"const": "docs/decisions/vietnamese-catalog.md#adr-initial-vietnamese-catalog-scope"},
     "source_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source_ref"}},
     "release": {"$ref": "#/$defs/release"},
     "records": {"type": "array", "minItems": 1, "items": {"oneOf": [
@@ -50,7 +50,7 @@
         "status": {"enum": ["proposed", "owner_approved", "domain_reviewed"]},
         "reviewer_ref": {"type": "string", "minLength": 1},
         "reviewer_role": {"enum": ["none", "human_owner", "human_domain_reviewer"]},
-        "decision_ref": {"const": "docs/OWNER_DECISIONS_V1.md#owner-be-002--initial-vietnamese-catalog-scope"}
+        "decision_ref": {"const": "docs/decisions/vietnamese-catalog.md#adr-initial-vietnamese-catalog-scope"}
       }
     },
     "common": {

@@ -4,8 +4,8 @@
   "status": "development-only",
   "language": "vi-VN",
   "license": "internal-test-fixtures",
-  "annotation_guideline": "docs/VIETNAMESE_MEAL_BENCH.md",
-  "annotation_protocol": "docs/VIETNAMESE_MEAL_BENCH_ADJUDICATION.md",
+  "annotation_guideline": "docs/evidence/vietnamese-meal-bench.md",
+  "annotation_protocol": "docs/evidence/vietnamese-meal-bench-adjudication.md",
   "annotation": {
     "parse_layer": {
       "independent_annotators_required": 2,

@@ -33,7 +33,7 @@ foreach ($slot in @("independent-a", "independent-b")) {
         packet_type = "independent_parse_annotation"
         annotator_slot = $slot
         source_case_file_sha256 = $sourceHash
-        guideline = "docs/VIETNAMESE_MEAL_BENCH_ADJUDICATION.md"
+        guideline = "docs/evidence/vietnamese-meal-bench-adjudication.md"
         cases = @(
             foreach ($case in $sourceCases) {
                 [ordered]@{

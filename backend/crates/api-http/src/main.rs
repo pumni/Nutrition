@@ -1,10 +1,3 @@
-mod app;
-mod config;
-mod handlers;
-mod observability;
-mod oidc;
-mod router;
-
 use metrics_exporter_prometheus::PrometheusBuilder;
 use tokio::net::TcpListener;
 use tracing::info;
@@ -13,10 +6,10 @@ use tracing_subscriber::EnvFilter;
 #[tokio::main]
 async fn main() {
     initialize_tracing();
-    initialize_metrics(config::metrics_bind_addr());
+    initialize_metrics(api_http::config::metrics_bind_addr());
 
-    let (address, state) = config::build().await;
-    let app = router::build_router(state);
+    let (address, state) = api_http::config::build().await;
+    let app = api_http::router::build_router(state);
     let listener = TcpListener::bind(address)
         .await
         .expect("failed to bind HTTP listener");

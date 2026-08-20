@@ -1,6 +1,6 @@
 .git
 .github
-.agent
+.claude
 docs
 target
 .env

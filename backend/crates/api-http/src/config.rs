@@ -1,4 +1,4 @@
-use crate::{app::AppState, oidc::Authenticator};
+use crate::{app::AppState, auth::Authenticator};
 use adapters::{
     APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS, APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD,
     APPROVED_HOSTED_ENDPOINT, APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES, APPROVED_HOSTED_MODEL,
@@ -42,7 +42,13 @@ impl AppEnvironment {
     }
 }
 
-pub(crate) async fn build() -> (SocketAddr, AppState) {
+/// Loads environment configuration and builds the API dependency graph.
+///
+/// # Panics
+///
+/// Panics when required configuration is missing or violates the environment policy, or when
+/// `PostgreSQL` cannot be connected to or has no active catalog release.
+pub async fn build() -> (SocketAddr, AppState) {
     let environment = AppEnvironment::from_env();
     let auth_mode = env::var("AUTH_MODE").expect("AUTH_MODE is required");
     validate_auth_mode(environment, &auth_mode).expect("authentication configuration is invalid");
@@ -123,7 +129,13 @@ pub(crate) async fn build() -> (SocketAddr, AppState) {
     (address, state)
 }
 
-pub(crate) fn metrics_bind_addr() -> SocketAddr {
+/// Returns the configured internal metrics listener address.
+///
+/// # Panics
+///
+/// Panics when the environment requires an address and it is missing or invalid.
+#[must_use]
+pub fn metrics_bind_addr() -> SocketAddr {
     let environment = AppEnvironment::from_env();
     match env::var("API_METRICS_BIND_ADDR") {
         Ok(value) => value

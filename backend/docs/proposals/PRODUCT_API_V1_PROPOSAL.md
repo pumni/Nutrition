@@ -27,8 +27,8 @@ The inventory is derived from:
   application error taxonomy and reader capabilities;
 - [`crates/persistence-postgres/src/privacy.rs`](../../crates/persistence-postgres/src/privacy.rs):
   the existing user export/deletion shapes;
-- [`docs/FOUNDATION_DECISIONS.md`](../FOUNDATION_DECISIONS.md) and
-  [`docs/SECURITY_AND_OPERATIONS.md`](../SECURITY_AND_OPERATIONS.md):
+- [`docs/architecture/foundation.md`](../architecture/foundation.md) and
+  [`docs/operations/security.md`](../operations/security.md):
   ownership, privacy, versioning, and idempotency boundaries.
 
 The current API is the foundation `0.6.0` behavior. Existing behavior remains
@@ -233,6 +233,6 @@ envelopes, the owner must approve:
 7. canonical machine-readable contract artifact and its version/publication
    policy.
 
-Until these decisions are recorded in a new approved Task Intent, this file is
+Until these decisions are recorded in an explicit approved product decision, this file is
 only a proposal. No route, schema, dependency, migration, response status, or
 persistence behavior is changed by it.

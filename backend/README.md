@@ -1,7 +1,7 @@
 # Nutrition backend
 
 Evidence-first nutrition analysis backend with current decisions recorded in
-[`docs/FOUNDATION_DECISIONS.md`](docs/FOUNDATION_DECISIONS.md).
+[`docs/architecture/foundation.md`](docs/architecture/foundation.md).
 
 Current behavior release: `foundation-0.6.0`.
 
@@ -32,15 +32,7 @@ hosted parsing boundary.
 ## Verify
 
 ```powershell
-cargo fmt --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-```
-
-Or run the provider-independent verification contract:
-
-```powershell
-.\scripts\verify.ps1
+cargo xtask check
 ```
 
 ## Start PostgreSQL and prepare local fixtures
@@ -76,7 +68,7 @@ for `local` and `ci`. Staging and production fail closed if a development-only a
 `AUTH_MODE=oidc` selects the implemented provider-neutral OIDC adapter for staging and production.
 It does not select or approve a production identity provider; issuer configuration, provider/deployment
 approval, and production traffic authorization remain explicit release gates.
-See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for the complete runtime configuration matrix.
+See [`docs/operations/configuration.md`](docs/operations/configuration.md) for the complete runtime configuration matrix.
 
 Hosted mode uses a provider-neutral HTTPS envelope:
 
@@ -91,7 +83,7 @@ $env:LLM_MODEL = "<model-version>"
 Optional bounded settings are `LLM_TIMEOUT_MS` (default 3000),
 `LLM_MAXIMUM_RESPONSE_BYTES` (65536), `LLM_CIRCUIT_FAILURE_THRESHOLD` (5), and
 `LLM_CIRCUIT_COOLDOWN_SECONDS` (30). See
-[`docs/HOSTED_PARSER.md`](docs/HOSTED_PARSER.md) for the transport contract and privacy boundary.
+[`docs/architecture/parser.md`](docs/architecture/parser.md) for the transport contract and privacy boundary.
 The hosted transport is implemented, but production hosted mode remains disabled until provider
 mapping, privacy/legal, data-residency, retention, benchmark, capacity, secret-management, and
 operational gates are complete.
@@ -156,14 +148,14 @@ Database migrations are forward-only. Do not edit an applied migration; add a ne
 Run the full PostgreSQL integration, API smoke, replay, and immutability suite:
 
 ```powershell
-.\scripts\verify-postgres.ps1
+cargo xtask postgres
 ```
 
 When production container targets are present, verify their build, non-root runtime identity, and
 containerized API readiness with:
 
 ```powershell
-.\scripts\verify-containers.ps1
+cargo xtask containers
 ```
 
 ## Repository boundaries
@@ -181,13 +173,13 @@ Worker modes are `idle`, `run-once`, and `loop`. `run-once` is used in verificat
 bounded polling and graceful shutdown. The current outbox target is an explicit foundation test
 sink, not an external broker.
 
-See [`docs/FOUNDATION_DECISIONS.md`](docs/FOUNDATION_DECISIONS.md) for decisions and deferred scope.
+See [`docs/architecture/foundation.md`](docs/architecture/foundation.md) for decisions and deferred scope.
 The initial governance artifacts are
-[`docs/SOURCE_REGISTER.md`](docs/SOURCE_REGISTER.md),
-[`docs/RISK_REGISTER.md`](docs/RISK_REGISTER.md), and the development-only
+[`docs/evidence/sources.md`](docs/evidence/sources.md),
+[`docs/operations/risk-register.md`](docs/operations/risk-register.md), and the development-only
 [`VietnameseMealBench manifest`](fixtures/vietnamese-meal-bench/manifest.json). The benchmark
 structure and aggregate report contract are documented in
-[`docs/VIETNAMESE_MEAL_BENCH.md`](docs/VIETNAMESE_MEAL_BENCH.md).
+[`docs/evidence/vietnamese-meal-bench.md`](docs/evidence/vietnamese-meal-bench.md).
 
 ## Current release boundary
 
@@ -200,25 +192,23 @@ structure and aggregate report contract are documented in
 - The release-pinned FDC importer records provenance and stages a reviewed selection; it never
   activates a catalog release or publishes a composition profile. Activation still requires the
   validation, reviewer, production-eligibility, and rollback evidence described in
-  [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
+  [`docs/operations/configuration.md`](docs/operations/configuration.md).
 - Production traffic, provider selection, catalog activation, and release publication remain
   owner-controlled gates. This repository does not claim production readiness.
 
-## AI coding context layer
+## Coding agents
 
-`AGENTS.md` is the repository entrypoint for coding agents. A human supplies Task Intent; the
-trusted harness compiles the execution spec; the coding agent operates with policy-bounded
-implementation autonomy and must not make protected project decisions. This governance layer does
-not alter nutrition runtime behavior.
+Start with [`AGENTS.md`](AGENTS.md), then use the [architecture map](ARCHITECTURE.md) and
+[documentation index](docs/index.md) to find only the context relevant to the task. The repository
+contract is vendor-neutral and does not require a task compiler, context router, or attestation
+report.
 
-Run the context self-test, the default context verification, and the full foundation verification:
+Run the normal product verification entry point before finishing:
 
-```powershell
-.\scripts\verify-agent-context.ps1 -SelfTest
-.\scripts\verify-agent-context.ps1
-.\scripts\verify.ps1
+```text
+cargo xtask check
 ```
 
-Modern work starts from the [Task Intent example](.agent/templates/task-intent.example.json). The
-trusted prepare phase binds it to a baseline and writes a compiled Task Spec outside the worktree;
-the agent discovers relevant context, and verification derives applicable gates from the final diff.
+Use `cargo xtask postgres`, `cargo xtask fdc`, `cargo xtask containers`, or `cargo xtask benchmark`
+when the changed boundary requires them. Inspect the actual diff and report the commands that
+passed.

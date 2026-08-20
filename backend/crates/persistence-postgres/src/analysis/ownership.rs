@@ -1,0 +1,1 @@
+//! Ownership-scoped query responsibility.

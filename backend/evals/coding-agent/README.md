@@ -1,0 +1,9 @@
+# Coding-agent outcome evals
+
+These evaluator-side scenarios test whether an agent can make defined changes autonomously while preserving the repository's safety and product invariants. They are intentionally separate from normal agent context and do not contain sealed benchmark evidence.
+
+Each scenario states the starting state, user task, expected outcome, forbidden outcome, verification evidence, and whether a human decision is required. Grade repository state and command output, not a custom report format.
+
+Run the relevant repository checks for the scenario. The normal completion gate is `cargo xtask check`; use `cargo xtask postgres`, `cargo xtask fdc`, or `cargo xtask benchmark` when the scenario requires those capabilities.
+
+The suite is designed for comparative runs against a baseline and the refactored repository with the same prompt. Record pass/fail, regressions, unnecessary escalations, missed decision boundaries, relevant-file discovery, tool calls, context/tokens, and elapsed time when the runner exposes them. No baseline or external-agent result is claimed by this repository until such a run is actually performed.

@@ -15,7 +15,7 @@ groups:
           owner_action: api-error-triage
         annotations:
           summary: API server-error rate is burning the non-hosted error budget
-          runbook: docs/OBSERVABILITY.md#nutritionapierrorbudgetburn
+          runbook: docs/operations/observability.md#nutritionapierrorbudgetburn
 
       - alert: NutritionReadP95AboveTarget
         expr: >-
@@ -33,7 +33,7 @@ groups:
           owner_action: read-latency-triage
         annotations:
           summary: Read or readiness p95 exceeds the OWNER-BE-004 target
-          runbook: docs/OBSERVABILITY.md#nutritionreadp95abovetarget
+          runbook: docs/operations/observability.md#nutritionreadp95abovetarget
 
       - alert: NutritionReadP99AboveTarget
         expr: >-
@@ -51,7 +51,7 @@ groups:
           owner_action: read-latency-triage
         annotations:
           summary: Read p99 exceeds the OWNER-BE-004 target
-          runbook: docs/OBSERVABILITY.md#nutritionreadp99abovetarget
+          runbook: docs/operations/observability.md#nutritionreadp99abovetarget
 
       - alert: NutritionMutationP95AboveTarget
         expr: >-
@@ -69,7 +69,7 @@ groups:
           owner_action: mutation-latency-triage
         annotations:
           summary: Non-hosted mutation p95 exceeds the OWNER-BE-004 target
-          runbook: docs/OBSERVABILITY.md#nutritionmutationp95abovetarget
+          runbook: docs/operations/observability.md#nutritionmutationp95abovetarget
 
       - alert: NutritionHostedAnalysisP95AboveTarget
         expr: >-
@@ -85,7 +85,7 @@ groups:
           owner_action: hosted-parser-latency-triage
         annotations:
           summary: Hosted analysis p95 exceeds the OWNER-BE-004 target
-          runbook: docs/OBSERVABILITY.md#nutritionhostedanalysisp95abovetarget
+          runbook: docs/operations/observability.md#nutritionhostedanalysisp95abovetarget
 
       - alert: NutritionHostedAnalysisP99AboveTarget
         expr: >-
@@ -101,7 +101,7 @@ groups:
           owner_action: hosted-parser-latency-triage
         annotations:
           summary: Hosted analysis p99 exceeds the OWNER-BE-004 target
-          runbook: docs/OBSERVABILITY.md#nutritionhostedanalysisp99abovetarget
+          runbook: docs/operations/observability.md#nutritionhostedanalysisp99abovetarget
 
       - alert: NutritionParserCircuitOpen
         expr: nutrition_parser_circuit_open > 0
@@ -111,7 +111,7 @@ groups:
           owner_action: parser-circuit-triage
         annotations:
           summary: Hosted parser circuit breaker is open
-          runbook: docs/OBSERVABILITY.md#nutritionparsercircuitopen
+          runbook: docs/operations/observability.md#nutritionparsercircuitopen
 
       - alert: NutritionWorkerDeadJobs
         expr: increase(nutrition_worker_dead_jobs_total[5m]) > 0
@@ -120,7 +120,7 @@ groups:
           owner_action: dead-job-triage
         annotations:
           summary: Worker dead-letter jobs were observed
-          runbook: docs/OBSERVABILITY.md#nutritionworkerdeadjobs
+          runbook: docs/operations/observability.md#nutritionworkerdeadjobs
 
       - alert: NutritionDatabaseReadinessFailure
         expr: >-
@@ -132,4 +132,4 @@ groups:
           owner_action: database-readiness-triage
         annotations:
           summary: PostgreSQL readiness has failed for the alert window
-          runbook: docs/OBSERVABILITY.md#nutritiondatabasereadinessfailure
+          runbook: docs/operations/observability.md#nutritiondatabasereadinessfailure

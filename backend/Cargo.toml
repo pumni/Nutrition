@@ -7,6 +7,7 @@ members = [
     "crates/persistence-postgres",
     "crates/api-http",
     "crates/worker",
+    "crates/xtask",
 ]
 
 [workspace.package]
