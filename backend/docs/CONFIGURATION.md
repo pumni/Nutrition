@@ -43,17 +43,22 @@ The adapter discovers JWKS from the configured issuer, accepts `RS256` only, req
 
 `PARSER_MODE=hosted` requires:
 
-- `LLM_ENDPOINT`
+- `LLM_ENDPOINT=https://api.openai.com/v1/responses`
 - `LLM_API_KEY`
-- `LLM_PROVIDER`
-- `LLM_MODEL`
+- `LLM_PROVIDER=openai`
+- `LLM_MODEL=gpt-5.6-luna`
 
-Optional bounded hosted-parser settings remain:
+The owner-approved hosted parser bounds are fixed and any supplied override must match:
 
-- `LLM_TIMEOUT_MS` (default `3000`)
-- `LLM_MAXIMUM_RESPONSE_BYTES` (default `65536`)
-- `LLM_CIRCUIT_FAILURE_THRESHOLD` (default `5`)
-- `LLM_CIRCUIT_COOLDOWN_SECONDS` (default `30`)
+- `LLM_TIMEOUT_MS=5000`
+- `LLM_MAXIMUM_RESPONSE_BYTES=65536`
+- `LLM_CIRCUIT_FAILURE_THRESHOLD=5`
+- `LLM_CIRCUIT_COOLDOWN_SECONDS=30`
+
+The hosted request is mapped to the OpenAI Responses API with `store=false`, strict
+`parsed-meal-0.1.0` JSON Schema output, and no provider/model fallback. Production hosted parsing
+remains blocked until the provider retention/privacy gate, Vietnamese benchmark gate, and final
+release gate are closed. Staging must use benchmark, synthetic, or explicitly approved test text.
 
 Hosted mode being syntactically valid does not waive the benchmark, privacy, legal, residency, retention, or operational gates in `docs/HOSTED_PARSER.md`.
 

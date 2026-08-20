@@ -9,8 +9,9 @@ The hosted model is a constrained language parser only. Nutrition values, food r
 portion mass, composition selection, and calculation remain deterministic backend responsibilities.
 The model must not return calories, nutrients, internal IDs, URLs, or inferred gram weights.
 
-The adapter is provider-neutral. A concrete provider gateway must map this envelope to an approved
-provider API without weakening its bounds.
+The adapter contract is provider-neutral. The approved v1 gateway maps it to the OpenAI Responses
+API at `https://api.openai.com/v1/responses` using provider `openai` and model `gpt-5.6-luna`.
+The gateway must not fall back to another provider or model.
 
 ## Request envelope
 
@@ -77,4 +78,6 @@ the meal or output.
 
 Hosted mode must remain disabled in production until provider API mapping, contractual privacy,
 data residency, retention/training policy, secret management, staging Vietnamese benchmark,
-capacity limits, and operational alerts are reviewed.
+capacity limits, and operational alerts are reviewed. The approved gateway sends `store=false`, but
+production hosted parsing still requires the owner-approved provider retention/privacy gate. This
+implementation and its controlled tests do not authorize production traffic or production eligibility.

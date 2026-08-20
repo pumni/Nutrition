@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "INTENT-P1-101",
+  "gate": "benchmark-external",
+  "evidence_kind": "vietnamese-meal-benchmark",
+  "subject_commit": "0000000000000000000000000000000000000000",
+  "result": "waived",
+  "artifact_ref": "p1-101-owner-waiver-artifact.json",
+  "artifact_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "issuer": "repository-owner",
+  "mode": "owner_waiver",
+  "waiver_ref": "docs/OWNER_DECISIONS_V1.md#owner-be-007--single-owner-p1-101-stagingmerge-waiver"
+}

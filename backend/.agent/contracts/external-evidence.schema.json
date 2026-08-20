@@ -11,9 +11,20 @@
     "gate": {"type": "string", "minLength": 1},
     "evidence_kind": {"type": "string", "minLength": 1},
     "subject_commit": {"type": "string", "pattern": "^[0-9a-fA-F]{40}$"},
-    "result": {"const": "pass"},
+    "result": {"enum": ["pass", "waived"]},
     "artifact_ref": {"type": "string", "minLength": 1},
     "artifact_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
-    "issuer": {"type": "string", "minLength": 1}
-  }
+    "issuer": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["benchmark_pass", "owner_waiver"]},
+    "waiver_ref": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"result": {"const": "waived"}}, "required": ["result"]},
+      "then": {
+        "required": ["mode", "waiver_ref"],
+        "properties": {"mode": {"const": "owner_waiver"}}
+      }
+    }
+  ]
 }

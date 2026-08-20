@@ -1,7 +1,9 @@
 use crate::{app::AppState, oidc::Authenticator};
 use adapters::{
-    ConfiguredMealParser, FixtureParser, HOSTED_PROMPT_VERSION, HostedMealParser,
-    HostedParserConfig, PARSER_SCHEMA_VERSION,
+    APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS, APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD,
+    APPROVED_HOSTED_ENDPOINT, APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES, APPROVED_HOSTED_MODEL,
+    APPROVED_HOSTED_PROVIDER, APPROVED_HOSTED_TIMEOUT_MS, ConfiguredMealParser, FixtureParser,
+    HOSTED_PROMPT_VERSION, HostedMealParser, HostedParserConfig, PARSER_SCHEMA_VERSION,
 };
 use application::{AnalysisRevisionService, BehaviorVersions, MealAnalysisService};
 use domain::NutrientCode;
@@ -151,20 +153,50 @@ fn configured_parser(
             let provider =
                 env::var("LLM_PROVIDER").map_err(|_| "LLM_PROVIDER is required".to_owned())?;
             let model = env::var("LLM_MODEL").map_err(|_| "LLM_MODEL is required".to_owned())?;
+            let endpoint =
+                env::var("LLM_ENDPOINT").map_err(|_| "LLM_ENDPOINT is required".to_owned())?;
+            if provider != APPROVED_HOSTED_PROVIDER
+                || model != APPROVED_HOSTED_MODEL
+                || endpoint != APPROVED_HOSTED_ENDPOINT
+            {
+                return Err(
+                    "hosted parser must use the owner-approved OpenAI provider, endpoint, and model"
+                        .to_owned(),
+                );
+            }
+            let timeout_ms = environment_number("LLM_TIMEOUT_MS", APPROVED_HOSTED_TIMEOUT_MS)?;
+            let maximum_response_bytes = environment_number(
+                "LLM_MAXIMUM_RESPONSE_BYTES",
+                APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES,
+            )?;
+            let circuit_failure_threshold = environment_number(
+                "LLM_CIRCUIT_FAILURE_THRESHOLD",
+                APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD,
+            )?;
+            let circuit_cooldown_seconds = environment_number(
+                "LLM_CIRCUIT_COOLDOWN_SECONDS",
+                APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS,
+            )?;
+            if timeout_ms != APPROVED_HOSTED_TIMEOUT_MS
+                || maximum_response_bytes != APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES
+                || circuit_failure_threshold != APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD
+                || circuit_cooldown_seconds != APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS
+            {
+                return Err(
+                    "hosted parser bounds must match the owner-approved provider contract"
+                        .to_owned(),
+                );
+            }
             let config = HostedParserConfig {
-                endpoint: env::var("LLM_ENDPOINT")
-                    .map_err(|_| "LLM_ENDPOINT is required".to_owned())?,
+                endpoint,
                 api_key: env::var("LLM_API_KEY")
                     .map_err(|_| "LLM_API_KEY is required".to_owned())?,
                 provider: provider.clone(),
                 model: model.clone(),
-                timeout: Duration::from_millis(environment_number("LLM_TIMEOUT_MS", 3_000)?),
-                maximum_response_bytes: environment_number("LLM_MAXIMUM_RESPONSE_BYTES", 65_536)?,
-                circuit_failure_threshold: environment_number("LLM_CIRCUIT_FAILURE_THRESHOLD", 5)?,
-                circuit_cooldown: Duration::from_secs(environment_number(
-                    "LLM_CIRCUIT_COOLDOWN_SECONDS",
-                    30,
-                )?),
+                timeout: Duration::from_millis(timeout_ms),
+                maximum_response_bytes,
+                circuit_failure_threshold,
+                circuit_cooldown: Duration::from_secs(circuit_cooldown_seconds),
             };
             let parser = HostedMealParser::with_reqwest(config)
                 .map_err(|error| error.to_string())?

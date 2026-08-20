@@ -174,14 +174,25 @@ function Validate-ExternalEvidence($Gate, [string]$GateId, [string]$TaskId, [str
         if ($matches.Count -ne 1) { throw "expected exactly one evidence object for $GateId/$($Gate.evidence_kind), found $($matches.Count)" }
         $document = $matches[0].document
         $required = @('schema_version','task_id','gate','evidence_kind','subject_commit','result','artifact_ref','artifact_sha256','issuer')
-        $unknown = @($document.PSObject.Properties.Name | Where-Object { $_ -notin $required })
+        $allowed = @($required + 'mode' + 'waiver_ref')
+        $unknown = @($document.PSObject.Properties.Name | Where-Object { $_ -notin $allowed })
         $missing = @($required | Where-Object { -not $document.PSObject.Properties[$_] })
         if ($unknown.Count -gt 0 -or $missing.Count -gt 0) { throw 'external evidence object shape is invalid' }
-        if ($document.schema_version -ne '1.0.0' -or [string]$document.task_id -ne $TaskId -or $document.result -ne 'pass' -or [string]$document.subject_commit -ne $targetHead -or [string]::IsNullOrWhiteSpace([string]$document.issuer)) { throw 'external evidence identity or result is invalid' }
+        if ($document.schema_version -ne '1.0.0' -or [string]$document.task_id -ne $TaskId -or [string]$document.subject_commit -ne $targetHead -or [string]::IsNullOrWhiteSpace([string]$document.issuer)) { throw 'external evidence identity or result is invalid' }
         $artifactPath = if ([IO.Path]::IsPathRooted([string]$document.artifact_ref)) { Get-Full ([string]$document.artifact_ref) } else { Get-Full (Join-Path (Get-Full $EvidenceRoot) ([string]$document.artifact_ref)) }
         if (-not $artifactPath.StartsWith($externalRoot, [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) { throw 'external evidence artifact is outside the evidence directory or missing' }
         $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifactPath).Hash.ToLowerInvariant()
         if ($actualHash -ne ([string]$document.artifact_sha256).ToLowerInvariant()) { throw 'external evidence artifact SHA-256 does not match' }
+        if ($document.result -eq 'waived') {
+            if ($TaskId -ne 'INTENT-P1-101' -or $GateId -ne 'benchmark-external' -or [string]$Gate.evidence_kind -ne 'vietnamese-meal-benchmark' -or [string]$document.mode -ne 'owner_waiver' -or [string]$document.waiver_ref -ne 'docs/OWNER_DECISIONS_V1.md#owner-be-007--single-owner-p1-101-stagingmerge-waiver') { throw 'owner waiver is not valid for this task or gate' }
+            $waiver = Get-Content -Raw -LiteralPath $artifactPath | ConvertFrom-Json
+            $waiverRequired = @('artifact_version','task_id','gate','mode','decision_ref','subject_commit','scope','production_authorization')
+            $waiverMissing = @($waiverRequired | Where-Object { -not $waiver.PSObject.Properties[$_] })
+            if ($waiverMissing.Count -gt 0 -or [string]$waiver.task_id -ne $TaskId -or [string]$waiver.gate -ne $GateId -or [string]$waiver.mode -ne 'owner_waiver' -or [string]$waiver.decision_ref -ne [string]$document.waiver_ref -or [string]$waiver.subject_commit -ne $targetHead -or $waiver.production_authorization -ne $false -or [string]::IsNullOrWhiteSpace([string]$waiver.scope)) { throw 'owner waiver artifact is invalid' }
+            "[PASS] owner waiver validated: $GateId; benchmark pass not established" | Set-Content -LiteralPath $LogPath -Encoding utf8
+            return [pscustomobject]@{ exit_code = 0; output_byte_count = 0; output_sha256 = ('0' * 64); summary = 'owner waiver validated; benchmark pass not established' }
+        }
+        if ($document.result -ne 'pass') { throw 'external evidence result is invalid' }
         "[PASS] external evidence validated: $GateId" | Set-Content -LiteralPath $LogPath -Encoding utf8
         return [pscustomobject]@{ exit_code = 0; output_byte_count = 0; output_sha256 = ('0' * 64); summary = 'external evidence validated' }
     } catch {
