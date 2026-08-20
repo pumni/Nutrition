@@ -13,7 +13,10 @@ from nutrition_data_factory.adapters.fdc_foundation import (  # noqa: E402
     FDC_FOUNDATION_RELEASE,
     FdcFoundationAdapter,
 )
-from nutrition_data_factory.nutrients import canonicalize_fdc_nutrients  # noqa: E402
+from nutrition_data_factory.nutrients import (  # noqa: E402
+    build_fdc_nutrient_registry,
+    canonicalize_fdc_nutrients,
+)
 
 
 class FdcAndNutrientTests(unittest.TestCase):
@@ -85,6 +88,34 @@ class FdcAndNutrientTests(unittest.TestCase):
             },
         )
         self.assertNotIn("energy_kcal", {value.target_code for value in canonicalize_fdc_nutrients([]).values})
+
+    def test_source_registry_preserves_unmapped_ids_and_negative_values_are_quarantinable(self) -> None:
+        registry = build_fdc_nutrient_registry(
+            [
+                {"nutrients": [{"amount": 1, "nutrient": {"id": 1003, "name": "Protein", "unitName": "g"}}]},
+                {"nutrients": [{"amount": 2, "nutrient": {"id": 9999, "name": "Source-only nutrient", "unitName": "mg"}}]},
+            ]
+        )
+        by_id = {item["source_nutrient_id"]: item for item in registry}
+        self.assertEqual(by_id[1003]["mapping_status"], "approved")
+        self.assertEqual(by_id[9999]["mapping_status"], "source_preserved_unmapped")
+        result = canonicalize_fdc_nutrients([
+            {"amount": -0.1, "nutrient": {"id": 1005, "name": "Carbohydrate, by difference", "unitName": "G"}}
+        ])
+        self.assertFalse(result.values)
+        self.assertIn("negative_value", {item["reason_code"] for item in result.rejected})
+
+    def test_extended_crosswalk_covers_broad_nutrient_groups_with_source_units(self) -> None:
+        result = canonicalize_fdc_nutrients(
+            [
+                {"amount": 41, "nutrient": {"id": 1087, "name": "Calcium, Ca", "unitName": "mg"}},
+                {"amount": 16.2, "nutrient": {"id": 1103, "name": "Selenium, Se", "unitName": "µg"}},
+                {"amount": 420, "nutrient": {"id": 1253, "name": "Cholesterol", "unitName": "mg"}},
+            ]
+        )
+        self.assertEqual({value.target_code for value in result.values}, {"calcium_mg", "selenium_ug", "cholesterol_mg"})
+        self.assertEqual({value.canonical_unit for value in result.values}, {"mg", "ug"})
+        self.assertTrue(result.valid)
 
 
 if __name__ == "__main__":

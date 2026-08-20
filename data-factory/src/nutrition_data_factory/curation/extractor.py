@@ -56,12 +56,19 @@ def extract_candidates(payload: dict[str, Any], policy: ExtractionPolicy | None 
                 "context_refs": [],
                 "quantity_units": set(),
                 "preparation_tokens": set(),
+                "source_classes": set(),
+                "negated_observation_count": 0,
                 "machine_confidence": {"value": None, "authoritative": False},
                 "review_status": "proposal",
             },
         )
         entry["frequency"] += 1
         entry["distinct_case_ids"].add(case_id)
+        source_class = observation.get("source_class")
+        if isinstance(source_class, str) and source_class.strip():
+            entry["source_classes"].add(source_class)
+        if observation.get("negated") is True:
+            entry["negated_observation_count"] += 1
         source_text = " ".join(str(value) for value in (phrase, observation.get("context", "")))
         entry["quantity_units"].update(
             f"{match.group('quantity')} {match.group('unit').lower()}"
@@ -90,6 +97,8 @@ def extract_candidates(payload: dict[str, Any], policy: ExtractionPolicy | None 
         candidate["context_refs"] = sorted(entry["context_refs"], key=lambda item: (item["case_id"], item["observation_index"]))
         candidate["quantity_units"] = sorted(entry["quantity_units"])
         candidate["preparation_tokens"] = sorted(entry["preparation_tokens"])
+        candidate["source_classes"] = sorted(entry["source_classes"])
+        candidate["negated_observation_count"] = entry["negated_observation_count"]
         candidate["rank_key"] = [
             -entry["frequency"],
             -len(entry["distinct_case_ids"]),
@@ -120,4 +129,3 @@ def normalize_phrase(phrase: str) -> str:
 def remove_diacritics(value: str) -> str:
     decomposed = unicodedata.normalize("NFD", value)
     return "".join(character for character in decomposed if unicodedata.category(character) != "Mn").casefold()
-

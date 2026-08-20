@@ -1,0 +1,9 @@
+{
+  "baseline_policy_version": "backend-baseline-0.1.0",
+  "repository": "pumni/Nutrition_backend",
+  "branch": "main",
+  "resolved_at_task_start": "2026-08-20",
+  "commit": "479ac773b372599e2648437bfe5b56620f1b706d",
+  "selection_evidence": "config/backend-fdc-selection.json",
+  "note": "Read-only compatibility baseline; factory does not mutate or import into backend."
+}
