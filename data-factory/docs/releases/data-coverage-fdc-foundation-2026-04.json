@@ -26,9 +26,9 @@
     "regression_status": "matched"
   },
   "package": {
-    "relative_artifact_path": "artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v9/full-catalog-package",
-    "manifest_sha256": "373f79eba39ebb15d8e9398a2fe7db48f72ae29866f0416442d736abef2d9bb0",
-    "checksums_sha256": "804344a60edd7b86a35ad85a844379dcd3fda9b7ee44d511dfe74ece013005d5",
+    "relative_artifact_path": "artifacts/derived/usda_fdc_foundation/2026-04-30/full-release-v21/full-catalog-package",
+    "manifest_sha256": "fe8564c841f43e75281ec6f1cd4450cebcfef9ef45d18d67d28bdf9938d2a955",
+    "checksums_sha256": "819c004b345201d716b384600bf5ec3881eb8e512db9414bfdf89ef01f8a8f7f",
     "import_mode": "staged_only",
     "production_eligible": false,
     "activation_attempted": false,
@@ -45,11 +45,16 @@
     "composition_values": 9733,
     "source_nutrient_registry_entries": 228,
     "food_concept_candidates": 363,
-    "food_name_candidates": 363,
+    "food_name_candidates": 378,
     "source_food_mapping_candidates": 363,
     "vietnamese_identity_candidates": 15,
     "vietnamese_review_packets": 15,
+    "vietnamese_source_mapping_proposals": 0,
     "recipe_evidence_candidates": 4,
+    "recipe_ingredient_identity_review_required": 17,
+    "recipe_ingredient_identity_proposals": 1,
+    "recipe_ingredient_identity_no_candidate": 16,
+    "recipe_non_mass_quantities": 4,
     "recipes": 0,
     "recipe_components": 0,
     "portion_evidence_candidates": 4,
@@ -86,14 +91,85 @@
       "status": "proposal_only",
       "observations": 22,
       "unique_candidates": 15,
-      "review_packets": 15
+      "review_packets": 15,
+      "candidate_with_source_mapping_proposals": 0,
+      "source_mapping_proposal_count": 0,
+      "approved_identity_decisions": 11,
+      "deferred_identity_decisions": 3,
+      "unsupported_identity_decisions": 1,
+      "unresolved_identity_candidates": 4,
+      "recipe_required_candidates": 3,
+      "mapping_policy_version": "vietnamese-semantic-proposal-0.2.0"
     },
     "recipes": {
       "status": "review_required",
       "candidates": 4,
       "compile_ready": 0,
       "missing_evidence_items": 21,
-      "unresolved_ingredient_identities": 17
+      "unresolved_ingredient_identities": 16,
+      "ingredient_identity_review_required": 17,
+      "ingredient_identity_proposals": 1,
+      "non_mass_quantities": 4,
+      "mapping_policy_version": "recipe-ingredient-semantic-proposal-0.1.0",
+      "priority_queue": [
+        {
+          "priority_rank": 1,
+          "priority": "high",
+          "candidate_id": "nin-pho-bo-diabetes-menu",
+          "dish": "phở thịt bò",
+          "missing_evidence_count": 5,
+          "blocking_fields": [
+            "broth/water quantity",
+            "cooked output mass or yield",
+            "seasoning quantities",
+            "ingredient identity review",
+            "rights/use approval"
+          ]
+        },
+        {
+          "priority_rank": 2,
+          "priority": "high",
+          "candidate_id": "nin-pho-thit-bo-gout-menu",
+          "dish": "phở thịt bò",
+          "missing_evidence_count": 5,
+          "blocking_fields": [
+            "broth volume",
+            "cooked output mass or yield",
+            "other broth ingredients",
+            "ingredient identity review",
+            "rights/use approval"
+          ]
+        },
+        {
+          "priority_rank": 3,
+          "priority": "normal",
+          "candidate_id": "nin-pho-bo-hypertension-menu",
+          "dish": "phở bò",
+          "missing_evidence_count": 5,
+          "blocking_fields": [
+            "broth/water quantity",
+            "cooked output mass or yield",
+            "exact herb/seasoning quantities",
+            "ingredient identity review",
+            "rights/use approval"
+          ]
+        },
+        {
+          "priority_rank": 4,
+          "priority": "normal",
+          "candidate_id": "nin-chao-thit-weaning",
+          "dish": "cháo thịt",
+          "missing_evidence_count": 6,
+          "blocking_fields": [
+            "exact vegetable identity/mass",
+            "oil mass conversion",
+            "water quantity",
+            "cooked output mass/yield",
+            "ingredient identity review",
+            "rights/use approval"
+          ]
+        }
+      ]
     },
     "measured_portions": {
       "status": "review_required",
@@ -105,8 +181,8 @@
   "unresolved_gaps": [
     "10 full-source quality errors require review or remain quarantined",
     "152 source nutrient IDs have no approved product semantic mapping",
-    "15 Vietnamese identity candidates remain proposals pending human review",
-    "4 recipe evidence candidates remain review_required; 0 compile-ready",
+    "Vietnamese review remains owner-directed: 15 candidates, 0 semantically compatible FDC mapping proposals, 4 non-approved identity decisions",
+    "4 recipe evidence candidates remain review_required; 0 compile-ready; 21 missing-evidence items; 16 ingredient identities have no semantic candidate",
     "4 portion evidence candidates remain review_required; 0 published",
     "Production activation and backend import were not attempted"
   ]
