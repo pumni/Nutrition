@@ -96,6 +96,103 @@ async fn http_create_read_replay_and_ownership_contract() -> Result<(), Box<dyn 
             .await?;
         assert_eq!(foreign.status(), StatusCode::FORBIDDEN);
 
+        let correction_key = format!("xtask-postgres-correction-{}", uuid::Uuid::now_v7());
+        let correction_request = json!({
+            "base_revision_id": revision_id,
+            "item_corrections": [{
+                "item_index": 0,
+                "quantity": 1,
+                "unit": "quả"
+            }]
+        });
+        let correction_response = client
+            .post(format!(
+                "{BASE_URL}/v1/nutrition/analyses/{analysis_id}/corrections"
+            ))
+            .header("Authorization", AUTHORIZATION)
+            .header("Idempotency-Key", &correction_key)
+            .json(&correction_request)
+            .send()
+            .await?;
+        assert_eq!(correction_response.status(), StatusCode::OK);
+        let corrected: Value = correction_response.json().await?;
+        assert_eq!(corrected["revision_number"], 2);
+        assert_eq!(corrected["items"][0]["estimated_mass_g"], "50");
+        let corrected_revision_id = corrected["revision_id"].clone();
+
+        let correction_replay_response = client
+            .post(format!(
+                "{BASE_URL}/v1/nutrition/analyses/{analysis_id}/corrections"
+            ))
+            .header("Authorization", AUTHORIZATION)
+            .header("Idempotency-Key", &correction_key)
+            .json(&correction_request)
+            .send()
+            .await?;
+        assert_eq!(correction_replay_response.status(), StatusCode::OK);
+        let correction_replay: Value = correction_replay_response.json().await?;
+        assert_eq!(correction_replay["revision_id"], corrected_revision_id);
+
+        let original_revision_response = client
+            .get(format!(
+                "{BASE_URL}/v1/nutrition/analyses/{analysis_id}/revisions/1"
+            ))
+            .header("Authorization", AUTHORIZATION)
+            .send()
+            .await?;
+        assert_eq!(original_revision_response.status(), StatusCode::OK);
+        let original_revision: Value = original_revision_response.json().await?;
+        assert_eq!(original_revision["revision_id"], revision_id);
+        assert_eq!(original_revision["revision_number"], 1);
+
+        let clarification_key = format!(
+            "xtask-postgres-clarification-create-{}",
+            uuid::Uuid::now_v7()
+        );
+        let clarification_create = client
+            .post(format!("{BASE_URL}/v1/nutrition/analyses"))
+            .header("Authorization", AUTHORIZATION)
+            .header("Idempotency-Key", &clarification_key)
+            .json(&json!({
+                "text": "1 ly cơm trắng",
+                "locale": "vi-VN",
+                "mode": "balanced"
+            }))
+            .send()
+            .await?;
+        assert_eq!(clarification_create.status(), StatusCode::OK);
+        let clarification: Value = clarification_create.json().await?;
+        assert_eq!(clarification["status"], "needs_clarification");
+        let clarification_analysis_id = clarification["analysis_id"]
+            .as_str()
+            .ok_or("clarification response omitted analysis_id")?;
+        let clarification_revision_id = clarification["revision_id"].clone();
+        let question_id = clarification["question"]["id"].clone();
+
+        let answer_key = format!(
+            "xtask-postgres-clarification-answer-{}",
+            uuid::Uuid::now_v7()
+        );
+        let answer_response = client
+            .post(format!(
+                "{BASE_URL}/v1/nutrition/analyses/{clarification_analysis_id}/clarifications"
+            ))
+            .header("Authorization", AUTHORIZATION)
+            .header("Idempotency-Key", &answer_key)
+            .json(&json!({
+                "expected_revision_id": clarification_revision_id,
+                "question_id": question_id,
+                "option_id": "unit:bát",
+                "mass_g": null
+            }))
+            .send()
+            .await?;
+        assert_eq!(answer_response.status(), StatusCode::OK);
+        let answered: Value = answer_response.json().await?;
+        assert_eq!(answered["status"], "completed");
+        assert_eq!(answered["revision_number"], 2);
+        assert_eq!(answered["items"][0]["estimated_mass_g"], "150");
+
         let conflict = client
             .post(format!("{BASE_URL}/v1/nutrition/analyses"))
             .header("Authorization", AUTHORIZATION)
