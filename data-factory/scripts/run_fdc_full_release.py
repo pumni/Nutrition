@@ -132,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         "source_food_mapping_candidates": len(source_mappings),
         "vietnamese_identity_candidates": len(vietnamese_candidates),
         "vietnamese_review_packets": len(vietnamese_review_packets),
+        "vietnamese_source_mapping_proposals": vietnamese_report.get("source_mapping_proposal_count", 0),
         "recipe_evidence_candidates": len(recipe_evidence_candidates),
         "portion_evidence_candidates": len(portion_evidence_candidates),
         "recipes": len(recipes),
@@ -168,7 +169,13 @@ def main(argv: list[str] | None = None) -> int:
         "unresolved_gaps": [
             f"{len(source_quality.errors)} full-source quality errors require review or remain quarantined",
             f"{registry_statuses.get('source_preserved_unmapped', 0)} source nutrient IDs have no approved product semantic mapping",
-            "Vietnamese identity corpus was not supplied" if not args.vietnamese_corpus else "Vietnamese identity candidates remain proposals",
+            "Vietnamese identity corpus was not supplied"
+            if not args.vietnamese_corpus
+            else (
+                f"Vietnamese review remains owner-directed: {vietnamese_report['candidate_count']} candidates, "
+                f"{vietnamese_report['source_mapping_proposal_count']} semantically compatible FDC mapping proposals, "
+                f"{vietnamese_report['unresolved_identity_count']} non-approved identity decisions"
+            ),
             "Recipe evidence was not supplied" if not args.recipe_evidence else f"{len(recipe_evidence_candidates)} recipe evidence candidates remain review_required; 0 compile-ready",
             "Measured portion evidence was not supplied" if not args.portion_evidence else f"{len(portion_evidence_candidates)} portion evidence candidates remain review_required; 0 published",
             "Production activation and backend import were not attempted",
@@ -330,7 +337,31 @@ def _load_vietnamese_candidates(
     candidates = []
     review_packets = []
     for candidate in result.candidates:
-        source_foods, classification = _propose_vietnamese_source_foods(candidate["normalized_phrase"], source_records, source_code)
+        source_foods, decision_profile = _propose_vietnamese_source_foods(
+            candidate["normalized_phrase"],
+            source_records,
+            source_code,
+        )
+        public_decision = {
+            key: value for key, value in decision_profile.items() if not key.startswith("_")
+        }
+        public_decision.update(
+            {
+                "decision_source": "owner_task_intent",
+                "reviewer": None,
+            }
+        )
+        packet_evidence_refs = [
+            f"vietnamese-corpus-sha256:{corpus_sha256}",
+            *[
+                "case:{case_id}:observation:{observation_index}:context-sha256:{context_sha256}".format(
+                    case_id=ref["case_id"],
+                    observation_index=ref["observation_index"],
+                    context_sha256=ref.get("context_sha256", ""),
+                )
+                for ref in candidate["context_refs"]
+            ],
+        ]
         candidates.append(
             {
                 "name_id": candidate["candidate_id"],
@@ -343,27 +374,34 @@ def _load_vietnamese_candidates(
                 "source_corpus_sha256": corpus_sha256,
                 "source_classes": candidate.get("source_classes", []),
                 "negated_observation_count": candidate.get("negated_observation_count", 0),
-                "identity_classification": classification,
+                **public_decision,
                 "mapping_proposals": source_foods,
             }
         )
         packet = build_review_packet(
             candidate,
             candidate_concept={
-                "classification": classification,
-                "mapping_status": "proposal",
+                "classification": decision_profile["identity_classification"],
+                "identity_decision": decision_profile["identity_decision"],
+                "mapping_decision": decision_profile["mapping_decision"],
+                "decision_reason": decision_profile["decision_reason"],
+                "required_source_constraints": decision_profile["required_source_constraints"],
+                "mapping_status": decision_profile["mapping_decision"],
                 "human_review_required": True,
             },
             source_foods=source_foods,
-            evidence_refs=[f"vietnamese-corpus-sha256:{corpus_sha256}"],
+            evidence_refs=packet_evidence_refs,
         )
         packet["source_classes"] = candidate.get("source_classes", [])
         packet["negated_observation_count"] = candidate.get("negated_observation_count", 0)
         packet["source_corpus_sha256"] = corpus_sha256
+        packet.update(public_decision)
         review_packets.append(packet)
     source_proposal_count = sum(1 for item in candidates if item["mapping_proposals"])
-    unresolved_count = len(candidates) - source_proposal_count
-    recipe_required_count = sum(1 for item in candidates if item["identity_classification"] == "recipe_required")
+    unresolved_count = sum(1 for item in candidates if item["identity_decision"] not in {"approved"})
+    recipe_required_count = sum(1 for item in candidates if item["mapping_decision"] == "recipe_required")
+    identity_decision_counts = Counter(item["identity_decision"] for item in candidates)
+    mapping_decision_counts = Counter(item["mapping_decision"] for item in candidates)
     return candidates, {
         "corpus_available": True,
         "corpus_path": str(path),
@@ -373,46 +411,244 @@ def _load_vietnamese_candidates(
         "candidate_count": len(candidates),
         "review_packet_count": len(review_packets),
         "candidate_with_source_mapping_proposals": source_proposal_count,
+        "source_mapping_proposal_count": sum(len(item["mapping_proposals"]) for item in candidates),
         "unresolved_identity_count": unresolved_count,
         "recipe_required_count": recipe_required_count,
+        "identity_decision_counts": dict(sorted(identity_decision_counts.items())),
+        "mapping_decision_counts": dict(sorted(mapping_decision_counts.items())),
+        "mapping_policy_version": VIETNAMESE_MAPPING_POLICY_VERSION,
     }, review_packets
 
 
-_VIETNAMESE_SOURCE_SEARCH_TERMS: dict[str, tuple[str, ...]] = {
-    "trứng gà luộc": ("egg", "whole"),
-    "trứng luộc": ("egg", "whole"),
-    "cơm trắng": ("rice", "white"),
-    "thịt bò": ("beef",),
-    "bơ": ("avocado",),
-    "thịt gà": ("chicken",),
-    "thịt gà luộc": ("chicken", "cooked"),
-    "sữa tươi": ("milk", "whole"),
-    "cơm": ("rice",),
-    "da gà": ("chicken", "skin"),
+VIETNAMESE_MAPPING_POLICY_VERSION = "vietnamese-semantic-proposal-0.2.0"
+
+
+_VIETNAMESE_IDENTITY_DECISIONS: dict[str, dict[str, Any]] = {
+    "trứng gà luộc": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Whole boiled egg identity is accepted, but current FDC proposals did not establish boiled preparation equivalence.",
+        "required_source_constraints": [
+            "source description must identify egg and whole egg",
+            "source description must contain boiled or hard-boiled preparation state",
+            "source description must not be raw, frozen, or dried",
+        ],
+        "_required_term_groups": (("egg",), ("whole",), ("boiled", "hard-boiled")),
+        "_forbidden_terms": ("raw", "frozen", "dried"),
+    },
+    "trứng luộc": {
+        "identity_classification": "ambiguous_identity",
+        "identity_decision": "deferred",
+        "mapping_decision": "none",
+        "decision_reason": "Egg species/type is unspecified; do not create an unconditional alias.",
+        "required_source_constraints": [
+            "egg species/type must be clarified",
+            "boiled preparation must be source-backed",
+        ],
+        "_required_term_groups": (),
+        "_forbidden_terms": (),
+    },
+    "cơm trắng": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Cooked white rice identity is accepted, but raw rice or rice flour is not compositionally equivalent.",
+        "required_source_constraints": [
+            "source description must identify rice and white rice",
+            "source description must identify cooked preparation",
+            "source description must not be raw, dry, or flour",
+        ],
+        "_required_term_groups": (("rice",), ("white",), ("cooked",)),
+        "_forbidden_terms": ("raw", "dry", "dried", "flour"),
+    },
+    "thịt bò": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Generic beef identity is accepted, but a specific beef cut or processed product cannot stand in for the generic identity.",
+        "required_source_constraints": [
+            "source description must identify beef",
+            "source description must not select an arbitrary cut, preparation, or processed beef product",
+        ],
+        "_required_term_groups": (("beef",),),
+        "_forbidden_terms": (
+            "frankfurter", "sausage", "ground", "loin", "round", "ribeye", "steak", "roast",
+            "chuck", "flank", "tenderloin", "sirloin", "porterhouse", "t-bone", "short loin",
+        ),
+    },
+    "bơ": {
+        "identity_classification": "ambiguous_identity",
+        "identity_decision": "deferred",
+        "mapping_decision": "none",
+        "decision_reason": "The standalone Vietnamese alias may mean avocado or dairy butter; context is insufficient for a global alias.",
+        "required_source_constraints": [
+            "context must distinguish avocado from dairy butter",
+            "source identity must be reviewed after clarification",
+        ],
+        "_required_term_groups": (),
+        "_forbidden_terms": (),
+    },
+    "thịt gà": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Generic chicken identity is accepted, but a specific chicken cut or state cannot stand in for the generic identity.",
+        "required_source_constraints": [
+            "source description must identify chicken",
+            "source description must not select breast, thigh, drumstick, wing, ground chicken, or a specific preparation",
+        ],
+        "_required_term_groups": (("chicken",),),
+        "_forbidden_terms": (
+            "breast", "thigh", "drumstick", "wing", "ground", "broiler", "fryer", "raw", "cooked",
+            "braised", "roasted", "fried", "grilled",
+        ),
+    },
+    "thịt gà luộc": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Boiled chicken identity is accepted, but current FDC proposals were raw or tied to an arbitrary cooked cut.",
+        "required_source_constraints": [
+            "source description must identify chicken",
+            "source description must contain boiled preparation state",
+            "source description must not select an arbitrary cut or raw/frozen/dried state",
+        ],
+        "_required_term_groups": (("chicken",), ("boiled", "hard-boiled")),
+        "_forbidden_terms": (
+            "breast", "thigh", "drumstick", "wing", "ground", "raw", "frozen", "dried", "braised",
+        ),
+    },
+    "sữa tươi": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Generic fresh-milk identity is accepted, but fresh milk does not imply whole-fat milk.",
+        "required_source_constraints": [
+            "source description must identify fluid milk",
+            "source description must not force whole, low-fat, reduced-fat, nonfat, or a numeric milkfat class",
+        ],
+        "_required_term_groups": (("milk",), ("fluid",)),
+        "_forbidden_terms": (
+            "whole", "lowfat", "low fat", "reduced", "nonfat", "skim", "%", "milkfat",
+        ),
+    },
+    "cơm": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Generic cooked-rice identity is accepted, but raw, dry, flour, or variety-specific records are not equivalent by default.",
+        "required_source_constraints": [
+            "source description must identify cooked rice",
+            "source description must not be raw, dry, or flour",
+            "variety-specific records require additional identity evidence",
+        ],
+        "_required_term_groups": (("rice",), ("cooked",)),
+        "_forbidden_terms": ("raw", "dry", "dried", "flour", "wild", "black", "red", "brown"),
+    },
+    "da gà": {
+        "identity_classification": "unsupported_for_v1_mapping",
+        "identity_decision": "unsupported",
+        "mapping_decision": "unsupported",
+        "decision_reason": "Current seed evidence is negated-only; retain parser evidence but do not create a consumed-food mapping for v1.",
+        "required_source_constraints": [
+            "positive non-negated consumption evidence is required before catalog mapping",
+        ],
+        "_required_term_groups": (),
+        "_forbidden_terms": (),
+    },
+    "cơm gà": {
+        "identity_classification": "recipe_required",
+        "identity_decision": "approved",
+        "mapping_decision": "recipe_required",
+        "decision_reason": "Composite dish must be represented as a recipe, not a basic-food FDC mapping.",
+        "required_source_constraints": [
+            "recipe ingredient identities, exact quantities, yield, and output mass are required",
+        ],
+        "_required_term_groups": (),
+        "_forbidden_terms": (),
+    },
+    "phở bò": {
+        "identity_classification": "recipe_required",
+        "identity_decision": "approved",
+        "mapping_decision": "recipe_required",
+        "decision_reason": "Composite dish must be represented as a recipe, not a basic-food FDC mapping.",
+        "required_source_constraints": [
+            "recipe ingredient identities, exact quantities, yield, and output mass are required",
+        ],
+        "_required_term_groups": (),
+        "_forbidden_terms": (),
+    },
+    "bún bò huế": {
+        "identity_classification": "recipe_required",
+        "identity_decision": "approved",
+        "mapping_decision": "recipe_required",
+        "decision_reason": "Composite dish must be represented as a recipe, not a basic-food FDC mapping.",
+        "required_source_constraints": [
+            "recipe ingredient identities, exact quantities, yield, and output mass are required",
+        ],
+        "_required_term_groups": (),
+        "_forbidden_terms": (),
+    },
+    "bánh mì": {
+        "identity_classification": "ambiguous_identity",
+        "identity_decision": "deferred",
+        "mapping_decision": "none",
+        "decision_reason": "The phrase may mean bread or the Vietnamese sandwich dish; the current observation is insufficient.",
+        "required_source_constraints": [
+            "context must distinguish bread from the composite sandwich dish",
+        ],
+        "_required_term_groups": (),
+        "_forbidden_terms": (),
+    },
+    "rau muống": {
+        "identity_classification": "basic_food_identity_candidate",
+        "identity_decision": "approved",
+        "mapping_decision": "deferred",
+        "decision_reason": "Basic food identity is accepted, but the approved FDC Foundation release has no compatible source record in this candidate run.",
+        "required_source_constraints": [
+            "source description must identify water spinach or morning glory",
+            "no unrelated leafy green may be used as a substitute",
+        ],
+        "_required_term_groups": (("water spinach", "morning glory"),),
+        "_forbidden_terms": (),
+    },
 }
-_VIETNAMESE_RECIPE_PHRASES = frozenset({"cơm gà", "phở bò", "bún bò huế"})
 
 
 def _propose_vietnamese_source_foods(
     normalized_phrase: str,
     source_records: tuple[FdcSourceRecord, ...],
     source_code: str,
-) -> tuple[list[dict[str, Any]], str]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     phrase_key = normalized_phrase.casefold()
-    if phrase_key in _VIETNAMESE_RECIPE_PHRASES:
-        return [], "recipe_required"
-    terms = _VIETNAMESE_SOURCE_SEARCH_TERMS.get(phrase_key, ())
-    if not terms:
-        return [], "unresolved_identity"
+    profile = dict(
+        _VIETNAMESE_IDENTITY_DECISIONS.get(
+            phrase_key,
+            {
+                "identity_classification": "unresolved_identity",
+                "identity_decision": "deferred",
+                "mapping_decision": "none",
+                "decision_reason": "No bounded identity decision exists for this phrase; human clarification is required.",
+                "required_source_constraints": ["human identity classification is required"],
+                "_required_term_groups": (),
+                "_forbidden_terms": (),
+            },
+        )
+    )
+    if profile["mapping_decision"] != "deferred":
+        return [], profile
     scored: list[tuple[int, int, FdcSourceRecord]] = []
-    primary_term = terms[0]
+    required_term_groups = profile["_required_term_groups"]
     for record in source_records:
         description = normalize_label(record.description)
-        if primary_term not in description:
+        if not all(any(term in description for term in group) for group in required_term_groups):
             continue
-        score = 2 + sum(1 for term in terms[1:] if term in description)
-        if score > 0:
-            scored.append((score, record.fdc_id, record))
+        if any(term in description for term in profile["_forbidden_terms"]):
+            continue
+        score = 2 * len(required_term_groups)
+        score += sum(1 for group in required_term_groups for term in group if term in description)
+        scored.append((score, record.fdc_id, record))
     scored.sort(key=lambda item: (-item[0], item[1]))
     return [
         {
@@ -422,9 +658,11 @@ def _propose_vietnamese_source_foods(
             "match_score": score,
             "status": "proposal",
             "human_review_required": True,
+            "semantic_policy_version": VIETNAMESE_MAPPING_POLICY_VERSION,
+            "matched_constraints": list(profile["required_source_constraints"]),
         }
         for score, _, record in scored[:5]
-    ], "basic_food_identity_candidate"
+    ], profile
 
 
 def _load_recipe_evidence(path: Path | None, records: tuple[FdcSourceRecord, ...]) -> tuple[list[dict[str, Any]], dict[str, Any]]:

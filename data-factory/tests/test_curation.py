@@ -7,7 +7,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
 
+from nutrition_data_factory.adapters.fdc_foundation import FdcSourceRecord  # noqa: E402
 from nutrition_data_factory.curation.extractor import (  # noqa: E402
     ExtractionPolicy,
     extract_candidates,
@@ -66,6 +68,42 @@ class CurationTests(unittest.TestCase):
         by_phrase = {item["phrase"]: item for item in result.candidates}
         self.assertEqual(by_phrase["da gà"]["source_classes"], ["pending_human_review"])
         self.assertEqual(by_phrase["da gà"]["negated_observation_count"], 1)
+
+    def test_vietnamese_mapping_proposals_require_semantic_constraints(self) -> None:
+        from run_fdc_full_release import _propose_vietnamese_source_foods
+
+        def source_record(fdc_id: int, description: str) -> FdcSourceRecord:
+            return FdcSourceRecord(
+                fdc_id=fdc_id,
+                description=description,
+                data_type="Foundation",
+                characteristics={},
+                nutrients=(),
+                portions=(),
+                payload={},
+                payload_sha256="0" * 64,
+            )
+
+        records = (
+            source_record(1, "Rice, white, long grain, unenriched, raw"),
+            source_record(2, "Rice, white, long grain, cooked"),
+            source_record(3, "Egg, whole, raw, frozen, pasteurized"),
+            source_record(4, "Egg, whole, hard-boiled"),
+            source_record(5, "Beef, loin, tenderloin, cooked"),
+            source_record(6, "Beef, generic, cooked"),
+        )
+        rice_proposals, rice_decision = _propose_vietnamese_source_foods("cơm trắng", records, "fdc")
+        egg_proposals, egg_decision = _propose_vietnamese_source_foods("trứng gà luộc", records, "fdc")
+        beef_proposals, _ = _propose_vietnamese_source_foods("thịt bò", records, "fdc")
+        recipe_proposals, recipe_decision = _propose_vietnamese_source_foods("bún bò Huế", records, "fdc")
+
+        self.assertEqual([item["source_id"] for item in rice_proposals], ["2"])
+        self.assertEqual([item["source_id"] for item in egg_proposals], ["4"])
+        self.assertEqual([item["source_id"] for item in beef_proposals], ["6"])
+        self.assertEqual(rice_decision["mapping_decision"], "deferred")
+        self.assertEqual(egg_decision["mapping_decision"], "deferred")
+        self.assertEqual(recipe_proposals, [])
+        self.assertEqual(recipe_decision["mapping_decision"], "recipe_required")
 
     def test_decision_history_is_human_only_and_non_destructive(self) -> None:
         history = DecisionHistory()
