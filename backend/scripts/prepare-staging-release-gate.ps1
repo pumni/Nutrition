@@ -235,11 +235,10 @@ foreach ($gate in @($gateInput.gates)) {
         if ($null -ne $gate.waiver_ref) { throw "passed staging gate '$($gate.id)' cannot carry a waiver" }
         $artifactDocument = Read-Json -Path $artifactPath -Label "passed staging gate artifact"
         Assert-ExactProperties -Object $artifactDocument.value -Allowed @(
-            "schema_version", "task_id", "gate_id", "subject_commit", "candidate_evidence_sha256",
+            "schema_version", "gate_id", "subject_commit", "candidate_evidence_sha256",
             "result", "evidence_ref", "production_authorization", "scope", "rationale", "waiver_ref"
         ) -Label "passed staging gate artifact"
-        if ([string]$artifactDocument.value.schema_version -ne "staging-gate-evidence-wrapper-0.1.0" -or
-            [string]$artifactDocument.value.task_id -ne "INTENT-P0-106" -or
+        if ([string]$artifactDocument.value.schema_version -ne "staging-gate-evidence-wrapper-0.2.0" -or
             [string]$artifactDocument.value.gate_id -ne [string]$gate.id -or
             [string]$artifactDocument.value.subject_commit -ine $gitCommit -or
             [string]$artifactDocument.value.candidate_evidence_sha256 -ine [string]$gateInput.candidate_evidence_sha256 -or
@@ -258,7 +257,7 @@ foreach ($gate in @($gateInput.gates)) {
         }
     }
     else {
-        throw "waived staging gate '$($gate.id)' requires a new P0-106 owner waiver; no current OWNER-BE decision authorizes this waiver"
+        throw "waived staging gate '$($gate.id)' requires an explicitly reviewed waiver; this gate does not accept waived records"
     }
     $gateRecords.Add([ordered]@{
             id = [string]$gate.id
@@ -294,7 +293,7 @@ if (-not (Test-Path -LiteralPath $parentDirectory)) {
     New-Item -ItemType Directory -Path $parentDirectory -Force | Out-Null
 }
 $evidence = [ordered]@{
-    schema_version = "staging-release-gate-evidence-0.1.0"
+    schema_version = "staging-release-gate-evidence-0.2.0"
     evidence_kind = "staging-release-candidate-gate"
     status = if ($allClosed) { "ready_for_owner_release_review" } else { "blocked" }
     candidate_only = $true
@@ -302,7 +301,6 @@ $evidence = [ordered]@{
     publication_performed = $false
     production_activation_performed = $false
     deployment_performed = $false
-    owner_decisions = @("OWNER-BE-001", "OWNER-BE-002", "OWNER-BE-003", "OWNER-BE-004", "OWNER-BE-005", "OWNER-BE-006")
     source = [ordered]@{
         git_commit = $gitCommit.ToLowerInvariant()
         tree_status = "clean"
@@ -338,7 +336,7 @@ $evidence = [ordered]@{
         production_authorization = $false
     }
     blockers = @($blocking | Sort-Object)
-    decision_boundary = "Candidate evidence only. This document cannot approve, publish, activate, deploy, or change traffic; OWNER-BE-006 remains the production gate."
+    decision_boundary = "Candidate evidence only. This document cannot approve, publish, activate, deploy, or change traffic; production release remains an external owner-controlled gate."
     generated_at_utc = [DateTimeOffset]::UtcNow.ToString("O")
 }
 $evidence | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $outputFullPath -Encoding utf8

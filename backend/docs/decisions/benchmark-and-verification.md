@@ -13,4 +13,4 @@ authorization.
 
 - `docs/evidence/vietnamese-meal-bench-adjudication.md`
 - `docs/operations/staging-release-gate.md`
-- `evals/coding-agent/`
+- `crates/xtask/`

@@ -183,10 +183,9 @@ if ([int64]$catalogManifest.membership_count -ne [int64]$input.catalog_membershi
 }
 
 $evidence = [ordered]@{
-    schema_version = "recovery-rollback-validation-0.1.0"
+    schema_version = "recovery-rollback-validation-0.2.0"
     status = "passed"
     evidence_kind = "synthetic-local-rollback-validation"
-    owner_decision = "OWNER-BE-005"
     production_authorization = $false
     deployment_performed = $false
     catalog_activation_performed = $false

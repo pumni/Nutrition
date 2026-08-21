@@ -1,7 +1,7 @@
 # Product API v1
 
-Status: implemented for staging preparation under `OWNER-BE-003`; production traffic and canonical
-publication remain gated by `OWNER-BE-006`.
+Status: implemented for staging preparation; production traffic and canonical publication remain
+gated by the production release policy.
 
 The canonical machine-readable contract is [`openapi/nutrition-api-v1.json`](../../openapi/nutrition-api-v1.json).
 It is hand-authored and covered by the `api-http` contract test; no OpenAPI generator dependency is used.

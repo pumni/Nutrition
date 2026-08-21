@@ -3,6 +3,10 @@
 Status: candidate-evidence preparation only. Production publication, production traffic, and
 catalog activation are not authorized.
 
+The current passed-artifact wrapper is `staging-gate-evidence-wrapper-0.2.0`; the assembled gate
+output is `staging-release-gate-evidence-0.2.0`. These versions reflect the removal of historical
+task provenance fields. Consumers must reject an older shape unless they explicitly migrate it.
+
 `scripts/prepare-staging-release-gate.ps1` assembles a deterministic, fail-closed gate record for
 an exact candidate. It consumes two external JSON documents:
 
@@ -20,10 +24,10 @@ traffic, activates a catalog, creates a tag, or publishes `v1.0.0`.
 
 The gate input must contain exactly one record for each ID below. A `pass` record requires an
 external artifact path; the script computes its SHA-256 and compares it with the declared digest,
-then validates a wrapper containing the exact task ID, gate ID, candidate SHA, subject commit,
-result, scope, and `production_authorization=false`. A `blocked` record must carry a safe evidence
-reference but no artifact or waiver. Waivers are fail-closed for P0-106 until a new, explicitly
-scoped owner decision authorizes one; OWNER-BE-007 is limited to P1-101 and is not accepted here.
+then validates a wrapper containing the gate ID, candidate SHA, subject commit, result, scope, and
+`production_authorization=false`. A `blocked` record must carry a safe evidence reference but no
+artifact or waiver. Waived records are rejected by this gate; an exceptional release decision must
+be handled by a separately reviewed, versioned process.
 
 - `M0-governance`
 - `M1-provider-privacy`
@@ -60,7 +64,7 @@ pwsh -NoLogo -NoProfile -File .\scripts\prepare-staging-release-gate.ps1 `
 Get-Content -Raw $gateEvidence
 ```
 
-The gate record is the durable handoff for owner review. `OWNER-BE-006` still requires provider
-privacy, benchmark, `production_eligible` catalog evidence, staging SLO/load/restore evidence, and
-reviewed release/rollback targets before production activation. The owner remains the sole authority
-for canonical publication and production release.
+The gate record is the durable handoff for owner review. Production still requires provider privacy,
+benchmark, `production_eligible` catalog evidence, staging SLO/load/restore evidence, and reviewed
+release/rollback targets before activation. The owner remains the sole authority for canonical
+publication and production release.

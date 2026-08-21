@@ -2,12 +2,16 @@
 
 Status: staging-preparation contract; production activation is not authorized.
 
-This runbook implements OWNER-BE-005. PostgreSQL recovery uses encrypted daily backups and
+PostgreSQL recovery uses encrypted daily backups and
 continuous WAL/PITR where the selected platform supports it, with a 15-minute RPO objective,
 4-hour RTO objective, 35-day backup retention, monthly staging restore drills, and at least
 quarterly restore drills from production backup copies. The platform owner must still configure
 the actual backup service, encryption keys, storage, access controls, WAL archive, and secret
 manager. The repository does not guess those infrastructure choices.
+
+The drill emits `backup-restore-drill-evidence-0.2.0`. The rollback plan and validation output use
+`recovery-rollback-plan-0.2.0` and `recovery-rollback-validation-0.2.0`; each version records the
+current evidence shape after removal of historical task provenance.
 
 ## Isolated local/staging-safe drill
 
@@ -17,9 +21,9 @@ custom-format backup and JSON evidence outside the repository. It rejects reposi
 those artifacts and contains no production connection-string input.
 
 ```powershell
-$evidence = Join-Path $env:TEMP "nutrition-p2-105-recovery-evidence.json"
-$backup = Join-Path $env:TEMP "nutrition-p2-105-recovery.dump"
-$privacy = Join-Path $env:TEMP "nutrition-p2-105-privacy-replay.json"
+$evidence = Join-Path $env:TEMP "nutrition-recovery-evidence.json"
+$backup = Join-Path $env:TEMP "nutrition-recovery.dump"
+$privacy = Join-Path $env:TEMP "nutrition-recovery-privacy-replay.json"
 pwsh -NoLogo -NoProfile -File .\scripts\run-backup-restore-drill.ps1 `
   -OutputPath $evidence `
   -BackupPath $backup `
@@ -89,8 +93,8 @@ and evidence, and uses the explicit catalog activation gate. A synthetic rollbac
 can be validated without deployment:
 
 ```powershell
-$rollbackInput = Join-Path $env:TEMP "nutrition-p2-105-rollback-input.json"
-$rollbackEvidence = Join-Path $env:TEMP "nutrition-p2-105-rollback-evidence.json"
+$rollbackInput = Join-Path $env:TEMP "nutrition-recovery-rollback-input.json"
+$rollbackEvidence = Join-Path $env:TEMP "nutrition-recovery-rollback-evidence.json"
 pwsh -NoLogo -NoProfile -File .\scripts\validate-recovery-rollback.ps1 `
   -InputPath $rollbackInput -OutputPath $rollbackEvidence
 ```
@@ -111,6 +115,6 @@ rollback execution.
 
 ## Required review before production
 
-The drill artifact alone does not close OWNER-BE-006. Production remains blocked until provider
+The drill artifact alone does not authorize production. Production remains blocked until provider
 privacy, benchmark, `production_eligible` catalog evidence, staging SLO/load/restore review, and
 release/rollback gates are all accepted by the owner.

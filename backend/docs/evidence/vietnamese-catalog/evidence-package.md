@@ -2,7 +2,7 @@
 
 Status: staging-only candidate contract; not curation approval or production evidence
 
-P1-102 adds a deterministic validator for externally supplied Vietnamese catalog evidence packages.
+The repository provides a deterministic validator for externally supplied Vietnamese catalog evidence packages.
 It does not create catalog facts. A package may carry proposed or separately human-reviewed identity,
 alias, recipe, and portion records, but this repository validator never changes their review state.
 
@@ -16,7 +16,7 @@ make benchmark fixture values production evidence.
 
 Every package and record is forced to `production_eligible: false`. The package is candidate-only and
 cannot authorize catalog activation, production traffic, a release tag, or canonical publication.
-`OWNER-BE-006` remains the production gate.
+Production activation remains a separate owner-controlled release gate.
 
 ## Contract and validator
 
