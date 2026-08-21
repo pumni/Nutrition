@@ -65,6 +65,7 @@ version = "0.6.0"
 dependencies = [
  "adapters",
  "application",
+ "async-trait",
  "axum",
  "domain",
  "hex",
@@ -79,6 +80,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
+ "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
