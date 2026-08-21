@@ -1,0 +1,8 @@
+[advisories]
+# rkyv is an optional rust_decimal dependency recorded in Cargo.lock but is not enabled by the
+# workspace feature set. Keep this exception scoped to the advisory until rust_decimal adopts the
+# fixed rkyv line.
+ignore = ["RUSTSEC-2026-0235", "RUSTSEC-2023-0071"]
+
+# RUSTSEC-2023-0071 has no fixed rsa release. jsonwebtoken uses rsa for public-key signature
+# verification only; this service does not perform RSA decryption or private-key operations.
