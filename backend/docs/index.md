@@ -35,9 +35,7 @@ source and direct tests.
 ## Decisions and proposals
 
 - [Decisions index](decisions/index.md) — lasting ADR-style decisions
-- [Decision index](decisions/index.md) — focused accepted product/domain decisions
-- [Product API proposal](proposals/PRODUCT_API_V1_PROPOSAL.md) — explicitly unfinished proposal
-- [Release notes](releases/) — current release and evidence snapshots
+- [Release index](releases/index.md) — current release pointer and historical evidence snapshots
 
 Historical design archives are not a required starting context. Git history remains the archive;
 active documents above are the current repository navigation surface.

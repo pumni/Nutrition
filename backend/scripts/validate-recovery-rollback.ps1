@@ -186,7 +186,6 @@ $evidence = [ordered]@{
     schema_version = "recovery-rollback-validation-0.1.0"
     status = "passed"
     evidence_kind = "synthetic-local-rollback-validation"
-    owner_decision = "OWNER-BE-005"
     production_authorization = $false
     deployment_performed = $false
     catalog_activation_performed = $false

@@ -1,41 +1,43 @@
 # Nutrition backend
 
-Evidence-first nutrition analysis backend with current decisions recorded in
-[`docs/architecture/foundation.md`](docs/architecture/foundation.md).
+Evidence-first Rust backend for Vietnamese meal analysis. Language parsing may use a bounded
+adapter, but food identity, portion mass, composition, calories, and persisted evidence come from
+deterministic, versioned system evidence.
 
-Current behavior release: `foundation-0.6.0`.
+Current behavior release: [foundation-0.6.0](docs/releases/foundation-0.6.0.md).
 
-## Implemented foundation slice
+## Foundation slice
 
 ```text
-quantity + unit + food
-→ explicit fixture parser or bounded hosted-parser anti-corruption adapter
-→ exact PostgreSQL catalog lookup
-→ explicit mass or release-scoped portion observation
-→ direct composition profile
-→ pure decimal calculator with propagated bounds
-→ transactional PostgreSQL analysis snapshot
-→ hash-verified read/replay
-→ one-turn clarification or append-only correction revision
+meal text
+  → bounded parser boundary
+  → exact catalog lookup and reviewed portion evidence
+  → deterministic decimal calculation with bounds
+  → transactional PostgreSQL snapshot and immutable revisions
 ```
 
-This slice proves domain boundaries, calculation semantics, behavior versioning,
-unknown-food rejection, PostgreSQL transaction boundaries, immutable revision history,
-clarification/correction state transitions, idempotent create/correction replay, and a fail-closed
-hosted parsing boundary.
+Unknown or unsupported evidence fails closed. Clarification and correction are explicit revision
+flows; replay is bound to recorded behavior and evidence versions.
 
 ## Prerequisites
 
-- Rust `1.97.1`.
-- Docker with Compose for PostgreSQL integration work.
+- Rust `1.97.1`
+- Docker with Compose for PostgreSQL and container verification
 
 ## Verify
 
 ```powershell
 cargo xtask check
+cargo xtask postgres       # PostgreSQL, HTTP, worker, and immutability integration
+cargo xtask containers     # production-container readiness and non-root checks
 ```
 
-## Start PostgreSQL and prepare local fixtures
+Use `cargo xtask fdc`, `cargo xtask benchmark`, or `cargo xtask all` when the changed boundary
+requires them. The normal product gate is `cargo xtask check`.
+
+## Run locally
+
+Start PostgreSQL and the development-only foundation fixtures:
 
 ```powershell
 docker compose -f deploy/compose.yaml up -d postgres
@@ -47,10 +49,7 @@ $env:RUN_FOUNDATION_SEED = "true"
 cargo run -p worker
 ```
 
-The foundation seed is explicitly test-only and cannot be treated as production nutrition
-evidence.
-
-## Run the foundation API
+Run the API in another shell:
 
 ```powershell
 $env:APP_ENV = "local"
@@ -58,157 +57,46 @@ $env:APP_BIND_ADDR = "127.0.0.1:8080"
 $env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
 $env:AUTH_MODE = "development"
 $env:PARSER_MODE = "fixture"
-$env:RUST_LOG = "info"
 cargo run -p api-http
 ```
 
-`APP_ENV` is required and must be `local`, `ci`, `staging`, or `production`.
-`AUTH_MODE=development`, `PARSER_MODE=fixture`, and the foundation fixture seed are accepted only
-for `local` and `ci`. Staging and production fail closed if a development-only adapter is selected.
-`AUTH_MODE=oidc` selects the implemented provider-neutral OIDC adapter for staging and production.
-It does not select or approve a production identity provider; issuer configuration, provider/deployment
-approval, and production traffic authorization remain explicit release gates.
-See [`docs/operations/configuration.md`](docs/operations/configuration.md) for the complete runtime configuration matrix.
+Development auth, fixture parsing, and foundation seeds are accepted only in local/CI behavior.
+Staging and production fail closed unless their explicit provider and deployment configuration is
+approved. See [operations/configuration.md](docs/operations/configuration.md).
 
-Hosted mode uses a provider-neutral HTTPS envelope:
+## API surface
 
-```powershell
-$env:PARSER_MODE = "hosted"
-$env:LLM_ENDPOINT = "https://approved-provider.example/v1/meal-parse"
-$env:LLM_API_KEY = "<secret>"
-$env:LLM_PROVIDER = "<provider-version>"
-$env:LLM_MODEL = "<model-version>"
-```
+The current HTTP contract is documented in [product/api-v1.md](docs/product/api-v1.md) and the
+canonical OpenAPI document at [openapi/nutrition-api-v1.json](openapi/nutrition-api-v1.json). The primary
+analysis routes are:
 
-Optional bounded settings are `LLM_TIMEOUT_MS` (default 3000),
-`LLM_MAXIMUM_RESPONSE_BYTES` (65536), `LLM_CIRCUIT_FAILURE_THRESHOLD` (5), and
-`LLM_CIRCUIT_COOLDOWN_SECONDS` (30). See
-[`docs/architecture/parser.md`](docs/architecture/parser.md) for the transport contract and privacy boundary.
-The hosted transport is implemented, but production hosted mode remains disabled until provider
-mapping, privacy/legal, data-residency, retention, benchmark, capacity, secret-management, and
-operational gates are complete.
-
-Health and readiness:
-
-```http
-GET /health/live
-GET /health/ready
-```
-
-Foundation analysis request:
-
-```http
+```text
+GET  /health/live
+GET  /health/ready
 POST /v1/nutrition/analyses
-Authorization: Bearer dev:0198f100-0000-7000-8000-000000000098
-Idempotency-Key: <opaque-key>
-Content-Type: application/json
-
-{
-  "text": "2 quả trứng gà luộc, 1 bát cơm trắng",
-  "locale": "vi-VN",
-  "mode": "balanced"
-}
-```
-
-Only two fixture foods are available. The parser accepts
-`<quantity> <unit> <food>`: grams resolve directly, while `quả` for boiled egg and `bát` for white
-rice resolve through test-only portion observations with lower and upper mass bounds. A known
-single food with an unsupported unit returns `needs_clarification`; unknown foods still return
-`analysis_insufficient` and are never force-matched.
-
-Read the current persisted revision:
-
-```http
-GET /v1/nutrition/analyses/{analysis_id}
-GET /v1/nutrition/analyses/{analysis_id}/revisions/{revision_number}
+GET  /v1/nutrition/analyses/{analysis_id}
+GET  /v1/nutrition/analyses/{analysis_id}/revisions/{revision_number}
 POST /v1/nutrition/analyses/{analysis_id}/clarifications
 POST /v1/nutrition/analyses/{analysis_id}/corrections
 ```
 
-The read path verifies the persisted snapshot SHA-256 before deserialization.
+## Repository map
 
-## PostgreSQL
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — crate ownership and request flow
+- [`docs/index.md`](docs/index.md) — current documentation router
+- `crates/domain` — IDs, units, evidence semantics, and deterministic calculation
+- `crates/application` — use cases and ports
+- `crates/adapters` — fixture parser and bounded hosted-parser adapter
+- `crates/persistence-postgres` — migrations, catalog, snapshots, revisions, and privacy paths
+- `crates/api-http` — Axum HTTP process
+- `crates/worker` — PostgreSQL-backed worker process
+- `crates/xtask` — deterministic verification commands
 
-The migrations create seven logical schemas, the minimal walking-skeleton tables, search
-indexes, behavior version fields, snapshot persistence, scoped idempotency, release membership,
-workflow state enforcement, worker leases, audit storage, ownership, parser invocation telemetry,
-and immutability guards.
+## Release boundary
 
-Apply migrations locally:
+Production traffic, provider selection, catalog activation, benchmark publication, and release
+publication remain human-controlled gates. Foundation fixtures and `VietnameseMealBench` remain
+development-only; this repository does not claim production readiness.
 
-```powershell
-$env:APP_ENV = "local"
-$env:DATABASE_URL = "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition"
-$env:RUN_MIGRATIONS = "true"
-cargo run -p worker
-```
-
-Database migrations are forward-only. Do not edit an applied migration; add a new migration.
-
-Run the full PostgreSQL integration, API smoke, replay, and immutability suite:
-
-```powershell
-cargo xtask postgres
-```
-
-When production container targets are present, verify their build, non-root runtime identity, and
-containerized API readiness with:
-
-```powershell
-cargo xtask containers
-```
-
-## Repository boundaries
-
-- `domain`: IDs, units, evidence semantics, pure deterministic calculator.
-- `application`: use cases and ports.
-- `adapters`: deterministic fixture parser, bounded hosted-parser adapter, and in-memory test
-  doubles.
-- `persistence-postgres`: migrations, exact catalog lookup, contextual portion lookup,
-  transactional analysis repository, snapshot reader, and explicit test-only seed.
-- `api-http`: Axum HTTP process.
-- `worker`: PostgreSQL-backed worker process foundation.
-
-Worker modes are `idle`, `run-once`, and `loop`. `run-once` is used in verification; `loop` adds
-bounded polling and graceful shutdown. The current outbox target is an explicit foundation test
-sink, not an external broker.
-
-See [`docs/architecture/foundation.md`](docs/architecture/foundation.md) for decisions and deferred scope.
-The initial governance artifacts are
-[`docs/evidence/sources.md`](docs/evidence/sources.md),
-[`docs/operations/risk-register.md`](docs/operations/risk-register.md), and the development-only
-[`VietnameseMealBench manifest`](fixtures/vietnamese-meal-bench/manifest.json). The benchmark
-structure and aggregate report contract are documented in
-[`docs/evidence/vietnamese-meal-bench.md`](docs/evidence/vietnamese-meal-bench.md).
-
-## Current release boundary
-
-- Ownership-scoped privacy export, deletion, and retention paths are implemented, but they are
-  foundation capabilities and do not certify production readiness. Raw meal text and authorization
-  material remain excluded from logs and telemetry.
-- `VietnameseMealBench` `foundation-0.5.1` and its tooling remain development-only. Public
-  annotations are pending human review; sealed and challenge evidence is externally controlled, and
-  the tooling cannot authorize production traffic.
-- The release-pinned FDC importer records provenance and stages a reviewed selection; it never
-  activates a catalog release or publishes a composition profile. Activation still requires the
-  validation, reviewer, production-eligibility, and rollback evidence described in
-  [`docs/operations/configuration.md`](docs/operations/configuration.md).
-- Production traffic, provider selection, catalog activation, and release publication remain
-  owner-controlled gates. This repository does not claim production readiness.
-
-## Coding agents
-
-Start with [`AGENTS.md`](AGENTS.md), then use the [architecture map](ARCHITECTURE.md) and
-[documentation index](docs/index.md) to find only the context relevant to the task. The repository
-contract is vendor-neutral and does not require a task compiler, context router, or attestation
-report.
-
-Run the normal product verification entry point before finishing:
-
-```text
-cargo xtask check
-```
-
-Use `cargo xtask postgres`, `cargo xtask fdc`, `cargo xtask containers`, or `cargo xtask benchmark`
-when the changed boundary requires them. Inspect the actual diff and report the commands that
-passed.
+Start coding-agent work with [`AGENTS.md`](AGENTS.md). Vendor-specific adapters under `.claude/`
+are optional pointers; canonical truth remains in source, tests, docs, and `cargo xtask`.

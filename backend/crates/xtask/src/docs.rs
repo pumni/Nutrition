@@ -8,8 +8,17 @@ pub fn run(root: &Path) -> Result<(), Box<dyn Error>> {
     let mut markdown = Vec::new();
     collect_markdown(root, &mut markdown)?;
     let mut broken = Vec::new();
+    let mut retired_references = Vec::new();
     for source in markdown {
         let content = fs::read_to_string(&source)?;
+        for marker in ["docs/proposals/", "evals/coding-agent/"] {
+            if content.contains(marker) {
+                retired_references.push(format!(
+                    "{} contains retired path marker {marker}",
+                    source.display()
+                ));
+            }
+        }
         for target in markdown_targets(&content) {
             if target.starts_with("http://")
                 || target.starts_with("https://")
@@ -27,13 +36,26 @@ pub fn run(root: &Path) -> Result<(), Box<dyn Error>> {
             }
         }
     }
-    if broken.is_empty() {
+    if broken.is_empty() && retired_references.is_empty() {
         println!("[PASS] active Markdown links");
         Ok(())
     } else {
+        let mut failures = Vec::new();
+        if !broken.is_empty() {
+            failures.push(format!(
+                "broken active Markdown link(s)\n{}",
+                broken.join("\n")
+            ));
+        }
+        if !retired_references.is_empty() {
+            failures.push(format!(
+                "retired active documentation references\n{}",
+                retired_references.join("\n")
+            ));
+        }
         Err(format!(
-            "[docs] broken active Markdown link(s)\n{}\nrule: active documentation must route only to current repository paths",
-            broken.join("\n")
+            "[docs] {}\nrule: active documentation must route only to current repository paths and must not revive retired control surfaces",
+            failures.join("\n")
         ).into())
     }
 }

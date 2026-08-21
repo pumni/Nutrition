@@ -32,7 +32,7 @@ groups:
           severity: ticket
           owner_action: read-latency-triage
         annotations:
-          summary: Read or readiness p95 exceeds the OWNER-BE-004 target
+          summary: Read or readiness p95 exceeds the reviewed staging target
           runbook: docs/operations/observability.md#nutritionreadp95abovetarget
 
       - alert: NutritionReadP99AboveTarget
@@ -50,7 +50,7 @@ groups:
           severity: page
           owner_action: read-latency-triage
         annotations:
-          summary: Read p99 exceeds the OWNER-BE-004 target
+          summary: Read p99 exceeds the reviewed staging target
           runbook: docs/operations/observability.md#nutritionreadp99abovetarget
 
       - alert: NutritionMutationP95AboveTarget
@@ -68,7 +68,7 @@ groups:
           severity: ticket
           owner_action: mutation-latency-triage
         annotations:
-          summary: Non-hosted mutation p95 exceeds the OWNER-BE-004 target
+          summary: Non-hosted mutation p95 exceeds the reviewed staging target
           runbook: docs/operations/observability.md#nutritionmutationp95abovetarget
 
       - alert: NutritionHostedAnalysisP95AboveTarget
@@ -84,7 +84,7 @@ groups:
           severity: ticket
           owner_action: hosted-parser-latency-triage
         annotations:
-          summary: Hosted analysis p95 exceeds the OWNER-BE-004 target
+          summary: Hosted analysis p95 exceeds the reviewed staging target
           runbook: docs/operations/observability.md#nutritionhostedanalysisp95abovetarget
 
       - alert: NutritionHostedAnalysisP99AboveTarget
@@ -100,7 +100,7 @@ groups:
           severity: page
           owner_action: hosted-parser-latency-triage
         annotations:
-          summary: Hosted analysis p99 exceeds the OWNER-BE-004 target
+          summary: Hosted analysis p99 exceeds the reviewed staging target
           runbook: docs/operations/observability.md#nutritionhostedanalysisp99abovetarget
 
       - alert: NutritionParserCircuitOpen

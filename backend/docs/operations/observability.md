@@ -5,7 +5,7 @@ Status: implementation and staging preparation only. Production activation remai
 
 ## Runtime boundary
 
-P2-104 uses the owner-approved Prometheus-compatible pull model from OWNER-BE-009. The API and,
+The observability contract uses an owner-approved Prometheus-compatible pull model. The API and,
 when configured for a long-running deployment, the worker expose `/metrics` on dedicated
 operational listeners. The listener must be bound to an internal interface or network. It must not
 be exposed as a public product endpoint.
@@ -27,11 +27,11 @@ The versioned scrape and alert artifacts are:
 - `deploy/observability/nutrition-alerts.yml`;
 - `deploy/observability/staging-alert-tests.yml`.
 
-They define configuration artifacts only. P2-104 does not deploy Prometheus, an alert receiver, a
+They define configuration artifacts only. This repository does not deploy Prometheus, an alert receiver, a
 dashboard, or a production collector.
 
 Runtime histograms use explicit bounded buckets so the SLO rules can evaluate Prometheus
-`histogram_quantile` expressions. The bucket set includes the OWNER-BE-004 boundaries at `0.2`,
+`histogram_quantile` expressions. The bucket set includes the reviewed staging boundaries at `0.2`,
 `0.3`, `0.75`, `0.8`, `6`, and `10` seconds, plus bounded operational headroom.
 
 ## Privacy and cardinality
@@ -51,7 +51,7 @@ latency histograms are the availability/SLO signals.
 
 ## Alert actions
 
-| Alert | OWNER-BE-004 signal | First owner action |
+| Alert | Signal | First owner action |
 | --- | --- | --- |
 | `NutritionApiErrorBudgetBurn` | Non-hosted API availability | Check recent deploy/config/provider errors; stop promotion if sustained. |
 | `NutritionReadP95AboveTarget` / `NutritionReadP99AboveTarget` | Read p95/p99 and readiness p95 | Inspect DB pool gauges and query latency; compare against the staging load report. |

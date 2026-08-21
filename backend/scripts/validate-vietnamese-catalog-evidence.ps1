@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 $RepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $ContractPath = Join-Path $RepositoryRoot "docs/contracts/vietnamese-catalog-evidence-package-0.1.0.json"
-$OwnerDecisionRef = "docs/decisions/vietnamese-catalog.md#adr-initial-vietnamese-catalog-scope"
+$CatalogDecisionRef = "docs/decisions/vietnamese-catalog.md#adr-initial-vietnamese-catalog-scope"
 
 function Fail([string]$Message) { throw "[FAIL] $Message" }
 function Has-Property($Object, [string]$Name) { $null -ne $Object.PSObject.Properties[$Name] }
@@ -86,7 +86,7 @@ function Validate-Review($Review, [string]$Context) {
     Safe-Reference ([string]$Review.reviewer_ref) "$Context reviewer_ref"
     if ([string]$Review.status -eq 'proposed' -and [string]$Review.reviewer_role -ne 'none') { Fail "$Context proposed records cannot claim a human reviewer" }
     if ([string]$Review.status -ne 'proposed' -and [string]$Review.reviewer_role -eq 'none') { Fail "$Context reviewed records require a reviewer role" }
-    if ([string]$Review.decision_ref -ne $OwnerDecisionRef) { Fail "$Context decision_ref must reference OWNER-BE-002" }
+    if ([string]$Review.decision_ref -ne $CatalogDecisionRef) { Fail "$Context decision_ref must reference the accepted catalog-scope ADR" }
 }
 function Validate-Common($Record, [string]$Context) {
     Require-Properties $Record @('record_id','record_kind','locale','review','provenance','release_status','production_eligible') $Context
@@ -168,7 +168,7 @@ function Validate-Package($Package) {
     if ([string]$Package.schema_version -ne '0.1.0') { Fail 'package schema_version is invalid' }
     if ([string]$Package.package_kind -ne 'vietnamese-catalog-evidence') { Fail 'package_kind is invalid' }
     Identifier ([string]$Package.package_id) 'package_id'
-    if ([string]$Package.owner_decision_ref -ne $OwnerDecisionRef) { Fail 'package must reference OWNER-BE-002' }
+    if ([string]$Package.owner_decision_ref -ne $CatalogDecisionRef) { Fail 'package must reference the accepted catalog-scope ADR' }
     Validate-SourceRefs $Package.source_refs 'package source_refs'
     Exact-Properties $Package.release @('release_id','release_version','status','production_eligible','activation_authorized') 'package release'
     Require-Properties $Package.release @('release_id','release_version','status','production_eligible','activation_authorized') 'package release'
@@ -189,7 +189,7 @@ function Validate-Package($Package) {
         schema_version = '0.1.0'
         package_id = [string]$Package.package_id
         package_kind = 'vietnamese-catalog-evidence'
-        owner_decision_ref = $OwnerDecisionRef
+        owner_decision_ref = $CatalogDecisionRef
         result = 'valid_candidate'
         candidate_only = $true
         production_eligible = $false
@@ -222,32 +222,32 @@ function Expect-Rejection($Package, [string]$Pattern, [string]$Context) {
 }
 function New-SelfTestPackage {
     return [pscustomobject][ordered]@{
-        schema_version = '0.1.0'; package_id = 'vmb-candidate-selftest'; package_kind = 'vietnamese-catalog-evidence'; owner_decision_ref = $OwnerDecisionRef
+        schema_version = '0.1.0'; package_id = 'vmb-candidate-selftest'; package_kind = 'vietnamese-catalog-evidence'; owner_decision_ref = $CatalogDecisionRef
         source_refs = @([pscustomobject]@{source_ref='fixture://approved-source';sha256=('a' * 64)})
         release = [pscustomobject]@{release_id='catalog-candidate-selftest';release_version='0.1.0';status='draft';production_eligible=$false;activation_authorized=$false}
         records = @(
             [pscustomobject]@{
                 record_id='identity-selftest';record_kind='identity';locale='vi-VN';canonical_food_id='food-selftest';canonical_name='Món kiểm thử'
-                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$OwnerDecisionRef}
+                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$CatalogDecisionRef}
                 provenance=@([pscustomobject]@{evidence_ref='fixture://identity';sha256=('b' * 64)});release_status='draft';production_eligible=$false
             }
             [pscustomobject]@{
                 record_id='alias-selftest';record_kind='alias';locale='vi-VN';canonical_food_id='food-selftest';alias='bí danh kiểm thử'
-                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$OwnerDecisionRef}
+                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$CatalogDecisionRef}
                 provenance=@([pscustomobject]@{evidence_ref='fixture://alias';sha256=('c' * 64)});release_status='draft';production_eligible=$false
             }
             [pscustomobject]@{
                 record_id='recipe-selftest';record_kind='recipe';locale='vi-VN';recipe_id='recipe-selftest'
                 ingredients=@([pscustomobject]@{food_id='food-selftest';quantity=1;unit='fixture-unit'})
                 cooked_yield=[pscustomobject]@{quantity=1;unit='fixture-serving'}
-                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$OwnerDecisionRef}
+                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$CatalogDecisionRef}
                 provenance=@([pscustomobject]@{evidence_ref='fixture://recipe';sha256=('d' * 64)});release_status='draft';production_eligible=$false
             }
             [pscustomobject]@{
                 record_id='portion-selftest';record_kind='portion';locale='vi-VN';food_id='food-selftest';preparation_state='fixture-preparation'
                 measure=[pscustomobject]@{class='fixture-measure';code='fixture-code';context='fixture-context'};represented_quantity=1;study_id='study-selftest';protocol_version='protocol-selftest'
                 independent_samples=@(10,11,12);estimate=[pscustomobject]@{lower_gram_weight=10;gram_weight=11;upper_gram_weight=12;sample_count=3}
-                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$OwnerDecisionRef}
+                review=[pscustomobject]@{status='proposed';reviewer_ref='unassigned';reviewer_role='none';decision_ref=$CatalogDecisionRef}
                 provenance=@([pscustomobject]@{evidence_ref='fixture://portion';sha256=('e' * 64)});release_status='draft';production_eligible=$false
             }
         )

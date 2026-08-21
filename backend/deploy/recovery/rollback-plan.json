@@ -1,6 +1,5 @@
 {
   "schema_version": "recovery-rollback-plan-0.1.0",
-  "owner_decision": "OWNER-BE-005",
   "production_authorization": false,
   "scope": "staging preparation and isolated recovery drills only",
   "application": {
