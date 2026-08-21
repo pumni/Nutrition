@@ -75,7 +75,7 @@ The production policy is:
 
 1. use an explicit source-provided weight only when the source definition and food context match the
    catalog food;
-2. otherwise use project-controlled measurements produced under the protocol tracked by #7;
+2. otherwise use project-controlled measurements produced under the [portion measurement protocol](portions.md);
 3. store preparation state, measurement context, sample information, and lower/upper mass bounds;
 4. never ask the hosted language parser to invent a gram conversion.
 
@@ -168,7 +168,7 @@ policy. The selected profile and source release remain part of the persisted beh
 `usda_fdc` is approved as the v1 composition source, but production activation remains blocked until:
 
 - the April 2026 Foundation Foods JSON artifact is acquired and SHA-256 recorded;
-- importer/schema versions and `fdc_energy_v1` are implemented under #6;
+- importer/schema versions and `fdc_energy_v1` are implemented and documented in the [FDC foundation validation evidence](../releases/fdc-foundation-2026-04-validation.md);
 - a deterministic reviewed allowlist of exactly 20 records is approved by named data/domain owner
   `pumni` with selection SHA-256
   `ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2` and approval reference

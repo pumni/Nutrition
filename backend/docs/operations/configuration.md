@@ -130,11 +130,11 @@ The checked-in `.env.example` contains local-only placeholder values and no real
 
 This contract makes unsafe configuration fail closed; it does not claim production readiness. In particular:
 
-- production OIDC traffic remains a deployment/provider approval gate; the checked-in adapter does not select or enable a provider by itself;
+- production OIDC traffic remains a deployment/provider approval gate; see [the production activation gate](../decisions/production-gate.md). The checked-in adapter does not select or enable a provider by itself;
 - fixture catalog data remains prohibited in staging/production;
-- hosted parser production enablement remains gated by #8, #9, and privacy/legal review;
-- FDC source staging remains non-publishing until the `fdc_energy_v1` validation and source/reviewer gates from #5–#6 are resolved;
-- Vietnamese source rights and portion evidence remain gated by #5 and #7.
+- hosted parser production enablement remains gated by the [hosted parser provider decision](../decisions/parser-provider.md), the [hosted parser contract](../architecture/parser.md), and privacy/legal review;
+- FDC source staging remains non-publishing until the [`fdc_energy_v1` validation and release evidence](../evidence/nutrition-sources.md#fdc-foundation-energy-mapping-v1) and the [source register](../evidence/sources.md) gates are resolved;
+- Vietnamese source rights and portion evidence remain gated by the [production nutrition data strategy](../evidence/nutrition-sources.md) and the [portion measurement protocol](../evidence/portions.md).
 
 ## Privacy API
 
