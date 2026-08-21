@@ -2,7 +2,7 @@
 
 This repository is the isolated implementation of the Nutrition Data Factory handoff and the
 `DATA-100..160` release-candidate work. It is deterministic tooling and evidence boundaries; it
-does not acquire sources over the network, infer food facts, or connect to `Nutrition_backend`.
+does not acquire sources over the network, infer food facts, or connect to the backend database.
 
 ## Scope
 

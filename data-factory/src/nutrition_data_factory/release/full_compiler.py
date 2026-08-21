@@ -93,7 +93,7 @@ def compile_full_catalog_package(
         output_dir / "backend-import-manifest.json",
         {
             "schema_version": "backend-import-package-0.1.0",
-            "backend_repository": "pumni/Nutrition_backend",
+            "backend_repository": "pumni/Nutrition",
             "backend_baseline": backend_baseline,
             "import_mode": "staged_only",
             "activation_attempted": False,

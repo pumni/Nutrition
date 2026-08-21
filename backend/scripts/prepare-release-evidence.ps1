@@ -178,7 +178,7 @@ $candidate = [ordered]@{
         git_commit = $gitCommit.ToLowerInvariant()
         tree_status = "clean"
         application_version = $applicationVersion
-        source_build_identity = "Nutrition_backend@$($gitCommit.ToLowerInvariant())"
+        source_build_identity = "pumni/Nutrition/backend@$($gitCommit.ToLowerInvariant())"
     }
     migrations = [ordered]@{
         count = $migrationInventory.Count

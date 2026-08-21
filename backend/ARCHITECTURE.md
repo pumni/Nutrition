@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`Nutrition_backend` is an evidence-first nutrition analysis backend. Meal language may be parsed
+The backend is an evidence-first nutrition analysis backend. Meal language may be parsed
 by a bounded LLM adapter, but nutrition resolution and calculation are deterministic, versioned,
 and replayable.
 

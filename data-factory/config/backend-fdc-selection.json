@@ -1,7 +1,7 @@
 {
   "compatibility_version": "backend-fdc-selection-0.1.0",
   "backend_baseline": "4fb9f3dce31c7d4031542f16d048d203383d2ec1",
-  "source_evidence": "Nutrition_backend/docs/releases/fdc-foundation-2026-04-selection-candidate-v1.json",
+  "source_evidence": "backend/docs/releases/fdc-foundation-2026-04-selection-candidate-v1.json",
   "release": "2026-04-30",
   "reviewer": "pumni",
   "approval_reference": "github:pull/31#issuecomment-5305073122",
