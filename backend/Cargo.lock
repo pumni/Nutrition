@@ -3763,6 +3763,7 @@ dependencies = [
  "metrics-exporter-prometheus",
  "persistence-postgres",
  "sqlx",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",

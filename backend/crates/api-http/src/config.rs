@@ -12,6 +12,43 @@ use persistence_postgres::{
     PostgresPortionEvidenceProvider, active_catalog_release_id,
 };
 use std::{env, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
+use thiserror::Error;
+
+#[derive(Debug, Error, Eq, PartialEq)]
+pub enum ConfigError {
+    #[error("{name} is required")]
+    MissingEnvironment { name: &'static str },
+    #[error("{name} must be valid Unicode")]
+    InvalidUnicode { name: &'static str },
+    #[error("APP_ENV is invalid")]
+    InvalidEnvironment,
+    #[error("{name} configuration is invalid")]
+    InvalidConfiguration { name: &'static str },
+    #[error("{name} must be a valid socket address")]
+    InvalidSocketAddress { name: &'static str },
+    #[error("{name} must contain at least 32 bytes")]
+    InvalidSecretLength { name: &'static str },
+    #[error("{name} must be a valid number")]
+    InvalidNumeric { name: &'static str },
+    #[error("hosted parser configuration is invalid")]
+    HostedParser,
+}
+
+#[derive(Debug, Error)]
+pub enum StartupError {
+    #[error("startup configuration is invalid: {0}")]
+    Config(#[from] ConfigError),
+    #[error("database connection failed")]
+    DatabaseConnection,
+    #[error("active catalog release is unavailable")]
+    ActiveCatalogUnavailable,
+    #[error("metrics exporter initialization failed")]
+    Metrics,
+    #[error("HTTP listener bind failed")]
+    HttpListener,
+    #[error("HTTP server failed")]
+    HttpServer,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum AppEnvironment {
@@ -22,18 +59,25 @@ enum AppEnvironment {
 }
 
 impl AppEnvironment {
-    fn from_env() -> Self {
-        let value = env::var("APP_ENV").expect("APP_ENV is required");
-        Self::parse(&value).unwrap_or_else(|error| panic!("{error}"))
+    fn from_env() -> Result<Self, ConfigError> {
+        match env::var("APP_ENV") {
+            Ok(value) => Self::parse(&value),
+            Err(env::VarError::NotPresent) => {
+                Err(ConfigError::MissingEnvironment { name: "APP_ENV" })
+            }
+            Err(env::VarError::NotUnicode(_)) => {
+                Err(ConfigError::InvalidUnicode { name: "APP_ENV" })
+            }
+        }
     }
 
-    fn parse(value: &str) -> Result<Self, String> {
+    fn parse(value: &str) -> Result<Self, ConfigError> {
         match value {
             "local" => Ok(Self::Local),
             "ci" => Ok(Self::Ci),
             "staging" => Ok(Self::Staging),
             "production" => Ok(Self::Production),
-            _ => Err("APP_ENV must be local, ci, staging, or production".to_owned()),
+            _ => Err(ConfigError::InvalidEnvironment),
         }
     }
 
@@ -44,36 +88,46 @@ impl AppEnvironment {
 
 /// Loads environment configuration and builds the API dependency graph.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics when required configuration is missing or violates the environment policy, or when
-/// `PostgreSQL` cannot be connected to or has no active catalog release.
-pub async fn build() -> (SocketAddr, AppState) {
-    let environment = AppEnvironment::from_env();
-    let auth_mode = env::var("AUTH_MODE").expect("AUTH_MODE is required");
-    validate_auth_mode(environment, &auth_mode).expect("authentication configuration is invalid");
-    let authenticator =
-        Authenticator::from_env(&auth_mode).expect("authentication configuration is invalid");
-    let parser_mode = env::var("PARSER_MODE").expect("PARSER_MODE is required");
-    validate_parser_mode(environment, &parser_mode).expect("parser configuration is invalid");
+/// Returns a typed startup error when configuration is invalid, `PostgreSQL` cannot be connected
+/// to, or no active catalog release is available.
+pub async fn build() -> Result<(SocketAddr, AppState), StartupError> {
+    let environment = AppEnvironment::from_env()?;
+    let auth_mode = required_env("AUTH_MODE")?;
+    validate_auth_mode(environment, &auth_mode)?;
+    let authenticator = Authenticator::from_env(&auth_mode)
+        .map_err(|_| ConfigError::InvalidConfiguration { name: "AUTH_MODE" })?;
+    let parser_mode = required_env("PARSER_MODE")?;
+    validate_parser_mode(environment, &parser_mode)?;
     let bind_addr = match env::var("APP_BIND_ADDR") {
         Ok(value) => value,
         Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
             "127.0.0.1:8080".to_owned()
         }
         Err(env::VarError::NotPresent) => {
-            panic!("APP_BIND_ADDR is required when APP_ENV is staging or production")
+            return Err(ConfigError::MissingEnvironment {
+                name: "APP_BIND_ADDR",
+            }
+            .into());
         }
-        Err(env::VarError::NotUnicode(_)) => panic!("APP_BIND_ADDR must be valid Unicode"),
+        Err(env::VarError::NotUnicode(_)) => {
+            return Err(ConfigError::InvalidUnicode {
+                name: "APP_BIND_ADDR",
+            }
+            .into());
+        }
     };
     let address: SocketAddr = bind_addr
         .parse()
-        .expect("APP_BIND_ADDR must be a valid socket address");
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL is required");
+        .map_err(|_| ConfigError::InvalidSocketAddress {
+            name: "APP_BIND_ADDR",
+        })?;
+    let database_url = required_env("DATABASE_URL")?;
     let pool = persistence_postgres::connect(&database_url, 8)
         .await
-        .expect("API could not connect to PostgreSQL");
-    let cursor_hmac_secret = configured_cursor_hmac_secret(environment);
+        .map_err(|_| StartupError::DatabaseConnection)?;
+    let cursor_hmac_secret = configured_cursor_hmac_secret(environment)?;
     let catalog_started = std::time::Instant::now();
     let catalog_result = active_catalog_release_id(&pool).await;
     metrics::counter!(
@@ -87,9 +141,8 @@ pub async fn build() -> (SocketAddr, AppState) {
         "operation" => "active_release_lookup"
     )
     .record(catalog_started.elapsed().as_secs_f64());
-    let catalog_release_id = catalog_result.expect("an active catalog release is required");
-    let (parser, prompt_version, model_provider_version) =
-        configured_parser(&pool, &parser_mode).expect("parser configuration is invalid");
+    let catalog_release_id = catalog_result.map_err(|_| StartupError::ActiveCatalogUnavailable)?;
+    let (parser, prompt_version, model_provider_version) = configured_parser(&pool, &parser_mode)?;
     let versions = BehaviorVersions {
         catalog_release_id,
         parser_schema_version: PARSER_SCHEMA_VERSION.to_owned(),
@@ -126,48 +179,55 @@ pub async fn build() -> (SocketAddr, AppState) {
         pool,
         cursor_hmac_secret: Arc::new(cursor_hmac_secret),
     };
-    (address, state)
+    Ok((address, state))
 }
 
 /// Returns the configured internal metrics listener address.
 ///
-/// # Panics
+/// # Errors
 ///
-/// Panics when the environment requires an address and it is missing or invalid.
-#[must_use]
-pub fn metrics_bind_addr() -> SocketAddr {
-    let environment = AppEnvironment::from_env();
-    match env::var("API_METRICS_BIND_ADDR") {
-        Ok(value) => value
-            .parse()
-            .expect("API_METRICS_BIND_ADDR must be a valid socket address"),
+/// Returns a configuration error when the environment requires an address and it is missing or invalid.
+#[must_use = "handle the metrics bind address result"]
+pub fn metrics_bind_addr() -> Result<SocketAddr, ConfigError> {
+    let environment = AppEnvironment::from_env()?;
+    let bind_addr = match env::var("API_METRICS_BIND_ADDR") {
+        Ok(value) => value,
         Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
-            "127.0.0.1:9090"
-                .parse()
-                .expect("default metrics address is valid")
+            "127.0.0.1:9090".to_owned()
         }
         Err(env::VarError::NotPresent) => {
-            panic!("API_METRICS_BIND_ADDR is required when APP_ENV is staging or production")
+            return Err(ConfigError::MissingEnvironment {
+                name: "API_METRICS_BIND_ADDR",
+            });
         }
         Err(env::VarError::NotUnicode(_)) => {
-            panic!("API_METRICS_BIND_ADDR must be valid Unicode")
+            return Err(ConfigError::InvalidUnicode {
+                name: "API_METRICS_BIND_ADDR",
+            });
         }
-    }
+    };
+    bind_addr
+        .parse()
+        .map_err(|_| ConfigError::InvalidSocketAddress {
+            name: "API_METRICS_BIND_ADDR",
+        })
 }
 
-fn configured_cursor_hmac_secret(environment: AppEnvironment) -> Vec<u8> {
+fn configured_cursor_hmac_secret(environment: AppEnvironment) -> Result<Vec<u8>, ConfigError> {
     match env::var("API_CURSOR_HMAC_SECRET") {
-        Ok(value) if value.len() >= 32 => value.into_bytes(),
-        Ok(_) => panic!("API_CURSOR_HMAC_SECRET must contain at least 32 bytes"),
+        Ok(value) if value.len() >= 32 => Ok(value.into_bytes()),
+        Ok(_) => Err(ConfigError::InvalidSecretLength {
+            name: "API_CURSOR_HMAC_SECRET",
+        }),
         Err(env::VarError::NotPresent) if environment.allows_development_adapters() => {
-            b"ci-only-api-cursor-hmac-secret-v1-not-for-deployment".to_vec()
+            Ok(b"ci-only-api-cursor-hmac-secret-v1-not-for-deployment".to_vec())
         }
-        Err(env::VarError::NotPresent) => {
-            panic!("API_CURSOR_HMAC_SECRET is required when APP_ENV is staging or production")
-        }
-        Err(env::VarError::NotUnicode(_)) => {
-            panic!("API_CURSOR_HMAC_SECRET must be valid Unicode")
-        }
+        Err(env::VarError::NotPresent) => Err(ConfigError::MissingEnvironment {
+            name: "API_CURSOR_HMAC_SECRET",
+        }),
+        Err(env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidUnicode {
+            name: "API_CURSOR_HMAC_SECRET",
+        }),
     }
 }
 
@@ -178,32 +238,32 @@ fn required_nutrients() -> Vec<NutrientCode> {
         .collect()
 }
 
-fn validate_auth_mode(environment: AppEnvironment, auth_mode: &str) -> Result<(), String> {
-    match auth_mode {
-        "development" if environment.allows_development_adapters() => Ok(()),
-        "development" => Err(
-            "AUTH_MODE=development is forbidden when APP_ENV is staging or production".to_owned(),
-        ),
-        "oidc" => Ok(()),
-        _ => Err("AUTH_MODE must be development or oidc".to_owned()),
+fn validate_auth_mode(environment: AppEnvironment, auth_mode: &str) -> Result<(), ConfigError> {
+    if (auth_mode == "oidc")
+        || (auth_mode == "development" && environment.allows_development_adapters())
+    {
+        Ok(())
+    } else {
+        Err(ConfigError::InvalidConfiguration { name: "AUTH_MODE" })
     }
 }
 
-fn validate_parser_mode(environment: AppEnvironment, parser_mode: &str) -> Result<(), String> {
-    match parser_mode {
-        "fixture" if environment.allows_development_adapters() => Ok(()),
-        "fixture" => {
-            Err("PARSER_MODE=fixture is forbidden when APP_ENV is staging or production".to_owned())
-        }
-        "hosted" => Ok(()),
-        _ => Err("PARSER_MODE must be fixture or hosted".to_owned()),
+fn validate_parser_mode(environment: AppEnvironment, parser_mode: &str) -> Result<(), ConfigError> {
+    if (parser_mode == "hosted")
+        || (parser_mode == "fixture" && environment.allows_development_adapters())
+    {
+        Ok(())
+    } else {
+        Err(ConfigError::InvalidConfiguration {
+            name: "PARSER_MODE",
+        })
     }
 }
 
 fn configured_parser(
     pool: &sqlx::PgPool,
     parser_mode: &str,
-) -> Result<(ConfiguredMealParser, String, String), String> {
+) -> Result<(ConfiguredMealParser, String, String), ConfigError> {
     match parser_mode {
         "fixture" => Ok((
             ConfiguredMealParser::Fixture(FixtureParser),
@@ -211,19 +271,14 @@ fn configured_parser(
             "fixture/local".to_owned(),
         )),
         "hosted" => {
-            let provider =
-                env::var("LLM_PROVIDER").map_err(|_| "LLM_PROVIDER is required".to_owned())?;
-            let model = env::var("LLM_MODEL").map_err(|_| "LLM_MODEL is required".to_owned())?;
-            let endpoint =
-                env::var("LLM_ENDPOINT").map_err(|_| "LLM_ENDPOINT is required".to_owned())?;
+            let provider = required_env("LLM_PROVIDER")?;
+            let model = required_env("LLM_MODEL")?;
+            let endpoint = required_env("LLM_ENDPOINT")?;
             if provider != APPROVED_HOSTED_PROVIDER
                 || model != APPROVED_HOSTED_MODEL
                 || endpoint != APPROVED_HOSTED_ENDPOINT
             {
-                return Err(
-                    "hosted parser must use the owner-approved OpenAI provider, endpoint, and model"
-                        .to_owned(),
-                );
+                return Err(ConfigError::HostedParser);
             }
             let timeout_ms = environment_number("LLM_TIMEOUT_MS", APPROVED_HOSTED_TIMEOUT_MS)?;
             let maximum_response_bytes = environment_number(
@@ -243,15 +298,11 @@ fn configured_parser(
                 || circuit_failure_threshold != APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD
                 || circuit_cooldown_seconds != APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS
             {
-                return Err(
-                    "hosted parser bounds must match the owner-approved provider contract"
-                        .to_owned(),
-                );
+                return Err(ConfigError::HostedParser);
             }
             let config = HostedParserConfig {
                 endpoint,
-                api_key: env::var("LLM_API_KEY")
-                    .map_err(|_| "LLM_API_KEY is required".to_owned())?,
+                api_key: required_env("LLM_API_KEY")?,
                 provider: provider.clone(),
                 model: model.clone(),
                 timeout: Duration::from_millis(timeout_ms),
@@ -260,7 +311,7 @@ fn configured_parser(
                 circuit_cooldown: Duration::from_secs(circuit_cooldown_seconds),
             };
             let parser = HostedMealParser::with_reqwest(config)
-                .map_err(|error| error.to_string())?
+                .map_err(|_| ConfigError::HostedParser)?
                 .with_telemetry(Arc::new(PostgresParserTelemetrySink::new(pool.clone())));
             Ok((
                 ConfiguredMealParser::Hosted(Box::new(parser)),
@@ -268,27 +319,38 @@ fn configured_parser(
                 format!("{provider}/{model}"),
             ))
         }
-        _ => Err("PARSER_MODE must be fixture or hosted".to_owned()),
+        _ => Err(ConfigError::InvalidConfiguration {
+            name: "PARSER_MODE",
+        }),
     }
 }
 
-fn environment_number<T>(name: &str, default: T) -> Result<T, String>
+fn required_env(name: &'static str) -> Result<String, ConfigError> {
+    match env::var(name) {
+        Ok(value) if !value.trim().is_empty() => Ok(value),
+        Ok(_) | Err(env::VarError::NotPresent) => Err(ConfigError::MissingEnvironment { name }),
+        Err(env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidUnicode { name }),
+    }
+}
+
+fn environment_number<T>(name: &'static str, default: T) -> Result<T, ConfigError>
 where
     T: FromStr + Copy,
 {
     match env::var(name) {
         Ok(value) => value
             .parse()
-            .map_err(|_| format!("{name} must be a valid number")),
+            .map_err(|_| ConfigError::InvalidNumeric { name }),
         Err(env::VarError::NotPresent) => Ok(default),
-        Err(env::VarError::NotUnicode(_)) => Err(format!("{name} must be valid Unicode")),
+        Err(env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidUnicode { name }),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        AppEnvironment, configured_cursor_hmac_secret, validate_auth_mode, validate_parser_mode,
+        AppEnvironment, ConfigError, configured_cursor_hmac_secret, validate_auth_mode,
+        validate_parser_mode,
     };
 
     #[test]
@@ -307,7 +369,10 @@ mod tests {
         assert!(AppEnvironment::Ci.allows_development_adapters());
         assert!(!AppEnvironment::Staging.allows_development_adapters());
         assert!(!AppEnvironment::Production.allows_development_adapters());
-        assert!(AppEnvironment::parse("prod").is_err());
+        assert_eq!(
+            AppEnvironment::parse("prod"),
+            Err(ConfigError::InvalidEnvironment)
+        );
     }
 
     #[test]
@@ -326,9 +391,17 @@ mod tests {
 
     #[test]
     fn cursor_secret_requires_deployment_configuration() {
-        assert!(configured_cursor_hmac_secret(AppEnvironment::Ci).len() >= 32);
-        let panic =
-            std::panic::catch_unwind(|| configured_cursor_hmac_secret(AppEnvironment::Production));
-        assert!(panic.is_err());
+        assert!(
+            configured_cursor_hmac_secret(AppEnvironment::Ci)
+                .expect("CI has a cursor secret")
+                .len()
+                >= 32
+        );
+        assert_eq!(
+            configured_cursor_hmac_secret(AppEnvironment::Production),
+            Err(ConfigError::MissingEnvironment {
+                name: "API_CURSOR_HMAC_SECRET"
+            })
+        );
     }
 }
