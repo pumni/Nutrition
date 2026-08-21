@@ -1,0 +1,24 @@
+{
+  "schema_version": "synthetic-source-0.1.0",
+  "source_code": "synthetic_fixture",
+  "release": "0.1.0",
+  "records": [
+    {
+      "source_id": "synthetic-001",
+      "label": "  Fixture   Alpha ",
+      "attributes": {
+        "kind": "test_only",
+        "ordinal": 1
+      }
+    },
+    {
+      "source_id": "synthetic-002",
+      "label": "Fixture Beta",
+      "attributes": {
+        "kind": "test_only",
+        "ordinal": 2
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,9 @@
+{
+  "artifact_store": {
+    "root": "artifacts"
+  },
+  "source_metadata": {
+    "registry_path": "source_registry.json"
+  }
+}
+

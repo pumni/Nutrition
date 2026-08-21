@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/portion-study-manifest-0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "study_id",
+    "food_concept_id",
+    "preparation",
+    "measure",
+    "physical_context",
+    "protocol_version",
+    "estimator_version",
+    "instrument_id",
+    "tare_method",
+    "calibration_reference",
+    "operator_ids"
+  ],
+  "properties": {
+    "study_id": {"type": "string", "minLength": 1},
+    "food_concept_id": {"type": "string", "minLength": 1},
+    "preparation": {"type": "string", "minLength": 1},
+    "measure": {"type": "string", "minLength": 1},
+    "physical_context": {"type": "string", "minLength": 1},
+    "protocol_version": {"type": "string", "minLength": 1},
+    "estimator_version": {"type": "string", "minLength": 1},
+    "instrument_id": {"type": "string", "minLength": 1},
+    "tare_method": {"type": "string", "minLength": 1},
+    "calibration_reference": {"type": "string", "minLength": 1},
+    "operator_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "policy_version": {"type": "string", "minLength": 1}
+  }
+}

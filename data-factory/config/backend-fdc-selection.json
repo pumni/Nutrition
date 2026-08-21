@@ -1,0 +1,33 @@
+{
+  "compatibility_version": "backend-fdc-selection-0.1.0",
+  "backend_baseline": "4fb9f3dce31c7d4031542f16d048d203383d2ec1",
+  "source_evidence": "Nutrition_backend/docs/releases/fdc-foundation-2026-04-selection-candidate-v1.json",
+  "release": "2026-04-30",
+  "reviewer": "pumni",
+  "approval_reference": "github:pull/31#issuecomment-5305073122",
+  "selection_sha256": "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2",
+  "fdc_ids": [
+    1750339,
+    1750340,
+    1750341,
+    1750342,
+    1750343,
+    1999626,
+    1999627,
+    1999628,
+    1999629,
+    1999630,
+    1999631,
+    1999632,
+    1999633,
+    1999634,
+    2003586,
+    2003587,
+    2003588,
+    2003589,
+    2003590,
+    2003591
+  ],
+  "auto_add_records": false,
+  "production_eligible": false
+}

@@ -1,0 +1,149 @@
+{
+  "policy_version": "fdc-nutrient-crosswalk-0.2.0",
+  "scope": "approved_broad_mappings_plus_source_preservation",
+  "source_registry_policy": {
+    "observed_source_nutrients": "generated from the pinned FDC release metadata",
+    "unmapped_status": "source_preserved_unmapped",
+    "raw_values": "preserved in raw-source-records and normalized-records",
+    "semantic_approval": "human review required before product publication"
+  },
+  "canonical_groups": {
+    "energy_macros": [
+      "energy_kcal",
+      "protein_g",
+      "fat_g",
+      "carbohydrate_g",
+      "nitrogen_g",
+      "ash_g"
+    ],
+    "fiber_sugars_water": [
+      "water_g",
+      "starch_g",
+      "sucrose_g",
+      "glucose_g",
+      "fructose_g",
+      "lactose_g",
+      "maltose_g",
+      "sugars_total_g",
+      "resistant_starch_g",
+      "fiber_total_g",
+      "fiber_soluble_g",
+      "fiber_insoluble_g",
+      "fiber_total_aoac_g",
+      "fiber_high_molecular_weight_g",
+      "fiber_low_molecular_weight_g",
+      "beta_glucan_g"
+    ],
+    "minerals": [
+      "calcium_mg",
+      "iron_mg",
+      "magnesium_mg",
+      "phosphorus_mg",
+      "potassium_mg",
+      "sodium_mg",
+      "zinc_mg",
+      "copper_mg",
+      "manganese_mg",
+      "selenium_ug"
+    ],
+    "vitamins": [
+      "retinol_ug",
+      "vitamin_a_rae_ug",
+      "vitamin_e_mg",
+      "vitamin_d2_ug",
+      "vitamin_d3_ug",
+      "vitamin_d_total_ug",
+      "vitamin_c_mg",
+      "thiamin_mg",
+      "riboflavin_mg",
+      "niacin_mg",
+      "pantothenic_acid_mg",
+      "vitamin_b6_mg",
+      "biotin_ug",
+      "folate_ug",
+      "vitamin_b12_ug",
+      "vitamin_k1_ug"
+    ],
+    "amino_acids": [
+      "tryptophan_g",
+      "threonine_g",
+      "isoleucine_g",
+      "leucine_g",
+      "lysine_g",
+      "methionine_g",
+      "phenylalanine_g",
+      "tyrosine_g",
+      "valine_g",
+      "arginine_g",
+      "histidine_g",
+      "alanine_g",
+      "aspartic_acid_g",
+      "glutamic_acid_g",
+      "glycine_g",
+      "proline_g",
+      "serine_g"
+    ],
+    "fatty_acids_cholesterol": [
+      "fat_nlea_g",
+      "cholesterol_mg",
+      "fatty_acids_trans_g",
+      "fatty_acids_saturated_g",
+      "fatty_acids_monounsaturated_g",
+      "fatty_acids_polyunsaturated_g"
+    ]
+  },
+  "mappings": [
+    {
+      "source_nutrient_id": 1003,
+      "source_label": "Protein",
+      "source_unit": "G",
+      "source_method": "declared_or_analytical",
+      "target_code": "protein_g",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.2.0"
+    },
+    {
+      "source_nutrient_id": 1004,
+      "source_label": "Total lipid (fat)",
+      "source_unit": "G",
+      "source_method": "declared_or_analytical",
+      "target_code": "fat_g",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.2.0"
+    },
+    {
+      "source_nutrient_id": 1005,
+      "source_label": "Carbohydrate, by difference",
+      "source_unit": "G",
+      "source_method": "declared_or_analytical",
+      "target_code": "carbohydrate_g",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.2.0"
+    },
+    {
+      "source_nutrient_id": 2048,
+      "source_label": "Energy (Atwater Specific)",
+      "source_unit": "KCAL",
+      "source_method": "atwater_specific",
+      "target_code": "energy_kcal",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.2.0"
+    },
+    {
+      "source_nutrient_id": 2047,
+      "source_label": "Energy (Atwater General)",
+      "source_unit": "KCAL",
+      "source_method": "atwater_general",
+      "target_code": "energy_kcal",
+      "conversion": "identity",
+      "status": "approved",
+      "policy_version": "fdc-nutrient-crosswalk-0.2.0"
+    }
+  ],
+  "forbidden_source_ids": [1008],
+  "mapping_statuses": ["approved", "source_preserved_unmapped", "forbidden"]
+}

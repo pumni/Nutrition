@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/recipe-evidence-0.1.0",
+  "type": "object",
+  "required": ["recipe_id", "status", "components"],
+  "properties": {
+    "recipe_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["draft", "in_review", "published", "rejected"]},
+    "output_food_id": {"type": "string", "minLength": 1},
+    "raw_total_weight_g": {"type": "number", "exclusiveMinimum": 0},
+    "cooked_total_weight_g": {"type": "number", "exclusiveMinimum": 0},
+    "serving_count": {"type": "number", "exclusiveMinimum": 0},
+    "reviewer": {"type": "string", "minLength": 1},
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_food_id", "resolved_weight_g"],
+        "properties": {
+          "source_food_id": {"type": "string", "minLength": 1},
+          "resolved_weight_g": {"type": "number", "exclusiveMinimum": 0},
+          "preparation_method_code": {"type": "string"},
+          "component_role": {"type": "string"}
+        }
+      }
+    }
+  }
+}
