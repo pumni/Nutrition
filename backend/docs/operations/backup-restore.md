@@ -9,6 +9,10 @@ quarterly restore drills from production backup copies. The platform owner must 
 the actual backup service, encryption keys, storage, access controls, WAL archive, and secret
 manager. The repository does not guess those infrastructure choices.
 
+The drill emits `backup-restore-drill-evidence-0.2.0`. The rollback plan and validation output use
+`recovery-rollback-plan-0.2.0` and `recovery-rollback-validation-0.2.0`; each version records the
+current evidence shape after removal of historical task provenance.
+
 ## Isolated local/staging-safe drill
 
 The deterministic drill script uses only the repository's local PostgreSQL Compose service as a

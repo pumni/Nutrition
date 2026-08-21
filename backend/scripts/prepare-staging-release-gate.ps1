@@ -238,7 +238,7 @@ foreach ($gate in @($gateInput.gates)) {
             "schema_version", "gate_id", "subject_commit", "candidate_evidence_sha256",
             "result", "evidence_ref", "production_authorization", "scope", "rationale", "waiver_ref"
         ) -Label "passed staging gate artifact"
-        if ([string]$artifactDocument.value.schema_version -ne "staging-gate-evidence-wrapper-0.1.0" -or
+        if ([string]$artifactDocument.value.schema_version -ne "staging-gate-evidence-wrapper-0.2.0" -or
             [string]$artifactDocument.value.gate_id -ne [string]$gate.id -or
             [string]$artifactDocument.value.subject_commit -ine $gitCommit -or
             [string]$artifactDocument.value.candidate_evidence_sha256 -ine [string]$gateInput.candidate_evidence_sha256 -or
@@ -293,7 +293,7 @@ if (-not (Test-Path -LiteralPath $parentDirectory)) {
     New-Item -ItemType Directory -Path $parentDirectory -Force | Out-Null
 }
 $evidence = [ordered]@{
-    schema_version = "staging-release-gate-evidence-0.1.0"
+    schema_version = "staging-release-gate-evidence-0.2.0"
     evidence_kind = "staging-release-candidate-gate"
     status = if ($allClosed) { "ready_for_owner_release_review" } else { "blocked" }
     candidate_only = $true

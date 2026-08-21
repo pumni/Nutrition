@@ -17,7 +17,6 @@ evidence.
 - [foundation-0.3.0](foundation-0.3.0.md)
 - [foundation-0.4.0](foundation-0.4.0.md)
 - [foundation-0.5.0](foundation-0.5.0.md)
-- [foundation-0.6.0](foundation-0.6.0.md)
 
 Release notes describe repository behavior and evidence at the time they were recorded. The
 current release pointer does not replace the production activation and publication gates in

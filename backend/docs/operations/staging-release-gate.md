@@ -3,6 +3,10 @@
 Status: candidate-evidence preparation only. Production publication, production traffic, and
 catalog activation are not authorized.
 
+The current passed-artifact wrapper is `staging-gate-evidence-wrapper-0.2.0`; the assembled gate
+output is `staging-release-gate-evidence-0.2.0`. These versions reflect the removal of historical
+task provenance fields. Consumers must reject an older shape unless they explicitly migrate it.
+
 `scripts/prepare-staging-release-gate.ps1` assembles a deterministic, fail-closed gate record for
 an exact candidate. It consumes two external JSON documents:
 

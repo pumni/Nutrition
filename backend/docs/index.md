@@ -32,7 +32,7 @@ source and direct tests.
 - [Release gate](operations/staging-release-gate.md) — staging and release evidence requirements
 - [Backup/restore drill](operations/backup-restore.md)
 
-## Decisions and proposals
+## Decisions and releases
 
 - [Decisions index](decisions/index.md) — lasting ADR-style decisions
 - [Release index](releases/index.md) — current release pointer and historical evidence snapshots

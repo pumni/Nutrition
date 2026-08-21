@@ -839,7 +839,7 @@ finally {
 }
 
 $evidence = [ordered]@{
-    schema_version = "backup-restore-drill-evidence-0.1.0"
+    schema_version = "backup-restore-drill-evidence-0.2.0"
     evidence_kind = "isolated-local-recovery-drill"
     status = if ($success) { "passed" } else { "failed" }
     decision_boundary = "Staging preparation evidence only; production data, production credentials, production deployment, catalog activation, and traffic activation were not used or authorized."
