@@ -1,0 +1,36 @@
+{
+  "migration_version": "monorepo-migration-0.1.0",
+  "target_repository": "pumni/Nutrition",
+  "migration_timestamp": "2026-08-21T22:00:17.6910793+07:00",
+  "sources": [
+    {
+      "repository": "pumni/Nutrition_backend",
+      "branch": "main",
+      "source_head": "555a0fcc932b534b262c35a23b6da7e5192e648f",
+      "target_path": "backend",
+      "rewritten_head": "3640bb80d2652b508a9be3cd9d053a8b43662b39",
+      "commit_map": "docs/migration/backend-commit-map.txt"
+    },
+    {
+      "repository": "pumni/Nutrition_data_factory",
+      "branch": "main",
+      "source_head": "577c947fa5736716fcd8612e639f0768f44c66ac",
+      "target_path": "data-factory",
+      "rewritten_head": "b04799491141117f0a92bab58a6746a0e7a8dd46",
+      "commit_map": "docs/migration/data-factory-commit-map.txt"
+    }
+  ],
+  "history_rewrite": {
+    "tool": "git-filter-repo",
+    "version": "2.47.0",
+    "tag_namespace": {
+      "backend": "backend-",
+      "data_factory": "data-factory-"
+    }
+  },
+  "assembly": {
+    "backend_import_commit": "3640bb80d2652b508a9be3cd9d053a8b43662b39",
+    "factory_import_commit": "b04799491141117f0a92bab58a6746a0e7a8dd46",
+    "merge_commit": "f2341e7dbca60d740fdbd3bd3a011cc009794bc0"
+  }
+}
