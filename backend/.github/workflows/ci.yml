@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -46,6 +46,17 @@ jobs:
 
       - name: Run Cargo.lock vulnerability audit
         run: cargo audit
+      - name: Verify ignored rkyv advisory remains unreachable
+        shell: bash
+        run: |
+          set -euo pipefail
+          tree="$(cargo tree --workspace --all-features --edges normal --invert rkyv)"
+          if [[ -n "$tree" ]]; then
+            echo "rkyv is reachable through enabled workspace features; revisit RUSTSEC-2026-0235" >&2
+            printf '%s\n' "$tree" >&2
+            exit 1
+          fi
+
 
       - name: Run normal repository check
         run: cargo xtask check

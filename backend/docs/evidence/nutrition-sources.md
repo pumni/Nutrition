@@ -189,7 +189,8 @@ artifact is approved so a future release is not dependent on this document alone
 
 The concrete April 2026 artifact evidence is recorded in
 [`releases/fdc-foundation-2026-04-validation.md`](../releases/fdc-foundation-2026-04-validation.md)
-and its deterministic JSON report. The report records the approved, release-specific null-tail
-adapter and remains intentionally blocked because there is no reviewed production selection or
-named reviewer approval. No source record is silently discarded and no catalog activation is
-authorized by this evidence.
+and its deterministic JSON report. The report records the approved exact 20-record allowlist and
+named reviewer. Production activation remains intentionally blocked because the selected import
+still needs validation and the staging activation/rollback drill; production eligibility remains
+false. No source record is silently discarded and no catalog activation is authorized by this
+evidence.

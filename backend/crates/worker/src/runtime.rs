@@ -44,6 +44,8 @@ pub(crate) async fn run() -> Result<(), StartupError> {
     let worker_config = config::WorkerConfig::from_env(environment)?;
     config::initialize_metrics(worker_config.metrics_bind_addr)
         .map_err(|()| StartupError::Metrics)?;
+    let run_migrations = env_bool("RUN_MIGRATIONS", false)?;
+    let run_foundation_seed = env_bool("RUN_FOUNDATION_SEED", false)?;
     let run_fdc_import = env_bool("RUN_FDC_FOUNDATION_IMPORT", false)?;
     let run_privacy_cleanup = env_bool("RUN_PRIVACY_RETENTION", false)?;
     if run_fdc_import && !environment.allows_source_import() {
@@ -56,13 +58,13 @@ pub(crate) async fn run() -> Result<(), StartupError> {
     )
     .await
     .map_err(|_| StartupError::DatabaseConnection)?;
-    if env::var("RUN_MIGRATIONS").as_deref() == Ok("true") {
+    if run_migrations {
         persistence_postgres::migrate(&pool)
             .await
             .map_err(|_| StartupError::Migration)?;
         info!("database migrations applied");
     }
-    if env::var("RUN_FOUNDATION_SEED").as_deref() == Ok("true") {
+    if run_foundation_seed {
         if !environment.allows_development_adapters() {
             return Err(StartupError::Policy);
         }
@@ -188,12 +190,23 @@ fn optional_env(name: &'static str) -> Result<Option<String>, StartupError> {
 }
 
 fn env_bool(name: &'static str, default: bool) -> Result<bool, config::ConfigError> {
-    match env::var(name).as_deref() {
-        Ok("true") => Ok(true),
-        Ok("false") => Ok(false),
-        Err(env::VarError::NotPresent) => Ok(default),
+    match env::var(name) {
+        Ok(value) => parse_bool(name, Some(&value), default),
+        Err(env::VarError::NotPresent) => parse_bool(name, None, default),
         Err(env::VarError::NotUnicode(_)) => Err(config::ConfigError::InvalidUnicode { name }),
-        Ok(_) => Err(config::ConfigError::InvalidConfiguration { name }),
+    }
+}
+
+fn parse_bool(
+    name: &'static str,
+    value: Option<&str>,
+    default: bool,
+) -> Result<bool, config::ConfigError> {
+    match value {
+        Some("true") => Ok(true),
+        Some("false") => Ok(false),
+        None => Ok(default),
+        Some(_) => Err(config::ConfigError::InvalidConfiguration { name }),
     }
 }
 
@@ -217,7 +230,7 @@ async fn sqlx_healthcheck(pool: &sqlx::PgPool) -> Result<(), StartupError> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_fdc_ids;
+    use super::{parse_bool, parse_fdc_ids};
     use crate::config::{AppEnvironment, ConfigError, validate_u32};
 
     #[test]
@@ -254,6 +267,15 @@ mod tests {
                 name: "WORKER_BATCH_SIZE",
                 minimum: 1,
                 maximum: 100,
+            })
+        );
+    }
+    #[test]
+    fn invalid_boolean_is_a_typed_error() {
+        assert_eq!(
+            parse_bool("RUN_MIGRATIONS", Some("tru"), false),
+            Err(ConfigError::InvalidConfiguration {
+                name: "RUN_MIGRATIONS",
             })
         );
     }
