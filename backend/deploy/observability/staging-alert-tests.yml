@@ -17,7 +17,7 @@ tests:
               owner_action: parser-circuit-triage
             exp_annotations:
               summary: Hosted parser circuit breaker is open
-              runbook: docs/OBSERVABILITY.md#nutritionparsercircuitopen
+              runbook: docs/operations/observability.md#nutritionparsercircuitopen
 
   - interval: 1m
     input_series:
@@ -32,7 +32,7 @@ tests:
               owner_action: database-readiness-triage
             exp_annotations:
               summary: PostgreSQL readiness has failed for the alert window
-              runbook: docs/OBSERVABILITY.md#nutritiondatabasereadinessfailure
+              runbook: docs/operations/observability.md#nutritiondatabasereadinessfailure
 
   - interval: 1m
     input_series:
@@ -49,7 +49,7 @@ tests:
               owner_action: api-error-triage
             exp_annotations:
               summary: API server-error rate is burning the non-hosted error budget
-              runbook: docs/OBSERVABILITY.md#nutritionapierrorbudgetburn
+              runbook: docs/operations/observability.md#nutritionapierrorbudgetburn
 
   - interval: 1m
     input_series:
@@ -65,7 +65,7 @@ tests:
               job_class: unsupported
             exp_annotations:
               summary: Worker dead-letter jobs were observed
-              runbook: docs/OBSERVABILITY.md#nutritionworkerdeadjobs
+              runbook: docs/operations/observability.md#nutritionworkerdeadjobs
 
   - interval: 1m
     input_series:
@@ -85,4 +85,4 @@ tests:
               route: analysis_list
             exp_annotations:
               summary: Read or readiness p95 exceeds the OWNER-BE-004 target
-              runbook: docs/OBSERVABILITY.md#nutritionreadp95abovetarget
+              runbook: docs/operations/observability.md#nutritionreadp95abovetarget

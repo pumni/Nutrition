@@ -1,4 +1,4 @@
-use crate::oidc::Authenticator;
+use crate::auth::Authenticator;
 use application::{
     AnalysisSnapshotReader, AnalyzeMeal, AnswerClarification, ApplicationError, CorrectAnalysis,
 };
@@ -12,7 +12,7 @@ use serde::Serialize;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub(crate) struct AppState {
+pub struct AppState {
     pub(crate) authenticator: Authenticator,
     pub(crate) analyzer: Arc<dyn AnalyzeMeal>,
     pub(crate) clarification: Arc<dyn AnswerClarification>,

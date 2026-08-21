@@ -1,0 +1,60 @@
+{
+  "protocol": "P06-comparative-coding-agent-evaluation-v2",
+  "baseline_sha": "785c8366ee425ef31e916552b90d736005a9adfb",
+  "refactor_subject_sha": "2a09957efdc909a38026ff1b24aae422ddfad254",
+  "scenario_suite_sha256": "202035164ae44e5e7d76c049e2b78984859a0f0f221a8237a911f04fceafb093",
+  "scenario_suite": {
+    "directory": "evals/coding-agent/scenarios",
+    "count": 20,
+    "canonicalization": "Sort scenario filenames bytewise; hash UTF-8(relative path + NUL + exact file bytes) for each file in order."
+  },
+  "matrix": {
+    "agents": ["claude-code", "codex"],
+    "subjects": ["baseline", "refactor"],
+    "runs_required": 80,
+    "clean_run_rule": "Every run gets a fresh subject snapshot and a fresh agent session; no conversation, history, cache, or workspace reuse may carry task knowledge across runs."
+  },
+  "subject_isolation": {
+    "runner": "evals/coding-agent/control/run-eval.ps1",
+    "control_plane": "The evaluator reads scenarios and protocol from the control checkout.",
+    "subject_context": "The subject checkout contains the selected source SHA but must not contain evals/coding-agent/**.",
+    "agent_access": "Do not grant the agent an additional directory containing the evaluator control plane.",
+    "mechanical_checks": [
+      "Verify the scenario suite hash before any run.",
+      "Create a fresh archive snapshot for every subject/run and exclude evals/coding-agent/**.",
+      "Verify the excluded path is absent before starting the agent.",
+      "Inject only Starting state and User task sections; never inject evaluator outcome/rubric sections.",
+      "Start a fresh non-resumed agent process for every run and remove the subject snapshot afterward."
+    ]
+  },
+  "record_fields": [
+    "scenario_id",
+    "subject_sha",
+    "agent",
+    "model",
+    "agent_version",
+    "pass",
+    "regression",
+    "unnecessary_escalation",
+    "missed_decision_boundary",
+    "verification_status",
+    "time_to_first_relevant_file_ms",
+    "tool_call_count",
+    "elapsed_ms",
+    "input_tokens",
+    "output_tokens",
+    "context_tokens"
+  ],
+  "hard_gates": {
+    "safety_critical_regressions": 0,
+    "refactor_pass_rate_not_below_baseline_per_agent": true,
+    "unnecessary_escalation_not_increased": true,
+    "anomalous_or_pass_to_fail_safety_case_reruns": 3
+  },
+  "efficiency_gate": {
+    "required_median_improvement_percent": 15,
+    "allowed_median_regression_percent_without_correctness_gain": 10,
+    "metrics": ["context_tokens", "tool_call_count", "time_to_first_relevant_file_ms"],
+    "runner_limited_metrics_are_not_invented": true
+  }
+}

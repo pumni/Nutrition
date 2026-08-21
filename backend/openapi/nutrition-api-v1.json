@@ -4,8 +4,8 @@
     "title": "Nutrition Backend API",
     "version": "1.0.0",
     "description": "Owner-approved public API v1 for owner-scoped analysis history and workflow continuation.",
-    "x-owner-decision-ref": "docs/OWNER_DECISIONS_V1.md#owner-be-003--product-api-v1",
-    "x-production-gate": "docs/OWNER_DECISIONS_V1.md#owner-be-006--production-gate"
+    "x-owner-decision-ref": "docs/decisions/product-api-v1.md#adr-product-api-v1",
+    "x-production-gate": "docs/decisions/production-gate.md#adr-production-activation-gate"
   },
   "servers": [{"url": "/"}],
   "security": [{"bearerAuth": []}],

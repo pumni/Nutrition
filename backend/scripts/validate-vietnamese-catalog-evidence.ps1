@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 $RepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot).Path
 $ContractPath = Join-Path $RepositoryRoot "docs/contracts/vietnamese-catalog-evidence-package-0.1.0.json"
-$OwnerDecisionRef = "docs/OWNER_DECISIONS_V1.md#owner-be-002--initial-vietnamese-catalog-scope"
+$OwnerDecisionRef = "docs/decisions/vietnamese-catalog.md#adr-initial-vietnamese-catalog-scope"
 
 function Fail([string]$Message) { throw "[FAIL] $Message" }
 function Has-Property($Object, [string]$Name) { $null -ne $Object.PSObject.Properties[$Name] }

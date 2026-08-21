@@ -11,7 +11,7 @@ use tower_http::{
     trace::TraceLayer,
 };
 
-pub(crate) fn build_router(state: AppState) -> Router {
+pub fn build_router(state: AppState) -> Router {
     let request_id_header = HeaderName::from_static("x-request-id");
     Router::new()
         .route("/health/live", get(handlers::live))
@@ -81,7 +81,7 @@ mod tests {
         .expect("OpenAPI contract must be valid JSON");
         assert_eq!(
             document["info"]["x-owner-decision-ref"],
-            "docs/OWNER_DECISIONS_V1.md#owner-be-003--product-api-v1"
+            "docs/decisions/product-api-v1.md#adr-product-api-v1"
         );
         let paths = document["paths"].as_object().expect("paths object");
         assert!(paths.contains_key("/v1/nutrition/analyses"));
