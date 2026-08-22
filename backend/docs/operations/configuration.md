@@ -118,6 +118,23 @@ idempotent. A checksum conflict for the same upstream release fails closed.
 
 The importer stages unambiguous macronutrients plus Foundation energy under `fdc_energy_v1`: nutrient `2048` (Atwater Specific) is preferred and `2047` (Atwater General) is the fallback. Nutrient `1008` is never used for the April 2026 Foundation release. Profiles with missing energy remain incomplete; malformed or duplicate energy candidates fail closed. Imported values retain source nutrient ID/method metadata, while profiles remain `in_review`, quality `U`, and non-production-eligible until the validation/reviewer/activation gates are complete.
 
+## Staged catalog handoff v1
+
+`RUN_CATALOG_HANDOFF_IMPORT=true` consumes a caller-supplied directory containing the canonical
+`catalog-handoff-1.0.0` package. It is allowed only for `local`, `ci`, and `staging`; production
+rejects it. It cannot run in the same worker startup as the legacy FDC importer.
+
+When enabled, both variables are required:
+
+- `CATALOG_HANDOFF_PATH`: package directory containing `manifest.json`, the seven payload files,
+  and `checksums.sha256`;
+- `CATALOG_HANDOFF_CREATED_BY`: UUID of the runtime actor responsible for the staged import.
+
+The worker does not take actor identity or activation authority from the package. The backend
+validates the exact shared schemas and both checksum sources before beginning one transaction.
+The result is always a `staged` catalog release with `activated_at IS NULL`; activation remains a
+separate human-controlled operation.
+
 Do not place source artifacts or real credentials in the repository. The import file should be supplied by the controlled data-ingestion environment.
 
 ## Secrets and logging

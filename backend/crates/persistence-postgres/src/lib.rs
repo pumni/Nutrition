@@ -1,5 +1,6 @@
 mod analysis;
 mod catalog_activation;
+mod catalog_handoff;
 mod catalog_repository;
 mod fdc;
 mod ops_repository;
@@ -14,6 +15,11 @@ pub use catalog_activation::{
     CatalogReleaseActivationError, CatalogReleaseActivationReport, CatalogReleaseActivationRequest,
     CatalogReleaseRollbackReport, CatalogReleaseRollbackRequest, activate_catalog_release,
     stage_catalog_rollback,
+};
+pub use catalog_handoff::{
+    CatalogHandoffImportError, CatalogHandoffImportReport, CatalogHandoffImportRequest,
+    CatalogHandoffPackageValidationReport, import_catalog_handoff_v1,
+    validate_catalog_handoff_v1_package,
 };
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};
 pub use fdc::{

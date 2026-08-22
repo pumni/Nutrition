@@ -1,0 +1,25 @@
+{
+  "sources": [
+    {
+      "archive_artifact": {
+        "content_type": "application/zip",
+        "relative_path": "archive.zip",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size": 1
+      },
+      "extracted_artifact": {
+        "content_type": "application/json",
+        "relative_path": "extracted.json",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "size": 1
+      },
+      "locator": "fixture://fdc/foundation.json",
+      "production_eligible": false,
+      "publisher": "Synthetic fixture",
+      "purpose": "test-only",
+      "release": "2026-04-30",
+      "rights_state": "test_only",
+      "source_code": "usda_fdc"
+    }
+  ]
+}

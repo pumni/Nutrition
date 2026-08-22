@@ -6,11 +6,18 @@ Evidence-first nutrition monorepo.
 Nutrition/
 ├── backend/       Rust backend and PostgreSQL application
 ├── data-factory/  Offline deterministic evidence producer
-└── contracts/     Shared versioned machine contracts (reserved)
+└── contracts/     Shared versioned machine contracts
 ```
 
-The Data Factory produces staged evidence and candidate artifacts. The backend consumes validated
-staged evidence. Production activation remains explicit, versioned, and human-controlled.
+The catalog handoff path is:
+
+```text
+Data Factory → contracts/catalog-handoff/v1 → Backend validator → PostgreSQL staged release → human activation gate
+```
+
+The Data Factory produces deterministic, checksum-bound evidence packages and never connects to
+the backend database. The backend validates the exact package before a transaction and can create
+only a staged release; production activation remains explicit, versioned, and human-controlled.
 
 ## Verify
 

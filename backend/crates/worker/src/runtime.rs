@@ -3,10 +3,11 @@ use crate::{
     loop_runner,
 };
 use persistence_postgres::{
-    FdcFoundationImportRequest, import_fdc_foundation_json, run_privacy_retention,
+    CatalogHandoffImportRequest, FdcFoundationImportRequest, import_catalog_handoff_v1,
+    import_fdc_foundation_json, run_privacy_retention,
 };
 use sqlx::PgPool;
-use std::{env, fs, time::Instant};
+use std::{env, fs, path::PathBuf, time::Instant};
 use thiserror::Error;
 use tracing::info;
 #[derive(Debug, Error)]
@@ -25,6 +26,8 @@ pub(crate) enum StartupError {
     FoundationSeed,
     #[error("FDC Foundation import failed")]
     FdcImport,
+    #[error("catalog handoff import failed")]
+    CatalogHandoffImport,
     #[error("privacy retention job failed")]
     PrivacyRetention,
     #[error("database health check failed")]
@@ -47,10 +50,9 @@ pub(crate) async fn run() -> Result<(), StartupError> {
     let run_migrations = env_bool("RUN_MIGRATIONS", false)?;
     let run_foundation_seed = env_bool("RUN_FOUNDATION_SEED", false)?;
     let run_fdc_import = env_bool("RUN_FDC_FOUNDATION_IMPORT", false)?;
+    let run_catalog_handoff = env_bool("RUN_CATALOG_HANDOFF_IMPORT", false)?;
     let run_privacy_cleanup = env_bool("RUN_PRIVACY_RETENTION", false)?;
-    if run_fdc_import && !environment.allows_source_import() {
-        return Err(StartupError::Policy);
-    }
+    validate_import_policy(environment, run_fdc_import, run_catalog_handoff)?;
 
     let pool = persistence_postgres::connect(
         &worker_config.database_url,
@@ -85,6 +87,22 @@ pub(crate) async fn run() -> Result<(), StartupError> {
         metrics::histogram!(
             "nutrition_catalog_release_operation_duration_seconds",
             "operation" => "foundation_import"
+        )
+        .record(started.elapsed().as_secs_f64());
+        result?;
+    }
+    if run_catalog_handoff {
+        let started = Instant::now();
+        let result = run_catalog_handoff_import(&pool).await;
+        metrics::counter!(
+            "nutrition_catalog_release_operations_total",
+            "operation" => "contract_import",
+            "outcome" => if result.is_ok() { "success" } else { "failure" }
+        )
+        .increment(1);
+        metrics::histogram!(
+            "nutrition_catalog_release_operation_duration_seconds",
+            "operation" => "contract_import"
         )
         .record(started.elapsed().as_secs_f64());
         result?;
@@ -148,6 +166,41 @@ async fn run_fdc_foundation_import(pool: &PgPool) -> Result<(), StartupError> {
         replayed = report.replayed,
         "staged FDC Foundation import completed"
     );
+    Ok(())
+}
+
+async fn run_catalog_handoff_import(pool: &PgPool) -> Result<(), StartupError> {
+    let request = CatalogHandoffImportRequest {
+        package_path: PathBuf::from(required_env("CATALOG_HANDOFF_PATH")?),
+        created_by: required_env("CATALOG_HANDOFF_CREATED_BY")?,
+    };
+    let report = import_catalog_handoff_v1(pool, &request)
+        .await
+        .map_err(|_| StartupError::CatalogHandoffImport)?;
+    info!(
+        contract_version = %report.contract_version,
+        package_sha256 = %report.package_sha256,
+        catalog_release_id = %report.catalog_release_id,
+        dataset_release_id = %report.dataset_release_id,
+        selected_record_count = report.selected_record_count,
+        composition_value_count = report.composition_value_count,
+        replayed = report.replayed,
+        "staged catalog handoff import completed"
+    );
+    Ok(())
+}
+
+fn validate_import_policy(
+    environment: AppEnvironment,
+    run_fdc_import: bool,
+    run_catalog_handoff: bool,
+) -> Result<(), StartupError> {
+    if (run_fdc_import || run_catalog_handoff) && !environment.allows_source_import() {
+        return Err(StartupError::Policy);
+    }
+    if run_fdc_import && run_catalog_handoff {
+        return Err(StartupError::Policy);
+    }
     Ok(())
 }
 fn parse_fdc_ids(value: &str) -> Result<Vec<u64>, String> {
@@ -230,7 +283,7 @@ async fn sqlx_healthcheck(pool: &sqlx::PgPool) -> Result<(), StartupError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_bool, parse_fdc_ids};
+    use super::{parse_bool, parse_fdc_ids, validate_import_policy};
     use crate::config::{AppEnvironment, ConfigError, validate_u32};
 
     #[test]
@@ -284,5 +337,12 @@ mod tests {
         assert_eq!(parse_fdc_ids("2, 1").expect("valid IDs"), vec![2, 1]);
         assert!(parse_fdc_ids("").is_err());
         assert!(parse_fdc_ids("1,nope").is_err());
+    }
+
+    #[test]
+    fn contract_import_is_mutually_exclusive_and_not_allowed_in_production() {
+        assert!(validate_import_policy(AppEnvironment::Local, true, true).is_err());
+        assert!(validate_import_policy(AppEnvironment::Production, false, true).is_err());
+        assert!(validate_import_policy(AppEnvironment::Staging, false, true).is_ok());
     }
 }

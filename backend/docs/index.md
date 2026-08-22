@@ -18,6 +18,7 @@ source and direct tests.
 - [Evidence index](evidence/index.md) — evidence classes and versioning
 - [Portions](evidence/portions.md) — contextual measurement evidence
 - [Nutrition sources](evidence/nutrition-sources.md) — source, provenance, and activation policy
+- [Catalog handoff v1](evidence/catalog-handoff.md) — Data Factory package validation and staged import
 - [Source register](evidence/sources.md) — approved and deferred evidence sources
 - [Vietnamese catalog](evidence/vietnamese-catalog/evidence-package.md)
 - [Vietnamese meal benchmark](evidence/vietnamese-meal-bench.md) — development-only boundary

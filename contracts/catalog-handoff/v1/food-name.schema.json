@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/contracts/catalog-handoff/v1/food-name.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["name_id", "concept_id", "source_code", "source_id", "locale", "name", "normalized_name", "name_type", "source_payload_sha256", "status"],
+  "properties": {
+    "name_id": {"type": "string", "pattern": "^source-name:usda_fdc:[1-9][0-9]*$"}, "concept_id": {"type": "string", "pattern": "^source-food:usda_fdc:[1-9][0-9]*$"}, "source_code": {"const": "usda_fdc"},
+    "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "locale": {"const": "en-US"}, "name": {"type": "string", "minLength": 1}, "normalized_name": {"type": "string", "minLength": 1},
+    "name_type": {"const": "preferred"}, "source_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "status": {"const": "source_observed"}
+  }
+}

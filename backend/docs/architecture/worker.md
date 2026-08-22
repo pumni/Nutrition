@@ -1,7 +1,9 @@
 # Worker architecture
 
 The `worker` process is the runtime edge for migrations, the test-only foundation seed, staged FDC
-import, privacy retention, bounded job batches, leases, retries, and outbox delivery.
+import, canonical catalog handoff import, privacy retention, bounded job batches, leases, retries,
+and outbox delivery. The legacy raw FDC path and the contract handoff path are mutually exclusive
+within one startup.
 
 Supported modes are `idle`, `run-once`, and `loop`. Production configuration is explicit and
 fail-closed; development fixture behavior is limited to local/CI environments.

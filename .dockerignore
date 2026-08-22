@@ -1,0 +1,13 @@
+.git
+.github
+.claude
+.agents
+.codex
+**/target
+data-factory
+docs
+backend/docs
+*.log
+.env
+.env.*
+!.env.example

@@ -1,0 +1,12 @@
+{
+  "archive_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "dataset_code": "usda_fdc",
+  "object_uri": "fixture://fdc/foundation.json",
+  "production_eligible": false,
+  "record_count": 20,
+  "schema_fingerprint": "fdc-foundation-json-0.1.0",
+  "source_rights_state": "test_only",
+  "status": "staged_candidate",
+  "version": "2026-04-30"
+}

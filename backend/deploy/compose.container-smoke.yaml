@@ -2,8 +2,8 @@ services:
   worker-smoke:
     image: nutrition-worker:ci
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+      context: ../..
+      dockerfile: backend/deploy/Dockerfile
       target: worker-runtime
     environment:
       APP_ENV: ci
@@ -19,8 +19,8 @@ services:
   api-smoke:
     image: nutrition-api:ci
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+      context: ../..
+      dockerfile: backend/deploy/Dockerfile
       target: api-http-runtime
     environment:
       APP_ENV: ci

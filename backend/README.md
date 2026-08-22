@@ -98,5 +98,15 @@ Production traffic, provider selection, catalog activation, benchmark publicatio
 publication remain human-controlled gates. Foundation fixtures and `VietnameseMealBench` remain
 development-only; this repository does not claim production readiness.
 
+## Catalog handoff v1
+
+The backend consumes the canonical `contracts/catalog-handoff/v1` package through
+`import_catalog_handoff_v1`. It validates the embedded contract schema, package checksums, source
+provenance, reviewed selection, and cross-record references before opening a PostgreSQL
+transaction. The importer is opt-in through the worker environment, stages the release with
+`production_eligible: false`, and never activates it. Replaying the same package is idempotent;
+different content for the same release identity is rejected as a conflict. See
+[catalog handoff operations](docs/evidence/catalog-handoff.md).
+
 Start coding-agent work with [`AGENTS.md`](AGENTS.md). Vendor-specific adapters under `.claude/`
 are optional pointers; canonical truth remains in source, tests, docs, and `cargo xtask`.
