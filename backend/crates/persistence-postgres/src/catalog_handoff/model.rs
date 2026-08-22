@@ -6,9 +6,13 @@ use uuid::Uuid;
 
 pub const CATALOG_HANDOFF_CONTRACT_VERSION: &str = "catalog-handoff-1.0.0";
 pub const CATALOG_HANDOFF_PROFILE: &str = "fdc-foundation-reviewed-selection-v1";
+pub const CATALOG_HANDOFF_TEST_FIXTURE_PROFILE: &str = "catalog-handoff-test-fixture-v1";
 pub const CATALOG_HANDOFF_PACKAGE_KIND: &str = "nutrition-catalog-handoff";
 pub const FDC_HANDOFF_SOURCE_CODE: &str = "usda_fdc_foundation";
 pub const FDC_HANDOFF_RELEASE: &str = "2026-04-30";
+pub const TEST_FIXTURE_SOURCE_CODE: &str = "synthetic_fixture";
+pub const TEST_FIXTURE_RELEASE: &str = "0.1.0";
+pub const TEST_FIXTURE_SELECTION_VERSION: &str = "catalog-handoff-test-fixture-0.1.0";
 pub const FDC_HANDOFF_SELECTION_SHA256: &str =
     "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2";
 pub const FDC_HANDOFF_SELECTED_IDS: [u64; 20] = [
@@ -110,6 +114,7 @@ pub(crate) struct ManifestSource {
     pub object_uri: String,
     pub artifact_sha256: String,
     pub archive_sha256: String,
+    pub rights_state: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -22,9 +22,13 @@ from ..models import SourceMetadata
 CONTRACT_VERSION = "catalog-handoff-1.0.0"
 PACKAGE_KIND = "nutrition-catalog-handoff"
 HANDOFF_PROFILE = "fdc-foundation-reviewed-selection-v1"
+TEST_FIXTURE_PROFILE = "catalog-handoff-test-fixture-v1"
 PRODUCER_VERSION = "nutrition-data-factory-catalog-handoff-0.1.0"
 FDC_SOURCE_CODE = "usda_fdc_foundation"
+TEST_FIXTURE_SOURCE_CODE = "synthetic_fixture"
 NUTRIENT_CROSSWALK_POLICY_VERSION = "fdc-nutrient-crosswalk-0.2.0"
+MAPPING_POLICY_VERSION = "catalog-handoff-exact-source-id-0.1.0"
+TEST_FIXTURE_SELECTION_VERSION = "catalog-handoff-test-fixture-0.1.0"
 SUPPORTED_NUTRIENT_CODES = frozenset({"energy_kcal", "protein_g", "fat_g", "carbohydrate_g"})
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_PATH = re.compile(r"^[A-Za-z0-9._/-]+$")
@@ -44,6 +48,7 @@ def compile_catalog_handoff_v1(
     backend_baseline: str,
     selection_path: Path | None = None,
     source_schema_fingerprint: str = "fdc-foundation-json-0.1.0",
+    profile: str = HANDOFF_PROFILE,
 ) -> Path:
     """Compile the reviewed FDC selection into a contract-bound package.
 
@@ -57,10 +62,18 @@ def compile_catalog_handoff_v1(
         raise ValueError(f"catalog handoff output is not empty: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     selection_file = selection_path or Path(__file__).resolve().parents[3] / "config" / "backend-fdc-selection.json"
-    if metadata.code != FDC_SOURCE_CODE:
-        raise ValueError(f"catalog handoff v1 requires source code {FDC_SOURCE_CODE}")
-    if metadata.release != FDC_FOUNDATION_RELEASE:
-        raise ValueError(f"catalog handoff v1 requires release {FDC_FOUNDATION_RELEASE}")
+    if profile not in {HANDOFF_PROFILE, TEST_FIXTURE_PROFILE}:
+        raise ValueError(f"unsupported catalog handoff profile: {profile}")
+    expected_source_code = FDC_SOURCE_CODE if profile == HANDOFF_PROFILE else TEST_FIXTURE_SOURCE_CODE
+    expected_release = FDC_FOUNDATION_RELEASE if profile == HANDOFF_PROFILE else metadata.release
+    expected_rights_state = "approved" if profile == HANDOFF_PROFILE else "test_only"
+    published_date = FDC_FOUNDATION_RELEASE if profile == HANDOFF_PROFILE else "2000-01-01"
+    if metadata.code != expected_source_code:
+        raise ValueError(f"catalog handoff profile requires source code {expected_source_code}")
+    if metadata.release != expected_release:
+        raise ValueError(f"catalog handoff profile requires release {expected_release}")
+    if metadata.rights_state != expected_rights_state:
+        raise ValueError(f"catalog handoff profile requires rights state {expected_rights_state}")
     if metadata.production_eligible:
         raise ValueError("catalog handoff v1 cannot consume a production-eligible source")
     if not metadata.locator.strip() or not metadata.rights_state.strip():
@@ -77,6 +90,11 @@ def compile_catalog_handoff_v1(
         raise ValueError("reviewed selection is not safe for a staged-only handoff")
     if len(selected_ids) != 20:
         raise ValueError("catalog handoff v1 requires the reviewed 20-record selection")
+    selection_version = (
+        selection["compatibility_version"]
+        if profile == HANDOFF_PROFILE
+        else TEST_FIXTURE_SELECTION_VERSION
+    )
 
     records = _canonical_records(source_records, metadata)
     _validate_unique([record["source_id"] for record in records], "source record")
@@ -86,7 +104,7 @@ def compile_catalog_handoff_v1(
         raise ValueError(f"reviewed selection is missing source records: {','.join(missing)}")
     selected_records = [by_id[item] for item in selected_ids]
 
-    concepts = _canonical_concepts(food_concepts, selected_records)
+    concepts = _canonical_concepts(food_concepts, selected_records, "usda-fdc")
     names = _canonical_names(food_names, selected_records, concepts)
     mappings = _canonical_mappings(source_food_mappings, selected_records, concepts)
     compositions = _canonical_compositions(composition_values, selected_records)
@@ -146,24 +164,26 @@ def compile_catalog_handoff_v1(
         })
     package_key = f"{metadata.code}:{metadata.release}:{expected_selection_sha256}:{backend_baseline}"
     package_id = f"catalog-handoff-v1-{_sha256(package_key.encode())[:24]}"
-    release_version = f"usda-fdc-foundation-{metadata.release}-{expected_selection_sha256[:12]}"
+    release_version_prefix = "usda-fdc-foundation" if profile == HANDOFF_PROFILE else "synthetic-handoff"
+    release_version = f"{release_version_prefix}-{metadata.release}-{expected_selection_sha256[:12]}"
     manifest = {
         "contract_version": CONTRACT_VERSION,
         "package_kind": PACKAGE_KIND,
         "package_id": package_id,
         "producer": "nutrition-data-factory",
         "producer_version": PRODUCER_VERSION,
-        "handoff_profile": HANDOFF_PROFILE,
+        "handoff_profile": profile,
         "source": {
             "source_code": metadata.code,
             "release": metadata.release,
-            "published_date": metadata.release,
+            "published_date": published_date,
             "object_uri": metadata.locator,
             "artifact_sha256": extracted_artifact.sha256.lower(),
             "archive_sha256": archive_artifact.sha256.lower(),
+            "rights_state": metadata.rights_state,
         },
         "selection": {
-            "selection_version": selection["compatibility_version"],
+            "selection_version": selection_version,
             "selection_sha256": expected_selection_sha256,
             "record_count": len(selected_records),
             "auto_add_records": False,
@@ -171,7 +191,7 @@ def compile_catalog_handoff_v1(
         "policy_versions": {
             "handoff": CONTRACT_VERSION,
             "nutrient_crosswalk": NUTRIENT_CROSSWALK_POLICY_VERSION,
-            "selection": selection["compatibility_version"],
+            "selection": selection_version,
         },
         "dataset_release": {"dataset_code": metadata.code, "version": metadata.release},
         "catalog_release_version": release_version,
@@ -200,7 +220,7 @@ def _canonical_records(records: Iterable[FdcSourceRecord], metadata: SourceMetad
             raise ValueError(f"FDC source record {record.fdc_id} has an invalid payload hash")
         output.append({
             "source_code": metadata.code,
-            "release": FDC_FOUNDATION_RELEASE,
+            "release": metadata.release,
             "source_id": str(record.fdc_id),
             "description": record.description,
             "data_type": record.data_type,
@@ -211,7 +231,9 @@ def _canonical_records(records: Iterable[FdcSourceRecord], metadata: SourceMetad
     return output
 
 
-def _canonical_concepts(values: list[dict[str, Any]], records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _canonical_concepts(
+    values: list[dict[str, Any]], records: list[dict[str, Any]], semantic_prefix: str
+) -> list[dict[str, Any]]:
     _require_source_entries(values, records, "food concept")
     _validate_unique([str(item.get("source_id", "")) for item in values], "food concept")
     by_id = {item.get("source_id"): item for item in values if isinstance(item, dict)}
@@ -223,7 +245,7 @@ def _canonical_concepts(values: list[dict[str, Any]], records: list[dict[str, An
         concept_id = f"source-food:{source_code}:{source_id}"
         output.append({
             "concept_id": concept_id,
-            "semantic_key": f"usda-fdc:{source_id}",
+            "semantic_key": f"{semantic_prefix}:{source_id}",
             "entity_kind": "basic_food",
             "lifecycle_status": "candidate",
             "source_code": source_code,
@@ -275,14 +297,14 @@ def _canonical_mappings(values: list[dict[str, Any]], records: list[dict[str, An
         output.append({
             "mapping_id": f"source-mapping:{source_code}:{source_id}",
             "source_code": source_code,
-            "release": FDC_FOUNDATION_RELEASE,
+            "release": record["release"],
             "source_id": source_id,
             "source_payload_sha256": record["payload_sha256"],
             "concept_id": concepts_by_id[source_id],
             "mapping_type": "exact",
             "mapping_method": "fdc_exact_external_id",
             "score": 1.0,
-            "policy_version": str(original.get("policy_version", "catalog-handoff-1.0.0")),
+            "policy_version": MAPPING_POLICY_VERSION,
             "review_status": "proposal",
             "rationale": "Deterministic exact mapping from the pinned FDC external ID; requires review before publication.",
         })
@@ -344,17 +366,20 @@ def _canonical_compositions(values: list[dict[str, Any]], records: list[dict[str
         expected_label = str(nutrient.get("name", "")).strip()
         if expected_label and str(value.get("source_label", "")).strip() != expected_label:
             raise ValueError(f"composition label is not grounded in raw evidence for {source_id}/{target_code}")
+        expected_method = _source_method(observation, source_nutrient_id)
+        if str(value.get("source_method", expected_method)) != expected_method:
+            raise ValueError(f"composition method is not grounded in raw evidence for {source_id}/{target_code}")
         output.append({
             "value_id": f"composition:{raw['source_code']}:{source_id}:{target_code}",
             "source_code": raw["source_code"],
-            "release": FDC_FOUNDATION_RELEASE,
+            "release": raw["release"],
             "source_id": source_id,
             "source_payload_sha256": raw["payload_sha256"],
             "target_code": target_code,
             "source_nutrient_id": source_nutrient_id,
             "source_label": str(value.get("source_label", target_code)),
             "source_unit": source_unit,
-            "source_method": str(value.get("source_method", "declared_or_analytical")),
+            "source_method": expected_method,
             "value": amount,
             "value_status": value_status,
             "conversion": "identity",
@@ -380,6 +405,21 @@ def _source_nutrient_observation(record: dict[str, Any], source_nutrient_id: int
     if len(matches) != 1:
         raise ValueError(f"source record {record['source_id']} has {len(matches)} observations for nutrient {source_nutrient_id}")
     return matches[0]
+
+
+def _source_method(observation: dict[str, Any], source_nutrient_id: int) -> str:
+    derivation = observation.get("foodNutrientDerivation")
+    if isinstance(derivation, dict):
+        code = derivation.get("code") or derivation.get("description")
+        if isinstance(code, str) and code.strip():
+            return code.strip()
+    return {
+        1003: "declared_or_analytical",
+        1004: "declared_or_analytical",
+        1005: "declared_or_analytical",
+        2047: "atwater_general",
+        2048: "atwater_specific",
+    }[source_nutrient_id]
 
 
 def _validate_profile_completeness(records: list[dict[str, Any]], compositions: list[dict[str, Any]]) -> None:

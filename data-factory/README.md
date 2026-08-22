@@ -116,6 +116,11 @@ forbidden/negative nutrient observations, unmapped source nutrient IDs, absent V
 absent recipe evidence and absent measured portions remain explicit in the reports; a successful
 command does not mean the nutrition database is complete or published.
 
+The committed cross-component golden fixture is deliberately separate: it uses profile
+`catalog-handoff-test-fixture-v1`, source `synthetic_fixture`, and test-only rights. It is useful for
+offline producer/consumer/PostgreSQL contract tests, but it is not an FDC release and cannot stand
+in for the caller-supplied USDA artifacts.
+
 The current reproducible evidence snapshot is committed at
 `docs/releases/data-coverage-fdc-foundation-2026-04.json`. Raw and derived artifacts are intentionally
 kept outside Git and referenced by SHA-256.

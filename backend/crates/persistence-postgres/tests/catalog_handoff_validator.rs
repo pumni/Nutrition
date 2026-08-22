@@ -338,6 +338,30 @@ fn provenance_files_must_agree() {
     let error = validate_catalog_handoff_v1_package(&package)
         .expect_err("conflicting provenance must fail");
     assert!(matches!(error, CatalogHandoffImportError::Semantic(_)));
+
+    for rights_state in ["reference_only", "prohibited", "unknown", ""] {
+        let (_temporary, package) = copy_fixture("rights");
+        let path = package.join("source-releases.json");
+        let mut source: Value = serde_json::from_slice(&fs::read(&path).expect("source releases"))
+            .expect("source release JSON");
+        source["sources"][0]["rights_state"] = Value::String(rights_state.to_owned());
+        fs::write(
+            &path,
+            [
+                serde_json::to_vec_pretty(&source).expect("source serialization"),
+                b"\n".to_vec(),
+            ]
+            .concat(),
+        )
+        .expect("source release write");
+        refresh_package_integrity(&package);
+        let error = validate_catalog_handoff_v1_package(&package)
+            .expect_err("unsafe rights state must fail closed");
+        assert!(matches!(
+            error,
+            CatalogHandoffImportError::Schema(_) | CatalogHandoffImportError::Semantic(_)
+        ));
+    }
 }
 
 #[test]
@@ -361,6 +385,18 @@ fn names_and_compositions_must_be_grounded_in_raw_payloads() {
     refresh_package_integrity(&package);
     let error = validate_catalog_handoff_v1_package(&package)
         .expect_err("ungrounded composition must fail");
+    assert!(matches!(
+        error,
+        CatalogHandoffImportError::ReferenceIntegrity(_)
+    ));
+
+    let (_temporary, package) = copy_fixture("method-grounding");
+    mutate_jsonl_record(&package, "composition-values.jsonl", 0, |value| {
+        value["source_method"] = Value::String("made_up_method".to_owned());
+    });
+    refresh_package_integrity(&package);
+    let error = validate_catalog_handoff_v1_package(&package)
+        .expect_err("ungrounded source method must fail");
     assert!(matches!(
         error,
         CatalogHandoffImportError::ReferenceIntegrity(_)

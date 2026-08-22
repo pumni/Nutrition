@@ -1,7 +1,8 @@
 use super::model::{
-    CATALOG_HANDOFF_CONTRACT_VERSION, CATALOG_HANDOFF_PROFILE, CatalogHandoffImportError,
-    CatalogHandoffImportRequest, CompositionValue, DatasetRelease, FoodConcept, FoodName,
-    LoadedPackage, Manifest, RawSourceRecord, SourceFoodMapping, SourceReleases,
+    CATALOG_HANDOFF_CONTRACT_VERSION, CATALOG_HANDOFF_PROFILE,
+    CATALOG_HANDOFF_TEST_FIXTURE_PROFILE, CatalogHandoffImportError, CatalogHandoffImportRequest,
+    CompositionValue, DatasetRelease, FoodConcept, FoodName, LoadedPackage, Manifest,
+    RawSourceRecord, SourceFoodMapping, SourceReleases,
 };
 use jsonschema::validator_for;
 use serde_json::Value;
@@ -44,7 +45,7 @@ pub(crate) fn load_package(
         .get("handoff_profile")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    if profile != CATALOG_HANDOFF_PROFILE {
+    if profile != CATALOG_HANDOFF_PROFILE && profile != CATALOG_HANDOFF_TEST_FIXTURE_PROFILE {
         return Err(CatalogHandoffImportError::UnsupportedProfile(
             profile.to_owned(),
         ));

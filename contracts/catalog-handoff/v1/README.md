@@ -29,5 +29,8 @@ Record identity is source-derived. FDC food entities use the backend semantic ke
 `usda-fdc:<fdc_id>`; no random UUID or inferred food, portion, recipe, alias, or nutrient mapping
 is created by this contract.
 
-The committed `fixtures/minimal-valid` directory is the cross-component golden fixture. It is
-synthetic test data only and must not be activated or treated as production evidence.
+The committed `fixtures/minimal-valid` directory uses the explicit
+`catalog-handoff-test-fixture-v1` profile and the `synthetic_fixture` source registry entry. It is
+the cross-component golden fixture, but it is not the FDC production profile and must not be
+activated or treated as production evidence. The FDC profile may only be produced from the
+caller-supplied, hash-pinned USDA artifacts.

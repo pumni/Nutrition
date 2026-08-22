@@ -251,19 +251,24 @@ pub(crate) async fn ensure_food_name(
     food_id: Uuid,
     food: &RawFood,
 ) -> Result<Uuid, FdcFoundationImportError> {
-    if let Some(id) = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM catalog.food_name
-          WHERE food_id = $1 AND source_record_id = $2 AND locale = 'en-US' AND name = $3
+    if let Some((id, existing_name)) = sqlx::query_as::<_, (Uuid, String)>(
+        "SELECT id, name FROM catalog.food_name
+          WHERE food_id = $1 AND locale = 'en-US' AND name_type = 'preferred'
+            AND valid_to IS NULL
           ORDER BY valid_from
           LIMIT 1",
     )
     .bind(food_id)
-    .bind(source_record_id)
-    .bind(&food.description)
     .fetch_optional(&mut **tx)
     .await?
     {
-        return Ok(id);
+        if existing_name == food.description {
+            return Ok(id);
+        }
+        return Err(FdcFoundationImportError::InvalidInput(format!(
+            "preferred en-US name already exists for FDC food {} with different source text",
+            food.fdc_id
+        )));
     }
 
     let id = Uuid::now_v7();

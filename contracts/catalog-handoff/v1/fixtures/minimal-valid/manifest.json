@@ -1,11 +1,11 @@
 {
   "activation_authorized": false,
   "backend_baseline": "test-baseline",
-  "catalog_release_version": "usda-fdc-foundation-2026-04-30-ad867dbbb6a9",
+  "catalog_release_version": "synthetic-handoff-0.1.0-ad867dbbb6a9",
   "contract_version": "catalog-handoff-1.0.0",
   "dataset_release": {
-    "dataset_code": "usda_fdc_foundation",
-    "version": "2026-04-30"
+    "dataset_code": "synthetic_fixture",
+    "version": "0.1.0"
   },
   "files": [
     {
@@ -13,66 +13,66 @@
       "record_count": 1,
       "role": "dataset_release",
       "schema": "dataset-release",
-      "sha256": "a6fe576fb39b00d36faf929c1be00a190470bd261abdd7f085af11a1f3c8b47e",
-      "size_bytes": 499
+      "sha256": "b19bbb7815ca1626a9fe8ad39b1cd0183c3f97d04f0ba8cd74f6d4100167c577",
+      "size_bytes": 480
     },
     {
       "path": "source-releases.json",
       "record_count": 1,
       "role": "source_releases",
       "schema": "source-release",
-      "sha256": "b4393f76b8495c4528f33ece853b6f1883a057957024d80fe92501f118b1f0ba",
-      "size_bytes": 794
+      "sha256": "ea0dbd621d0076a240d9d7dc63239b61e78afec794d49e28f087e46b2e60b4a5",
+      "size_bytes": 776
     },
     {
       "path": "raw-source-records.jsonl",
       "record_count": 20,
       "role": "raw_source_records",
       "schema": "raw-source-record",
-      "sha256": "d0305d0ce57f5b082b60a55f88d15cb17703d5745a81d53607b2a5c356e8f7e1",
-      "size_bytes": 13916
+      "sha256": "7411566931beaf52110bd2f233f3113da97358e1f030b8ad404359a119794ce2",
+      "size_bytes": 13776
     },
     {
       "path": "food-concepts.jsonl",
       "record_count": 20,
       "role": "food_concepts",
       "schema": "food-concept",
-      "sha256": "a0fa8b692f9c9c4a467aaee53c4fc876d4f1dcb0ff678c88de5bf9978fbd1b93",
-      "size_bytes": 6500
+      "sha256": "4a2ca585ac97174727486823fb1dd0c1ea810001b3a20e7626b0a804e4e86630",
+      "size_bytes": 6420
     },
     {
       "path": "food-names.jsonl",
       "record_count": 20,
       "role": "food_names",
       "schema": "food-name",
-      "sha256": "b86c465648f32a47b04ead486bbab9efc5ad47232f710dcc84a9c6aca867dbc7",
-      "size_bytes": 8460
+      "sha256": "246cfa7e26015f2613f2d3f542c6dc287fc0ab537bb423c46bb68d1cc58f9b60",
+      "size_bytes": 8340
     },
     {
       "path": "source-food-mappings.jsonl",
       "record_count": 20,
       "role": "source_food_mappings",
       "schema": "source-food-mapping",
-      "sha256": "be83310c93df976bda4683bfe24777cf48eafd2a45d17f50c2ad9c0e23d703ab",
-      "size_bytes": 10920
+      "sha256": "d15b60ac3b4a434afa986465d48cff2e275510eb215a047c823c6fa1acac7cfb",
+      "size_bytes": 10940
     },
     {
       "path": "composition-values.jsonl",
       "record_count": 80,
       "role": "composition_values",
       "schema": "composition-value",
-      "sha256": "d8a6a9de0c0069cc4bf734e11db39fde6dcdfe834ffeb9a4dad383a840b28670",
-      "size_bytes": 47536
+      "sha256": "13bbaeb66973058b13a3fea27a04964023d904ba2580d03d231fc0638757bf2b",
+      "size_bytes": 46816
     }
   ],
-  "handoff_profile": "fdc-foundation-reviewed-selection-v1",
+  "handoff_profile": "catalog-handoff-test-fixture-v1",
   "import_mode": "staged_only",
-  "package_id": "catalog-handoff-v1-436c611a411028bf0373c53f",
+  "package_id": "catalog-handoff-v1-403599f02a51cf279c5e0f62",
   "package_kind": "nutrition-catalog-handoff",
   "policy_versions": {
     "handoff": "catalog-handoff-1.0.0",
     "nutrient_crosswalk": "fdc-nutrient-crosswalk-0.2.0",
-    "selection": "backend-fdc-selection-0.1.0"
+    "selection": "catalog-handoff-test-fixture-0.1.0"
   },
   "producer": "nutrition-data-factory",
   "producer_version": "nutrition-data-factory-catalog-handoff-0.1.0",
@@ -81,14 +81,15 @@
     "auto_add_records": false,
     "record_count": 20,
     "selection_sha256": "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2",
-    "selection_version": "backend-fdc-selection-0.1.0"
+    "selection_version": "catalog-handoff-test-fixture-0.1.0"
   },
   "source": {
     "archive_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "object_uri": "official USDA FoodData Central Foundation Foods release",
-    "published_date": "2026-04-30",
-    "release": "2026-04-30",
-    "source_code": "usda_fdc_foundation"
+    "object_uri": "tests/fixtures/synthetic-source.json",
+    "published_date": "2000-01-01",
+    "release": "0.1.0",
+    "rights_state": "test_only",
+    "source_code": "synthetic_fixture"
   }
 }

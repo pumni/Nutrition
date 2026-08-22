@@ -78,14 +78,20 @@ async fn ensure_dataset(
 ) -> Result<Uuid, CatalogHandoffImportError> {
     let source = &package.source_releases.sources[0];
     let id = Uuid::now_v7();
+    let dataset_name = if source.source_code == "synthetic_fixture" {
+        "Synthetic catalog handoff fixture"
+    } else {
+        "USDA FoodData Central"
+    };
     sqlx::query(
         "INSERT INTO raw.dataset
             (id, code, name, publisher, license_code, homepage, ingestion_policy_version)
-         VALUES ($1, $2, 'USDA FoodData Central', $3, NULL, $4, $5)
+         VALUES ($1, $2, $3, $4, NULL, $5, $6)
          ON CONFLICT (code) DO NOTHING",
     )
     .bind(id)
     .bind(&source.source_code)
+    .bind(dataset_name)
     .bind(&source.publisher)
     .bind(&source.locator)
     .bind(CATALOG_HANDOFF_CONTRACT_VERSION)
@@ -127,7 +133,7 @@ async fn ensure_dataset_release(
     }
     let id = Uuid::now_v7();
     let source = &package.source_releases.sources[0];
-    let published_at = format!("{}T00:00:00Z", package.dataset_release.version);
+    let published_at = format!("{}T00:00:00Z", package.manifest.source.published_date);
     let metadata = json!({
         "contract_version": package.manifest.contract_version,
         "package_id": package.manifest.package_id,
@@ -374,8 +380,16 @@ async fn ensure_food_name(
     food_id: Uuid,
     name: &FoodName,
 ) -> Result<Uuid, CatalogHandoffImportError> {
-    if let Some(id) = sqlx::query_scalar::<_, Uuid>("SELECT id FROM catalog.food_name WHERE food_id = $1 AND source_record_id = $2 AND locale = $3 AND name = $4 LIMIT 1")
-        .bind(food_id).bind(source_record_id).bind(&name.locale).bind(&name.name).fetch_optional(&mut **tx).await? { return Ok(id); }
+    if let Some((id, existing_name)) = sqlx::query_as::<_, (Uuid, String)>("SELECT id, name FROM catalog.food_name WHERE food_id = $1 AND locale = $2 AND name_type = 'preferred' AND valid_to IS NULL ORDER BY valid_from LIMIT 1")
+        .bind(food_id).bind(&name.locale).fetch_optional(&mut **tx).await? {
+        if existing_name == name.name {
+            return Ok(id);
+        }
+        return Err(CatalogHandoffImportError::Semantic(format!(
+            "preferred {} name already exists with different source text for {}",
+            name.locale, name.source_id
+        )));
+    }
     let id = Uuid::now_v7();
     sqlx::query("INSERT INTO catalog.food_name (id, food_id, locale, name, normalized_name, name_type, source_record_id, is_curated, search_weight) VALUES ($1, $2, $3, $4, $5, 'preferred', $6, false, 0)")
         .bind(id).bind(food_id).bind(&name.locale).bind(&name.name).bind(&name.normalized_name).bind(source_record_id).execute(&mut **tx).await?;

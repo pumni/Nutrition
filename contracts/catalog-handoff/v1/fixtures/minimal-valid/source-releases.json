@@ -13,13 +13,13 @@
         "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "size": 1
       },
-      "locator": "official USDA FoodData Central Foundation Foods release",
+      "locator": "tests/fixtures/synthetic-source.json",
       "production_eligible": false,
-      "publisher": "USDA ARS",
-      "purpose": "analytical basic food composition",
-      "release": "2026-04-30",
-      "rights_state": "approved",
-      "source_code": "usda_fdc_foundation"
+      "publisher": "project-test-fixture",
+      "purpose": "deterministic scaffold tests",
+      "release": "0.1.0",
+      "rights_state": "test_only",
+      "source_code": "synthetic_fixture"
     }
   ]
 }

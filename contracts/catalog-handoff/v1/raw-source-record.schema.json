@@ -4,7 +4,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["source_code", "release", "source_id", "description", "data_type", "payload_sha256", "payload"],
   "properties": {
-    "source_code": {"const": "usda_fdc_foundation"}, "release": {"const": "2026-04-30"}, "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "source_code": {"enum": ["usda_fdc_foundation", "synthetic_fixture"]}, "release": {"type": "string", "minLength": 1}, "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
     "description": {"type": "string", "minLength": 1}, "data_type": {"const": "Foundation"}, "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "payload": {"type": "object"}
   }
 }

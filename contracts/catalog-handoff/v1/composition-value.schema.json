@@ -4,7 +4,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["value_id", "source_code", "release", "source_id", "source_payload_sha256", "target_code", "source_nutrient_id", "source_label", "source_unit", "source_method", "value", "value_status", "conversion", "canonical_unit", "policy_version", "review_status", "reviewer_decision_status"],
   "properties": {
-    "value_id": {"type": "string", "pattern": "^composition:usda_fdc_foundation:[1-9][0-9]*:[a-z_]+$"}, "source_code": {"const": "usda_fdc_foundation"}, "release": {"const": "2026-04-30"}, "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "value_id": {"type": "string", "pattern": "^composition:(usda_fdc_foundation|synthetic_fixture):[1-9][0-9]*:[a-z_]+$"}, "source_code": {"enum": ["usda_fdc_foundation", "synthetic_fixture"]}, "release": {"type": "string", "minLength": 1}, "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
     "source_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "target_code": {"enum": ["energy_kcal", "protein_g", "fat_g", "carbohydrate_g"]}, "source_nutrient_id": {"type": "integer", "minimum": 1}, "source_label": {"type": "string", "minLength": 1},
     "source_unit": {"enum": ["G", "KCAL"]}, "source_method": {"type": "string", "minLength": 1}, "value": {"type": ["number", "null"], "minimum": 0}, "value_status": {"enum": ["numeric", "zero", "missing", "trace", "not_detected"]},
     "conversion": {"const": "identity"}, "canonical_unit": {"enum": ["g", "kcal"]}, "policy_version": {"type": "string", "minLength": 1}, "review_status": {"const": "proposal"}, "reviewer_decision_status": {"const": "pending_human_review"}

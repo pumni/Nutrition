@@ -11,9 +11,9 @@ use uuid::Uuid;
 const LEGACY_FIXTURE: &str = r#"{
   "FoundationFoods": [
     {
-      "fdcId": 900000101,
+      "fdcId": 1750339,
       "dataType": "Foundation",
-      "description": "Transition legacy food",
+      "description": "Synthetic handoff fixture 1750339",
       "foodNutrients": [
         {"amount": 1.0, "nutrient": {"id": 1003, "unitName": "G"}},
         {"amount": 2.0, "nutrient": {"id": 1004, "unitName": "G"}},
@@ -117,7 +117,7 @@ async fn catalog_handoff_rolls_back_partial_staging() {
     )
     .await
     .expect_err("database conflict must roll back the package");
-    assert!(matches!(error, CatalogHandoffImportError::Query(_)));
+    assert!(matches!(error, CatalogHandoffImportError::Semantic(_)));
     let staged_rows: (i64, i64, i64) = sqlx::query_as(
         "SELECT
             (SELECT count(*) FROM raw.dataset WHERE code = 'usda_fdc_foundation'),
@@ -141,7 +141,7 @@ async fn assert_staged_content(pool: &PgPool, release_id: &Uuid) {
     assert_eq!(eligible, "false");
     let counts: (i64, i64, i64, i64) = sqlx::query_as(
         "SELECT
-            (SELECT count(*) FROM raw.source_food_record record JOIN raw.dataset_release dataset_release ON dataset_release.id = record.dataset_release_id WHERE dataset_release.version = '2026-04-30'),
+            (SELECT count(*) FROM raw.source_food_record),
             (SELECT count(*) FROM catalog.catalog_release_food_name WHERE catalog_release_id = $1),
             (SELECT count(*) FROM catalog.catalog_release_profile WHERE catalog_release_id = $1),
             (SELECT count(*) FROM composition.composition_value value JOIN composition.composition_profile profile ON profile.id = value.profile_id JOIN catalog.catalog_release_profile membership ON membership.profile_id = profile.id WHERE membership.catalog_release_id = $1)",
@@ -159,7 +159,8 @@ async fn assert_transition_orders(pool: &PgPool) {
         .await
         .expect("dataset codes");
     assert!(codes.iter().any(|code| code == "usda_fdc"));
-    assert!(codes.iter().any(|code| code == "usda_fdc_foundation"));
+    assert!(codes.iter().any(|code| code == "synthetic_fixture"));
+    assert_overlap_identity(pool).await;
 
     reset_database(pool).await;
 
@@ -180,19 +181,54 @@ async fn assert_transition_orders(pool: &PgPool) {
         .await
         .expect("dataset codes");
     assert!(codes.iter().any(|code| code == "usda_fdc"));
-    assert!(codes.iter().any(|code| code == "usda_fdc_foundation"));
+    assert!(codes.iter().any(|code| code == "synthetic_fixture"));
+    assert_overlap_identity(pool).await;
+}
+
+async fn assert_overlap_identity(pool: &PgPool) {
+    let source_records: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM raw.source_food_record WHERE external_id = '1750339'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("overlapping source records");
+    assert_eq!(source_records, 2);
+    let entity_count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM catalog.food_entity WHERE semantic_key = 'usda-fdc:1750339'",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("overlapping food entity");
+    assert_eq!(entity_count, 1);
+    let preferred_names: (i64, String) = sqlx::query_as(
+        "SELECT count(*), min(name) FROM catalog.food_name
+          WHERE food_id = (SELECT id FROM catalog.food_entity WHERE semantic_key = 'usda-fdc:1750339')
+            AND locale = 'en-US' AND name_type = 'preferred' AND valid_to IS NULL",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("overlapping preferred name");
+    assert_eq!(preferred_names.0, 1);
+    assert_eq!(preferred_names.1, "Synthetic handoff fixture 1750339");
+    let staged_releases: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM catalog.catalog_release WHERE status = 'staged' AND activated_at IS NULL",
+    )
+    .fetch_one(pool)
+    .await
+    .expect("staged transition releases");
+    assert_eq!(staged_releases, 2);
 }
 
 async fn import_legacy_release(pool: &PgPool, label: &str) {
-    let release_version = format!("transition-{label}-{}", Uuid::now_v7());
+    let release_version = "2026-04-30".to_owned();
     let request = FdcFoundationImportRequest {
         release_version: release_version.clone(),
         source_published_date: "2026-04-30".to_owned(),
-        object_uri: format!("fixture://legacy/{release_version}.json"),
+        object_uri: format!("fixture://legacy/{label}/2026-04-30.json"),
         expected_sha256: hex::encode(Sha256::digest(LEGACY_FIXTURE.as_bytes())),
         source_archive_sha256: None,
         preprocessing_policy_version: None,
-        include_fdc_ids: vec![900_000_101],
+        include_fdc_ids: vec![1_750_339],
         created_by: "0198f100-0000-7000-8000-000000000098".to_owned(),
     };
     import_fdc_foundation_json(pool, LEGACY_FIXTURE.as_bytes(), &request)
