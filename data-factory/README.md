@@ -24,8 +24,9 @@ The scaffold provides boundaries for:
 - human-only curation decisions with non-destructive supersession;
 - release impact reports for changes, provenance deltas, coverage, and fixed cases;
 - portion-study validation/compiler with independent-sample and repeat-weighing semantics;
-- backend-compatible staged import package containing raw, catalog, composition, recipe and
-  portion boundaries plus a completeness manifest.
+- backend-compatible full release package containing raw, catalog, composition, recipe and
+  portion boundaries plus a completeness manifest;
+- canonical `catalog-handoff-v1/` package for the reviewed 20-record backend handoff.
 - non-mutating validation and release-package compilation.
 
 The seed registry preserves the handoff policy: USDA FDC Foundation is an approved candidate after
@@ -107,11 +108,18 @@ evidence preserves institutionally reported weights as source evidence, records 
 and emits a ranked physical-measurement queue; household-unit gram conversion is never inferred.
 
 The runner verifies the pinned archive and extracted JSON hashes, accounts for every raw source
-row, preserves raw nutrient observations, and writes `full-catalog-package/`. The package is
-`candidate_review_required`, `staged_only`, and `production_eligible: false`. Source-quality errors,
+row, preserves raw nutrient observations, and writes both `full-catalog-package/` and
+`catalog-handoff-v1/`. The handoff package is exactly the nine importable core files, uses contract
+`catalog-handoff-1.0.0` and profile `fdc-foundation-reviewed-selection-v1`, exports only the four
+backend-supported nutrients, and is always `staged_only` with both production flags false. Source-quality errors,
 forbidden/negative nutrient observations, unmapped source nutrient IDs, absent Vietnamese corpus,
 absent recipe evidence and absent measured portions remain explicit in the reports; a successful
 command does not mean the nutrition database is complete or published.
+
+The committed cross-component golden fixture is deliberately separate: it uses profile
+`catalog-handoff-test-fixture-v1`, source `synthetic_fixture`, and test-only rights. It is useful for
+offline producer/consumer/PostgreSQL contract tests, but it is not an FDC release and cannot stand
+in for the caller-supplied USDA artifacts.
 
 The current reproducible evidence snapshot is committed at
 `docs/releases/data-coverage-fdc-foundation-2026-04.json`. Raw and derived artifacts are intentionally

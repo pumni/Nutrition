@@ -8,6 +8,7 @@ use super::*;
 pub struct OidcAuthenticator {
     config: OidcConfig,
     fetcher: Arc<dyn OidcFetcher>,
+    clock: Arc<dyn Fn() -> u64 + Send + Sync>,
     pub(crate) cache: Arc<RwLock<Option<CachedJwks>>>,
     refresh_lock: Arc<Mutex<()>>,
     pub(crate) last_unknown_kid_refresh: Arc<Mutex<Option<Instant>>>,
@@ -22,6 +23,7 @@ impl OidcAuthenticator {
         Ok(Self {
             config,
             fetcher: Arc::new(ReqwestFetcher { client }),
+            clock: Arc::new(current_unix_timestamp),
             cache: Arc::new(RwLock::new(None)),
             refresh_lock: Arc::new(Mutex::new(())),
             last_unknown_kid_refresh: Arc::new(Mutex::new(None)),
@@ -29,10 +31,15 @@ impl OidcAuthenticator {
     }
 
     #[cfg(test)]
-    pub(crate) fn with_fetcher(config: OidcConfig, fetcher: Arc<dyn OidcFetcher>) -> Self {
+    pub(crate) fn with_fetcher_and_clock(
+        config: OidcConfig,
+        fetcher: Arc<dyn OidcFetcher>,
+        clock: Arc<dyn Fn() -> u64 + Send + Sync>,
+    ) -> Self {
         Self {
             config,
             fetcher,
+            clock,
             cache: Arc::new(RwLock::new(None)),
             refresh_lock: Arc::new(Mutex::new(())),
             last_unknown_kid_refresh: Arc::new(Mutex::new(None)),
@@ -74,18 +81,20 @@ impl OidcAuthenticator {
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_issuer(std::slice::from_ref(&self.config.issuer_url));
         validation.set_audience(std::slice::from_ref(&self.config.audience));
-        validation.leeway = CLOCK_SKEW_SECONDS;
-        validation.validate_nbf = true;
+        validation.validate_exp = false;
+        validation.validate_nbf = false;
         let token_data = decode::<OidcClaims>(token, &decoding_key, &validation)
             .map_err(|_| application::ApplicationError::Unauthorized)?;
-        if token_data.claims.iss != self.config.issuer_url
-            || token_data.claims.exp == 0
-            || token_data.claims.sub.trim().is_empty()
-            || !token_data.claims.aud.contains(&self.config.audience)
+        let claims = token_data.claims;
+        if !temporal_claims_are_valid(&claims, (self.clock)())
+            || claims.iss != self.config.issuer_url
+            || claims.exp == 0
+            || claims.sub.trim().is_empty()
+            || !claims.aud.contains(&self.config.audience)
         {
             return Err(application::ApplicationError::Unauthorized);
         }
-        Ok(token_data.claims)
+        Ok(claims)
     }
 
     pub(crate) async fn key_for(&self, kid: &str) -> Result<Jwk, OidcError> {
@@ -186,4 +195,18 @@ impl OidcAuthenticator {
         debug!("OIDC JWKS cache refreshed");
         Ok(())
     }
+}
+
+fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock must be after Unix epoch")
+        .as_secs()
+}
+
+fn temporal_claims_are_valid(claims: &OidcClaims, now: u64) -> bool {
+    claims.exp >= now.saturating_sub(CLOCK_SKEW_SECONDS)
+        && claims
+            .nbf
+            .is_none_or(|not_before| not_before <= now.saturating_add(CLOCK_SKEW_SECONDS))
 }

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/contracts/catalog-handoff/v1/manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "package_kind", "package_id", "producer", "producer_version", "handoff_profile", "source", "selection", "policy_versions", "dataset_release", "catalog_release_version", "files", "import_mode", "production_eligible", "activation_authorized", "backend_baseline"],
+  "allOf": [
+    {"if": {"properties": {"handoff_profile": {"const": "fdc-foundation-reviewed-selection-v1"}}}, "then": {"properties": {"source": {"properties": {"source_code": {"const": "usda_fdc_foundation"}, "release": {"const": "2026-04-30"}, "rights_state": {"const": "approved"}}}, "dataset_release": {"properties": {"dataset_code": {"const": "usda_fdc_foundation"}, "version": {"const": "2026-04-30"}}}}}},
+    {"if": {"properties": {"handoff_profile": {"const": "catalog-handoff-test-fixture-v1"}}}, "then": {"properties": {"source": {"properties": {"source_code": {"const": "synthetic_fixture"}, "release": {"const": "0.1.0"}, "rights_state": {"const": "test_only"}}}, "dataset_release": {"properties": {"dataset_code": {"const": "synthetic_fixture"}, "version": {"const": "0.1.0"}}}}}}
+  ],
+  "properties": {
+    "contract_version": {"const": "catalog-handoff-1.0.0"},
+    "package_kind": {"const": "nutrition-catalog-handoff"},
+    "package_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{7,127}$"},
+    "producer": {"type": "string", "minLength": 1, "maxLength": 128},
+    "producer_version": {"type": "string", "minLength": 1, "maxLength": 64},
+    "handoff_profile": {"enum": ["fdc-foundation-reviewed-selection-v1", "catalog-handoff-test-fixture-v1"]},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_code", "release", "published_date", "object_uri", "artifact_sha256", "archive_sha256", "rights_state"],
+      "properties": {
+        "source_code": {"enum": ["usda_fdc_foundation", "synthetic_fixture"]}, "release": {"type": "string", "minLength": 1},
+        "published_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}, "object_uri": {"type": "string", "minLength": 1, "maxLength": 2048},
+        "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "rights_state": {"enum": ["approved", "test_only", "reference_only", "prohibited"]}
+      }
+    },
+    "selection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["selection_version", "selection_sha256", "record_count", "auto_add_records"],
+      "properties": {
+        "selection_version": {"type": "string", "minLength": 1, "maxLength": 64}, "selection_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "record_count": {"type": "integer", "const": 20}, "auto_add_records": {"const": false}
+      }
+    },
+    "policy_versions": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 128}},
+    "dataset_release": {
+      "type": "object", "additionalProperties": false, "required": ["dataset_code", "version"],
+      "properties": {"dataset_code": {"enum": ["usda_fdc_foundation", "synthetic_fixture"]}, "version": {"type": "string", "minLength": 1}}
+    },
+    "catalog_release_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{7,127}$"},
+    "files": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"$ref": "#/$defs/file"}, "uniqueItems": true},
+    "import_mode": {"const": "staged_only"}, "production_eligible": {"const": false}, "activation_authorized": {"const": false},
+    "backend_baseline": {"type": "string", "minLength": 1, "maxLength": 128}
+  },
+  "$defs": {
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "role", "schema", "sha256", "size_bytes", "record_count"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"},
+        "role": {"type": "string", "enum": ["dataset_release", "source_releases", "raw_source_records", "food_concepts", "food_names", "source_food_mappings", "composition_values"]},
+        "schema": {"type": "string", "enum": ["dataset-release", "source-release", "raw-source-record", "food-concept", "food-name", "source-food-mapping", "composition-value"]},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "size_bytes": {"type": "integer", "minimum": 0}, "record_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

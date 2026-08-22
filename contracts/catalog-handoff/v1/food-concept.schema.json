@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/contracts/catalog-handoff/v1/food-concept.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["concept_id", "semantic_key", "entity_kind", "lifecycle_status", "source_code", "source_id", "source_payload_sha256", "review_status"],
+  "properties": {
+    "concept_id": {"type": "string", "pattern": "^source-food:(usda_fdc_foundation|synthetic_fixture):[1-9][0-9]*$"}, "semantic_key": {"type": "string", "pattern": "^usda-fdc:[1-9][0-9]*$"},
+    "entity_kind": {"const": "basic_food"}, "lifecycle_status": {"const": "candidate"}, "source_code": {"enum": ["usda_fdc_foundation", "synthetic_fixture"]},
+    "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "source_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "review_status": {"const": "proposal"}
+  }
+}

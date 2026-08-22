@@ -1,0 +1,12 @@
+{
+  "archive_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "dataset_code": "synthetic_fixture",
+  "object_uri": "tests/fixtures/synthetic-source.json",
+  "production_eligible": false,
+  "record_count": 20,
+  "schema_fingerprint": "synthetic-handoff-fixture-0.1.0",
+  "source_rights_state": "test_only",
+  "status": "staged_candidate",
+  "version": "0.1.0"
+}

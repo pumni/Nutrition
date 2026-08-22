@@ -1,0 +1,95 @@
+{
+  "activation_authorized": false,
+  "backend_baseline": "test-baseline",
+  "catalog_release_version": "synthetic-handoff-0.1.0-ad867dbbb6a9",
+  "contract_version": "catalog-handoff-1.0.0",
+  "dataset_release": {
+    "dataset_code": "synthetic_fixture",
+    "version": "0.1.0"
+  },
+  "files": [
+    {
+      "path": "dataset-release.json",
+      "record_count": 1,
+      "role": "dataset_release",
+      "schema": "dataset-release",
+      "sha256": "b19bbb7815ca1626a9fe8ad39b1cd0183c3f97d04f0ba8cd74f6d4100167c577",
+      "size_bytes": 480
+    },
+    {
+      "path": "source-releases.json",
+      "record_count": 1,
+      "role": "source_releases",
+      "schema": "source-release",
+      "sha256": "ea0dbd621d0076a240d9d7dc63239b61e78afec794d49e28f087e46b2e60b4a5",
+      "size_bytes": 776
+    },
+    {
+      "path": "raw-source-records.jsonl",
+      "record_count": 20,
+      "role": "raw_source_records",
+      "schema": "raw-source-record",
+      "sha256": "7411566931beaf52110bd2f233f3113da97358e1f030b8ad404359a119794ce2",
+      "size_bytes": 13776
+    },
+    {
+      "path": "food-concepts.jsonl",
+      "record_count": 20,
+      "role": "food_concepts",
+      "schema": "food-concept",
+      "sha256": "4a2ca585ac97174727486823fb1dd0c1ea810001b3a20e7626b0a804e4e86630",
+      "size_bytes": 6420
+    },
+    {
+      "path": "food-names.jsonl",
+      "record_count": 20,
+      "role": "food_names",
+      "schema": "food-name",
+      "sha256": "246cfa7e26015f2613f2d3f542c6dc287fc0ab537bb423c46bb68d1cc58f9b60",
+      "size_bytes": 8340
+    },
+    {
+      "path": "source-food-mappings.jsonl",
+      "record_count": 20,
+      "role": "source_food_mappings",
+      "schema": "source-food-mapping",
+      "sha256": "d15b60ac3b4a434afa986465d48cff2e275510eb215a047c823c6fa1acac7cfb",
+      "size_bytes": 10940
+    },
+    {
+      "path": "composition-values.jsonl",
+      "record_count": 80,
+      "role": "composition_values",
+      "schema": "composition-value",
+      "sha256": "13bbaeb66973058b13a3fea27a04964023d904ba2580d03d231fc0638757bf2b",
+      "size_bytes": 46816
+    }
+  ],
+  "handoff_profile": "catalog-handoff-test-fixture-v1",
+  "import_mode": "staged_only",
+  "package_id": "catalog-handoff-v1-403599f02a51cf279c5e0f62",
+  "package_kind": "nutrition-catalog-handoff",
+  "policy_versions": {
+    "handoff": "catalog-handoff-1.0.0",
+    "nutrient_crosswalk": "fdc-nutrient-crosswalk-0.2.0",
+    "selection": "catalog-handoff-test-fixture-0.1.0"
+  },
+  "producer": "nutrition-data-factory",
+  "producer_version": "nutrition-data-factory-catalog-handoff-0.1.0",
+  "production_eligible": false,
+  "selection": {
+    "auto_add_records": false,
+    "record_count": 20,
+    "selection_sha256": "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2",
+    "selection_version": "catalog-handoff-test-fixture-0.1.0"
+  },
+  "source": {
+    "archive_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "object_uri": "tests/fixtures/synthetic-source.json",
+    "published_date": "2000-01-01",
+    "release": "0.1.0",
+    "rights_state": "test_only",
+    "source_code": "synthetic_fixture"
+  }
+}

@@ -32,6 +32,7 @@ from nutrition_data_factory.nutrients import (  # noqa: E402
     canonicalize_fdc_nutrients,
 )
 from nutrition_data_factory.release.full_compiler import compile_full_catalog_package  # noqa: E402
+from nutrition_data_factory.release.catalog_handoff_v1 import compile_catalog_handoff_v1  # noqa: E402
 from nutrition_data_factory.source_registry import SourceRegistry  # noqa: E402
 from nutrition_data_factory.validation.profiler import profile_records  # noqa: E402
 
@@ -263,9 +264,29 @@ def main(argv: list[str] | None = None) -> int:
         portion_evidence_report=portion_report,
         backend_baseline=args.backend_baseline,
     )
+    handoff_path = output / "catalog-handoff-v1"
+    compile_catalog_handoff_v1(
+        handoff_path,
+        metadata=metadata,
+        archive_artifact=archive_ref,
+        extracted_artifact=extracted_ref,
+        source_records=list(parsed.accepted_records),
+        composition_values=composition_values,
+        food_concepts=food_concepts,
+        food_names=source_names,
+        source_food_mappings=source_mappings,
+        backend_baseline=args.backend_baseline,
+        source_schema_fingerprint=parsed.schema_fingerprint,
+    )
     _write_json(output / "full-release-summary.json", {
         "package_created": True,
         "package": str(package_path),
+        "catalog_handoff_created": True,
+        "catalog_handoff_contract_version": "catalog-handoff-1.0.0",
+        "catalog_handoff_package": str(handoff_path),
+        "catalog_handoff_selection_sha256": compatibility.expected_selection_sha256,
+        "catalog_handoff_record_count": len(compatibility.expected_ids),
+        "catalog_handoff_production_eligible": False,
         "production_eligible": False,
         "activation_attempted": False,
         "validation_status": validation["status"],

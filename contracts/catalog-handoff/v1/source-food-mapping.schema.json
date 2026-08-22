@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pumni.example/contracts/catalog-handoff/v1/source-food-mapping.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["mapping_id", "source_code", "release", "source_id", "source_payload_sha256", "concept_id", "mapping_type", "mapping_method", "score", "policy_version", "review_status", "rationale"],
+  "properties": {
+    "mapping_id": {"type": "string", "pattern": "^source-mapping:(usda_fdc_foundation|synthetic_fixture):[1-9][0-9]*$"}, "source_code": {"enum": ["usda_fdc_foundation", "synthetic_fixture"]}, "release": {"type": "string", "minLength": 1}, "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "source_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "concept_id": {"type": "string", "pattern": "^source-food:(usda_fdc_foundation|synthetic_fixture):[1-9][0-9]*$"},
+    "mapping_type": {"const": "exact"}, "mapping_method": {"const": "fdc_exact_external_id"}, "score": {"const": 1.0}, "policy_version": {"type": "string", "minLength": 1}, "review_status": {"const": "proposal"}, "rationale": {"type": "string", "minLength": 1}
+  }
+}

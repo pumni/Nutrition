@@ -55,6 +55,24 @@ pub fn run(root: &Path) -> Result<(), Box<dyn Error>> {
                 "-p",
                 "persistence-postgres",
                 "--test",
+                "catalog_handoff_importer_integration",
+                "--",
+                "--ignored",
+                "--test-threads=1",
+            ],
+            &[(
+                "TEST_DATABASE_URL",
+                "postgres://nutrition:nutrition@127.0.0.1:5432/nutrition",
+            )],
+        )?;
+        run_owned(
+            root,
+            "cargo",
+            &[
+                "test",
+                "-p",
+                "persistence-postgres",
+                "--test",
                 "catalog_activation_integration",
                 "--",
                 "--ignored",
@@ -83,6 +101,6 @@ pub fn run(root: &Path) -> Result<(), Box<dyn Error>> {
     );
     result?;
     cleanup?;
-    println!("[PASS] staged FDC importer and explicit activation verification");
+    println!("[PASS] staged FDC importer, catalog handoff, and explicit activation verification");
     Ok(())
 }

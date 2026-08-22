@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 use tokio::sync::Mutex;
 
@@ -160,19 +160,14 @@ struct TestClaims {
     nbf: Option<u64>,
 }
 
-fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock must be after Unix epoch")
-        .as_secs()
-}
+const TEST_NOW: u64 = 1_700_000_000;
 
 fn valid_claims() -> TestClaims {
     TestClaims {
         iss: ISSUER.to_owned(),
         aud: AUDIENCE.to_owned(),
         sub: "subject-1".to_owned(),
-        exp: now() + 3600,
+        exp: TEST_NOW + 3600,
         nbf: None,
     }
 }
@@ -216,7 +211,11 @@ async fn install_refresh(fetcher: &MockFetcher, kids: &[&str]) {
 
 fn test_authenticator(fetcher: &MockFetcher) -> OidcAuthenticator {
     let config = OidcConfig::from_values(ISSUER, AUDIENCE).expect("test config must parse");
-    OidcAuthenticator::with_fetcher(config, Arc::new(fetcher.clone()))
+    OidcAuthenticator::with_fetcher_and_clock(
+        config,
+        Arc::new(fetcher.clone()),
+        Arc::new(|| TEST_NOW),
+    )
 }
 
 async fn warm_cache(authenticator: &OidcAuthenticator, fetcher: &MockFetcher) {
@@ -298,7 +297,7 @@ async fn claims_and_algorithm_must_match_the_oidc_contract() {
     );
 
     let mut claims = valid_claims();
-    claims.exp = now() - CLOCK_SKEW_SECONDS - 1;
+    claims.exp = TEST_NOW - CLOCK_SKEW_SECONDS - 1;
     assert!(
         authenticator
             .verify_token(&signed_token("key-1", &claims))
@@ -307,7 +306,7 @@ async fn claims_and_algorithm_must_match_the_oidc_contract() {
     );
 
     let mut claims = valid_claims();
-    claims.exp = now() - (CLOCK_SKEW_SECONDS - 1);
+    claims.exp = TEST_NOW - (CLOCK_SKEW_SECONDS - 1);
     assert!(
         authenticator
             .verify_token(&signed_token("key-1", &claims))
@@ -316,7 +315,7 @@ async fn claims_and_algorithm_must_match_the_oidc_contract() {
     );
 
     let mut claims = valid_claims();
-    claims.nbf = Some(now() + CLOCK_SKEW_SECONDS - 1);
+    claims.nbf = Some(TEST_NOW + CLOCK_SKEW_SECONDS - 1);
     assert!(
         authenticator
             .verify_token(&signed_token("key-1", &claims))
@@ -325,7 +324,7 @@ async fn claims_and_algorithm_must_match_the_oidc_contract() {
     );
 
     let mut claims = valid_claims();
-    claims.nbf = Some(now() + CLOCK_SKEW_SECONDS + 1);
+    claims.nbf = Some(TEST_NOW + CLOCK_SKEW_SECONDS + 1);
     assert!(
         authenticator
             .verify_token(&signed_token("key-1", &claims))
