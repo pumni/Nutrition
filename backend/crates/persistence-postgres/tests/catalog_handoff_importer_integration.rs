@@ -1,6 +1,7 @@
 use persistence_postgres::{
-    CatalogHandoffImportError, CatalogHandoffImportRequest, FdcFoundationImportRequest, connect,
-    import_catalog_handoff_v1, import_fdc_foundation_json, migrate,
+    CatalogHandoffImportCapability, CatalogHandoffImportError, CatalogHandoffImportRequest,
+    FdcFoundationImportRequest, connect, import_catalog_handoff_v1, import_fdc_foundation_json,
+    migrate,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -28,9 +29,22 @@ const LEGACY_FIXTURE: &str = r#"{
 #[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
 async fn catalog_handoff_stages_replays_and_rejects_same_release_conflicts() {
     let pool = setup_database().await;
+    let denied = import_catalog_handoff_v1(
+        &pool,
+        &CatalogHandoffImportRequest {
+            package_path: fixture(),
+            created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
+            capability: CatalogHandoffImportCapability::Production,
+        },
+    )
+    .await
+    .expect_err("test fixture must require an explicit test capability");
+    assert!(matches!(denied, CatalogHandoffImportError::Policy(_)));
+
     let request = CatalogHandoffImportRequest {
         package_path: fixture(),
         created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
+        capability: CatalogHandoffImportCapability::TestFixture,
     };
     let first = import_catalog_handoff_v1(&pool, &request)
         .await
@@ -52,6 +66,7 @@ async fn catalog_handoff_stages_replays_and_rejects_same_release_conflicts() {
         &CatalogHandoffImportRequest {
             package_path: temporary,
             created_by: request.created_by.clone(),
+            capability: CatalogHandoffImportCapability::TestFixture,
         },
     )
     .await
@@ -113,6 +128,7 @@ async fn catalog_handoff_rolls_back_partial_staging() {
         &CatalogHandoffImportRequest {
             package_path: fixture(),
             created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
+            capability: CatalogHandoffImportCapability::TestFixture,
         },
     )
     .await
@@ -170,6 +186,7 @@ async fn assert_transition_orders(pool: &PgPool) {
         &CatalogHandoffImportRequest {
             package_path: fixture(),
             created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
+            capability: CatalogHandoffImportCapability::TestFixture,
         },
     )
     .await

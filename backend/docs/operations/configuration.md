@@ -121,8 +121,10 @@ The importer stages unambiguous macronutrients plus Foundation energy under `fdc
 ## Staged catalog handoff v1
 
 `RUN_CATALOG_HANDOFF_IMPORT=true` consumes a caller-supplied directory containing the canonical
-`catalog-handoff-1.0.0` package. It is allowed only for `local`, `ci`, and `staging`; production
-rejects it. It cannot run in the same worker startup as the legacy FDC importer.
+`catalog-handoff-1.0.0` package. The production FDC profile is allowed for `local`, `ci`, and
+`staging`; the `catalog-handoff-test-fixture-v1` profile is allowed only for `local` and `ci`.
+Production rejects both profiles. It cannot run in the same worker startup as the legacy FDC
+importer.
 
 When enabled, both variables are required:
 
@@ -134,6 +136,11 @@ The worker does not take actor identity or activation authority from the package
 validates the exact shared schemas and both checksum sources before beginning one transaction.
 The result is always a `staged` catalog release with `activated_at IS NULL`; activation remains a
 separate human-controlled operation.
+
+The test-fixture profile requires an explicit test-fixture import capability at the persistence
+boundary. The worker grants that capability only in `local` and `ci`; staging and production use
+the production capability and therefore reject synthetic fixture packages before opening a
+transaction.
 
 Do not place source artifacts or real credentials in the repository. The import file should be supplied by the controlled data-ingestion environment.
 

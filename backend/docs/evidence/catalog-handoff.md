@@ -19,8 +19,12 @@ references, then opens one PostgreSQL transaction. Raw source records, exact map
 source-backed English names, and in-review composition profiles are staged. No Vietnamese aliases,
 recipes, portions, inferred nutrient mappings, or production approval are created.
 
-The worker path is opt-in with `RUN_CATALOG_HANDOFF_IMPORT=true` and is rejected in production.
-`CATALOG_HANDOFF_CREATED_BY` is supplied by the backend runtime rather than trusted from package
-metadata. Replaying an identical package returns the same release IDs; changing content for the
-same logical release returns a typed release conflict. Catalog activation continues through the
-existing explicit human-controlled activation API.
+The worker path is opt-in with `RUN_CATALOG_HANDOFF_IMPORT=true`. The production FDC profile is
+allowed in `local`, `ci`, and `staging`; the explicit `catalog-handoff-test-fixture-v1` profile is
+allowed only in `local` and `ci`. Production rejects both. The persistence API requires an explicit
+test-fixture capability before it can stage the synthetic profile, so a staging worker cannot
+stage the committed golden fixture even if its path is configured. `CATALOG_HANDOFF_CREATED_BY`
+is supplied by the backend runtime rather than trusted from package metadata. Replaying an
+identical package returns the same release IDs; changing content for the same logical release
+returns a typed release conflict. Catalog activation continues through the existing explicit
+human-controlled activation API.

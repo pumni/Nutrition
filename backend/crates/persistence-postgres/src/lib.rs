@@ -17,8 +17,8 @@ pub use catalog_activation::{
     stage_catalog_rollback,
 };
 pub use catalog_handoff::{
-    CatalogHandoffImportError, CatalogHandoffImportReport, CatalogHandoffImportRequest,
-    CatalogHandoffPackageValidationReport, import_catalog_handoff_v1,
+    CatalogHandoffImportCapability, CatalogHandoffImportError, CatalogHandoffImportReport,
+    CatalogHandoffImportRequest, CatalogHandoffPackageValidationReport, import_catalog_handoff_v1,
     validate_catalog_handoff_v1_package,
 };
 pub use catalog_repository::{PostgresCatalogEvidenceProvider, active_catalog_release_id};

@@ -62,6 +62,10 @@ impl AppEnvironment {
     pub(crate) const fn allows_source_import(self) -> bool {
         matches!(self, Self::Local | Self::Ci | Self::Staging)
     }
+
+    pub(crate) const fn allows_catalog_handoff_test_fixture(self) -> bool {
+        matches!(self, Self::Local | Self::Ci)
+    }
 }
 
 #[derive(Clone, Copy)]

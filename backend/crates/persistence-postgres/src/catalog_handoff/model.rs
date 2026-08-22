@@ -21,10 +21,17 @@ pub const FDC_HANDOFF_SELECTED_IDS: [u64; 20] = [
     2_003_588, 2_003_589, 2_003_590, 2_003_591,
 ];
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CatalogHandoffImportCapability {
+    Production,
+    TestFixture,
+}
+
 #[derive(Clone, Debug)]
 pub struct CatalogHandoffImportRequest {
     pub package_path: PathBuf,
     pub created_by: String,
+    pub capability: CatalogHandoffImportCapability,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,6 +79,8 @@ pub enum CatalogHandoffImportError {
     Schema(String),
     #[error("catalog handoff semantic validation failed: {0}")]
     Semantic(String),
+    #[error("catalog handoff import policy rejected: {0}")]
+    Policy(String),
     #[error("catalog handoff reference integrity failed: {0}")]
     ReferenceIntegrity(String),
     #[error("catalog handoff release conflict: {0}")]

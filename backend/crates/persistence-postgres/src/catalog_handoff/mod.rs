@@ -9,8 +9,8 @@ use staging::stage_package;
 use validate::validate_package;
 
 pub use model::{
-    CatalogHandoffImportError, CatalogHandoffImportReport, CatalogHandoffImportRequest,
-    CatalogHandoffPackageValidationReport,
+    CatalogHandoffImportCapability, CatalogHandoffImportError, CatalogHandoffImportReport,
+    CatalogHandoffImportRequest, CatalogHandoffPackageValidationReport,
 };
 
 /// Validates a handoff package without opening a database connection or transaction.
@@ -25,6 +25,7 @@ pub fn validate_catalog_handoff_v1_package(
     let request = CatalogHandoffImportRequest {
         package_path: package_path.to_owned(),
         created_by: String::new(),
+        capability: model::CatalogHandoffImportCapability::Production,
     };
     let package = load_package(&request)?;
     validate_package(&package)?;
@@ -53,6 +54,13 @@ pub async fn import_catalog_handoff_v1(
 ) -> Result<CatalogHandoffImportReport, CatalogHandoffImportError> {
     let package = load_package(request)?;
     validate_package(&package)?;
+    if package.manifest.handoff_profile == model::CATALOG_HANDOFF_TEST_FIXTURE_PROFILE
+        && request.capability != model::CatalogHandoffImportCapability::TestFixture
+    {
+        return Err(CatalogHandoffImportError::Policy(
+            "test fixture profile requires an explicit test-fixture import capability".to_owned(),
+        ));
+    }
     let mut tx = pool.begin().await?;
     let report = stage_package(&mut tx, request, &package).await?;
     tx.commit().await?;

@@ -3,8 +3,8 @@ use crate::{
     loop_runner,
 };
 use persistence_postgres::{
-    CatalogHandoffImportRequest, FdcFoundationImportRequest, import_catalog_handoff_v1,
-    import_fdc_foundation_json, run_privacy_retention,
+    CatalogHandoffImportCapability, CatalogHandoffImportRequest, FdcFoundationImportRequest,
+    import_catalog_handoff_v1, import_fdc_foundation_json, run_privacy_retention,
 };
 use sqlx::PgPool;
 use std::{env, fs, path::PathBuf, time::Instant};
@@ -93,7 +93,7 @@ pub(crate) async fn run() -> Result<(), StartupError> {
     }
     if run_catalog_handoff {
         let started = Instant::now();
-        let result = run_catalog_handoff_import(&pool).await;
+        let result = run_catalog_handoff_import(&pool, environment).await;
         metrics::counter!(
             "nutrition_catalog_release_operations_total",
             "operation" => "contract_import",
@@ -169,10 +169,18 @@ async fn run_fdc_foundation_import(pool: &PgPool) -> Result<(), StartupError> {
     Ok(())
 }
 
-async fn run_catalog_handoff_import(pool: &PgPool) -> Result<(), StartupError> {
+async fn run_catalog_handoff_import(
+    pool: &PgPool,
+    environment: AppEnvironment,
+) -> Result<(), StartupError> {
     let request = CatalogHandoffImportRequest {
         package_path: PathBuf::from(required_env("CATALOG_HANDOFF_PATH")?),
         created_by: required_env("CATALOG_HANDOFF_CREATED_BY")?,
+        capability: if environment.allows_catalog_handoff_test_fixture() {
+            CatalogHandoffImportCapability::TestFixture
+        } else {
+            CatalogHandoffImportCapability::Production
+        },
     };
     let report = import_catalog_handoff_v1(pool, &request)
         .await
@@ -306,6 +314,10 @@ mod tests {
         assert!(AppEnvironment::Ci.allows_source_import());
         assert!(AppEnvironment::Staging.allows_source_import());
         assert!(!AppEnvironment::Production.allows_source_import());
+        assert!(AppEnvironment::Local.allows_catalog_handoff_test_fixture());
+        assert!(AppEnvironment::Ci.allows_catalog_handoff_test_fixture());
+        assert!(!AppEnvironment::Staging.allows_catalog_handoff_test_fixture());
+        assert!(!AppEnvironment::Production.allows_catalog_handoff_test_fixture());
         assert_eq!(
             AppEnvironment::parse("prod"),
             Err(ConfigError::InvalidEnvironment)
