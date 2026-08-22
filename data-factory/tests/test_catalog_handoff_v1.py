@@ -5,6 +5,7 @@ import json
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,11 +14,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from nutrition_data_factory.adapters.fdc_foundation import FdcSourceRecord  # noqa: E402
 from nutrition_data_factory.artifacts import ArtifactRef  # noqa: E402
 from nutrition_data_factory.compatibility import load_compatibility_manifest  # noqa: E402
-from nutrition_data_factory.models import SourceMetadata  # noqa: E402
 from nutrition_data_factory.release.catalog_handoff_v1 import (  # noqa: E402
     SUPPORTED_NUTRIENT_CODES,
     compile_catalog_handoff_v1,
 )
+from nutrition_data_factory.source_registry import SourceRegistry  # noqa: E402
 
 
 SELECTION = load_compatibility_manifest(ROOT / "config" / "backend-fdc-selection.json")
@@ -30,40 +31,36 @@ def fixture_inputs() -> tuple[SourceMetadata, ArtifactRef, ArtifactRef, list[Fdc
     names = []
     mappings = []
     for index, fdc_id in enumerate(SELECTION["fdc_ids"]):
+        protein = float(index + 1)
+        fat = float(index + 2)
+        carbohydrate = float(index + 3)
+        energy = float(40 + index)
+        nutrients = (
+            {"amount": protein, "nutrient": {"id": 1003, "name": "Protein", "unitName": "G"}},
+            {"amount": fat, "nutrient": {"id": 1004, "name": "Total lipid (fat)", "unitName": "G"}},
+            {"amount": carbohydrate, "nutrient": {"id": 1005, "name": "Carbohydrate, by difference", "unitName": "G"}},
+            {"amount": energy, "nutrient": {"id": 2048, "name": "Energy (Atwater Specific)", "unitName": "KCAL"}},
+        )
         payload = {
             "fdcId": fdc_id,
             "dataType": "Foundation",
             "description": f"Synthetic handoff fixture {fdc_id}",
-            "foodNutrients": [],
+            "foodNutrients": list(nutrients),
         }
-        nutrients = ()
-        if index == 0:
-            nutrients = (
-                {"amount": 1.0, "nutrient": {"id": 1003, "name": "Protein", "unitName": "G"}},
-                {"amount": 2.0, "nutrient": {"id": 1004, "name": "Total lipid (fat)", "unitName": "G"}},
-                {"amount": 3.0, "nutrient": {"id": 1005, "name": "Carbohydrate, by difference", "unitName": "G"}},
-                {"amount": 40.0, "nutrient": {"id": 2048, "name": "Energy (Atwater Specific)", "unitName": "KCAL"}},
-            )
-            payload["foodNutrients"] = list(nutrients)
-            compositions.extend([
-                {"source_id": str(fdc_id), "target_code": "protein_g", "source_nutrient_id": 1003, "source_label": "Protein", "source_unit": "G", "source_method": "declared_or_analytical", "value": 1.0, "value_status": "numeric"},
-                {"source_id": str(fdc_id), "target_code": "fat_g", "source_nutrient_id": 1004, "source_label": "Total lipid (fat)", "source_unit": "G", "source_method": "declared_or_analytical", "value": 2.0, "value_status": "numeric"},
-                {"source_id": str(fdc_id), "target_code": "carbohydrate_g", "source_nutrient_id": 1005, "source_label": "Carbohydrate, by difference", "source_unit": "G", "source_method": "declared_or_analytical", "value": 3.0, "value_status": "numeric"},
-                {"source_id": str(fdc_id), "target_code": "energy_kcal", "source_nutrient_id": 2048, "source_label": "Energy (Atwater Specific)", "source_unit": "KCAL", "source_method": "atwater_specific", "value": 40.0, "value_status": "numeric"},
-            ])
+        compositions.extend([
+            {"source_id": str(fdc_id), "target_code": "protein_g", "source_nutrient_id": 1003, "source_label": "Protein", "source_unit": "G", "source_method": "declared_or_analytical", "value": protein, "value_status": "numeric"},
+            {"source_id": str(fdc_id), "target_code": "fat_g", "source_nutrient_id": 1004, "source_label": "Total lipid (fat)", "source_unit": "G", "source_method": "declared_or_analytical", "value": fat, "value_status": "numeric"},
+            {"source_id": str(fdc_id), "target_code": "carbohydrate_g", "source_nutrient_id": 1005, "source_label": "Carbohydrate, by difference", "source_unit": "G", "source_method": "declared_or_analytical", "value": carbohydrate, "value_status": "numeric"},
+            {"source_id": str(fdc_id), "target_code": "energy_kcal", "source_nutrient_id": 2048, "source_label": "Energy (Atwater Specific)", "source_unit": "KCAL", "source_method": "atwater_specific", "value": energy, "value_status": "numeric"},
+        ])
         payload_hash = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         record = FdcSourceRecord(fdc_id, payload["description"], "Foundation", [], nutrients, (), payload, payload_hash)
         records.append(record)
-        concept_id = f"source-food:usda_fdc:{fdc_id}"
+        concept_id = f"source-food:usda_fdc_foundation:{fdc_id}"
         concepts.append({"source_id": str(fdc_id), "concept_id": concept_id})
         names.append({"source_id": str(fdc_id), "name": payload["description"]})
         mappings.append({"source_id": str(fdc_id), "policy_version": "test-handoff-policy-0.1.0"})
-    metadata = SourceMetadata(
-        code="usda_fdc", publisher="Synthetic fixture", purpose="test-only", release="2026-04-30",
-        locator="fixture://fdc/foundation.json", status_initial="staged", rights_state="test_only",
-        production_ingestion="disabled", access_status="fixture", approval_reference="test-only",
-        allowed_uses=("test",), prohibited_uses=("production",), priority=1, production_eligible=False,
-    )
+    metadata = SourceRegistry.load(ROOT / "config" / "source_registry.json").get("usda_fdc_foundation")
     archive = ArtifactRef("a" * 64, 1, "application/zip", "archive.zip")
     extracted = ArtifactRef("b" * 64, 1, "application/json", "extracted.json")
     return metadata, archive, extracted, records, compositions, concepts, names, mappings
@@ -90,6 +87,7 @@ class CatalogHandoffV1Tests(unittest.TestCase):
             self.assertEqual(len((package / "raw-source-records.jsonl").read_text(encoding="utf-8").splitlines()), 20)
             values = [json.loads(line) for line in (package / "composition-values.jsonl").read_text(encoding="utf-8").splitlines()]
             self.assertEqual({value["target_code"] for value in values}, SUPPORTED_NUTRIENT_CODES)
+            self.assertEqual(len(values), 80)
 
     def test_committed_golden_fixture_is_reproducible(self) -> None:
         fixture = ROOT.parent / "contracts" / "catalog-handoff" / "v1" / "fixtures" / "minimal-valid"
@@ -120,6 +118,37 @@ class CatalogHandoffV1Tests(unittest.TestCase):
                 compile_fixture(Path(directory) / "duplicate", source_records=inputs[3] + [inputs[3][0]])
             with self.assertRaises(ValueError):
                 compile_fixture(Path(directory) / "dangling", food_concepts=inputs[5][:-1])
+
+    def test_real_registry_identity_and_source_grounding_are_required(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            inputs = fixture_inputs()
+            with self.assertRaises(ValueError):
+                compile_fixture(
+                    Path(directory) / "legacy-source-code",
+                    metadata=replace(inputs[0], code="usda_fdc"),
+                )
+
+            compositions = [dict(value) for value in inputs[4]]
+            compositions[0]["value"] = 999.0
+            with self.assertRaises(ValueError):
+                compile_fixture(Path(directory) / "ungrounded-composition", composition_values=compositions)
+
+            with self.assertRaises(ValueError):
+                compile_fixture(Path(directory) / "incomplete-profile", composition_values=inputs[4][:-1])
+
+    def test_composition_state_and_source_metadata_flags_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            inputs = fixture_inputs()
+            compositions = [dict(value) for value in inputs[4]]
+            compositions[0]["value_status"] = "zero"
+            with self.assertRaises(ValueError):
+                compile_fixture(Path(directory) / "wrong-zero-state", composition_values=compositions)
+
+            with self.assertRaises(ValueError):
+                compile_fixture(
+                    Path(directory) / "production-source",
+                    metadata=replace(inputs[0], production_eligible=True),
+                )
 
     def test_unsafe_selection_flags_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

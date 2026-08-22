@@ -15,7 +15,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["source_code", "release", "published_date", "object_uri", "artifact_sha256", "archive_sha256"],
       "properties": {
-        "source_code": {"type": "string", "minLength": 1, "maxLength": 128}, "release": {"type": "string", "const": "2026-04-30"},
+        "source_code": {"const": "usda_fdc_foundation"}, "release": {"type": "string", "const": "2026-04-30"},
         "published_date": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}, "object_uri": {"type": "string", "minLength": 1, "maxLength": 2048},
         "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
@@ -31,7 +31,7 @@
     "policy_versions": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 128}},
     "dataset_release": {
       "type": "object", "additionalProperties": false, "required": ["dataset_code", "version"],
-      "properties": {"dataset_code": {"type": "string", "const": "usda_fdc"}, "version": {"type": "string", "const": "2026-04-30"}}
+      "properties": {"dataset_code": {"type": "string", "const": "usda_fdc_foundation"}, "version": {"type": "string", "const": "2026-04-30"}}
     },
     "catalog_release_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{7,127}$"},
     "files": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"$ref": "#/$defs/file"}, "uniqueItems": true},

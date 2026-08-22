@@ -11,10 +11,11 @@ an array.
 The initial profile is intentionally narrow:
 
 - USDA FDC Foundation release `2026-04-30`;
+- canonical source code `usda_fdc_foundation` (distinct from the legacy raw importer code);
 - the reviewed 20-record selection in `data-factory/config/backend-fdc-selection.json`;
 - exact source identity only;
 - `energy_kcal`, `protein_g`, `fat_g`, and `carbohydrate_g` only;
-- source-backed English names and in-review composition evidence.
+- source-backed English names and four grounded core composition values per selected record.
 
 Every generated package contains seven manifest-declared payload files plus `manifest.json` and
 `checksums.sha256`. The checksum file hashes the manifest and payload files, but never itself. JSON

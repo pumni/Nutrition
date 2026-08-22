@@ -13,13 +13,13 @@
         "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "size": 1
       },
-      "locator": "fixture://fdc/foundation.json",
+      "locator": "official USDA FoodData Central Foundation Foods release",
       "production_eligible": false,
-      "publisher": "Synthetic fixture",
-      "purpose": "test-only",
+      "publisher": "USDA ARS",
+      "purpose": "analytical basic food composition",
       "release": "2026-04-30",
-      "rights_state": "test_only",
-      "source_code": "usda_fdc"
+      "rights_state": "approved",
+      "source_code": "usda_fdc_foundation"
     }
   ]
 }

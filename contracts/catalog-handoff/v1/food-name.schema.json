@@ -4,7 +4,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["name_id", "concept_id", "source_code", "source_id", "locale", "name", "normalized_name", "name_type", "source_payload_sha256", "status"],
   "properties": {
-    "name_id": {"type": "string", "pattern": "^source-name:usda_fdc:[1-9][0-9]*$"}, "concept_id": {"type": "string", "pattern": "^source-food:usda_fdc:[1-9][0-9]*$"}, "source_code": {"const": "usda_fdc"},
+    "name_id": {"type": "string", "pattern": "^source-name:usda_fdc_foundation:[1-9][0-9]*$"}, "concept_id": {"type": "string", "pattern": "^source-food:usda_fdc_foundation:[1-9][0-9]*$"}, "source_code": {"const": "usda_fdc_foundation"},
     "source_id": {"type": "string", "pattern": "^[1-9][0-9]*$"}, "locale": {"const": "en-US"}, "name": {"type": "string", "minLength": 1}, "normalized_name": {"type": "string", "minLength": 1},
     "name_type": {"const": "preferred"}, "source_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "status": {"const": "source_observed"}
   }

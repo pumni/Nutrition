@@ -1,12 +1,28 @@
 use persistence_postgres::{
-    CatalogHandoffImportError, CatalogHandoffImportRequest, connect, import_catalog_handoff_v1,
-    migrate,
+    CatalogHandoffImportError, CatalogHandoffImportRequest, FdcFoundationImportRequest, connect,
+    import_catalog_handoff_v1, import_fdc_foundation_json, migrate,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 use std::{env, fs, path::PathBuf};
 use uuid::Uuid;
+
+const LEGACY_FIXTURE: &str = r#"{
+  "FoundationFoods": [
+    {
+      "fdcId": 900000101,
+      "dataType": "Foundation",
+      "description": "Transition legacy food",
+      "foodNutrients": [
+        {"amount": 1.0, "nutrient": {"id": 1003, "unitName": "G"}},
+        {"amount": 2.0, "nutrient": {"id": 1004, "unitName": "G"}},
+        {"amount": 3.0, "nutrient": {"id": 1005, "unitName": "G"}},
+        {"amount": 40.0, "nutrient": {"id": 2048, "unitName": "KCAL"}}
+      ]
+    }
+  ]
+}"#;
 
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
@@ -44,6 +60,7 @@ async fn catalog_handoff_stages_replays_and_rejects_same_release_conflicts() {
         conflict,
         CatalogHandoffImportError::ReleaseConflict(_)
     ));
+    assert_transition_orders(&pool).await;
 }
 
 fn fixture() -> PathBuf {
@@ -55,7 +72,62 @@ async fn setup_database() -> PgPool {
     let url = env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required");
     let pool = connect(&url, 4).await.expect("database must connect");
     migrate(&pool).await.expect("migrations must apply");
+    reset_database(&pool).await;
     pool
+}
+
+async fn reset_database(pool: &PgPool) {
+    sqlx::query(
+        "TRUNCATE raw.dataset, catalog.catalog_release, catalog.food_entity, composition.nutrient CASCADE",
+    )
+    .execute(pool)
+    .await
+    .expect("test database reset");
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn catalog_handoff_rolls_back_partial_staging() {
+    let pool = setup_database().await;
+    let food_id = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO catalog.food_entity (id, semantic_key, entity_kind, lifecycle_status)
+         VALUES ($1, 'usda-fdc:1750339', 'basic_food', 'draft')",
+    )
+    .bind(food_id)
+    .execute(&pool)
+    .await
+    .expect("pre-existing food");
+    sqlx::query(
+        "INSERT INTO catalog.food_name (id, food_id, locale, name, normalized_name, name_type)
+         VALUES ($1, $2, 'en-US', 'Existing preferred name', 'existing preferred name', 'preferred')",
+    )
+    .bind(Uuid::now_v7())
+    .bind(food_id)
+    .execute(&pool)
+    .await
+    .expect("pre-existing preferred name");
+
+    let error = import_catalog_handoff_v1(
+        &pool,
+        &CatalogHandoffImportRequest {
+            package_path: fixture(),
+            created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
+        },
+    )
+    .await
+    .expect_err("database conflict must roll back the package");
+    assert!(matches!(error, CatalogHandoffImportError::Query(_)));
+    let staged_rows: (i64, i64, i64) = sqlx::query_as(
+        "SELECT
+            (SELECT count(*) FROM raw.dataset WHERE code = 'usda_fdc_foundation'),
+            (SELECT count(*) FROM raw.source_food_record),
+            (SELECT count(*) FROM catalog.catalog_release)",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("rollback counts");
+    assert_eq!(staged_rows, (0, 0, 0));
 }
 
 async fn assert_staged_content(pool: &PgPool, release_id: &Uuid) {
@@ -77,7 +149,55 @@ async fn assert_staged_content(pool: &PgPool, release_id: &Uuid) {
     assert!(counts.0 >= 20);
     assert_eq!(counts.1, 20);
     assert_eq!(counts.2, 20);
-    assert_eq!(counts.3, 4);
+    assert_eq!(counts.3, 80);
+}
+
+async fn assert_transition_orders(pool: &PgPool) {
+    import_legacy_release(pool, "handoff-first").await;
+    let codes: Vec<String> = sqlx::query_scalar("SELECT code FROM raw.dataset ORDER BY code")
+        .fetch_all(pool)
+        .await
+        .expect("dataset codes");
+    assert!(codes.iter().any(|code| code == "usda_fdc"));
+    assert!(codes.iter().any(|code| code == "usda_fdc_foundation"));
+
+    reset_database(pool).await;
+
+    import_legacy_release(pool, "legacy-first").await;
+    let handoff = import_catalog_handoff_v1(
+        pool,
+        &CatalogHandoffImportRequest {
+            package_path: fixture(),
+            created_by: "0198f100-0000-7000-8000-000000000099".to_owned(),
+        },
+    )
+    .await
+    .expect("handoff after legacy must stage");
+    assert!(!handoff.replayed);
+    assert_staged_content(pool, &handoff.catalog_release_id).await;
+    let codes: Vec<String> = sqlx::query_scalar("SELECT code FROM raw.dataset ORDER BY code")
+        .fetch_all(pool)
+        .await
+        .expect("dataset codes");
+    assert!(codes.iter().any(|code| code == "usda_fdc"));
+    assert!(codes.iter().any(|code| code == "usda_fdc_foundation"));
+}
+
+async fn import_legacy_release(pool: &PgPool, label: &str) {
+    let release_version = format!("transition-{label}-{}", Uuid::now_v7());
+    let request = FdcFoundationImportRequest {
+        release_version: release_version.clone(),
+        source_published_date: "2026-04-30".to_owned(),
+        object_uri: format!("fixture://legacy/{release_version}.json"),
+        expected_sha256: hex::encode(Sha256::digest(LEGACY_FIXTURE.as_bytes())),
+        source_archive_sha256: None,
+        preprocessing_policy_version: None,
+        include_fdc_ids: vec![900_000_101],
+        created_by: "0198f100-0000-7000-8000-000000000098".to_owned(),
+    };
+    import_fdc_foundation_json(pool, LEGACY_FIXTURE.as_bytes(), &request)
+        .await
+        .expect("legacy transition release must import");
 }
 
 fn copy_fixture(label: &str) -> PathBuf {
@@ -94,28 +214,10 @@ fn copy_fixture(label: &str) -> PathBuf {
 }
 
 fn mutate_valid_payload(package: &PathBuf) {
-    let payload_path = package.join("food-names.jsonl");
-    let mut lines = fs::read_to_string(&payload_path)
-        .expect("names payload")
-        .lines()
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
-    let mut first: Value = serde_json::from_str(&lines[0]).expect("name JSON");
-    first["name"] = Value::String("Synthetic handoff fixture changed".to_owned());
-    lines[0] = serde_json::to_string(&first).expect("name JSON serialization");
-    let payload = format!("{}\n", lines.join("\n"));
-    fs::write(&payload_path, payload.as_bytes()).expect("mutate names payload");
-
     let manifest_path = package.join("manifest.json");
     let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).expect("manifest"))
         .expect("manifest JSON");
-    let hash = hex::encode(Sha256::digest(payload.as_bytes()));
-    for file in manifest["files"].as_array_mut().expect("manifest files") {
-        if file["path"] == "food-names.jsonl" {
-            file["sha256"] = Value::String(hash.clone());
-            file["size_bytes"] = Value::from(payload.len());
-        }
-    }
+    manifest["backend_baseline"] = Value::String("different-valid-baseline".to_owned());
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).expect("manifest serialization");
     let manifest_bytes = [manifest_bytes, b"\n".to_vec()].concat();
     fs::write(&manifest_path, &manifest_bytes).expect("mutate manifest");

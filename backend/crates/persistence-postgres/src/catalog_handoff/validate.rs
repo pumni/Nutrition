@@ -2,8 +2,8 @@ use super::{
     load::sha256_hex,
     model::{
         CATALOG_HANDOFF_CONTRACT_VERSION, CATALOG_HANDOFF_PACKAGE_KIND, CatalogHandoffImportError,
-        FDC_HANDOFF_RELEASE, FDC_HANDOFF_SELECTED_IDS, FDC_HANDOFF_SELECTION_SHA256, LoadedPackage,
-        RawSourceRecord,
+        FDC_HANDOFF_RELEASE, FDC_HANDOFF_SELECTED_IDS, FDC_HANDOFF_SELECTION_SHA256,
+        FDC_HANDOFF_SOURCE_CODE, LoadedPackage, RawSourceRecord,
     },
 };
 use std::{
@@ -11,6 +11,7 @@ use std::{
     str::FromStr,
 };
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn validate_package(package: &LoadedPackage) -> Result<(), CatalogHandoffImportError> {
     let manifest = &package.manifest;
     if manifest.package_kind != CATALOG_HANDOFF_PACKAGE_KIND {
@@ -22,6 +23,11 @@ pub(crate) fn validate_package(package: &LoadedPackage) -> Result<(), CatalogHan
         || manifest.policy_versions.get("handoff").map(String::as_str)
             != Some(CATALOG_HANDOFF_CONTRACT_VERSION)
         || manifest.selection.selection_version != "backend-fdc-selection-0.1.0"
+        || manifest
+            .policy_versions
+            .get("nutrient_crosswalk")
+            .map(String::as_str)
+            != Some("fdc-nutrient-crosswalk-0.2.0")
         || manifest.source.published_date != FDC_HANDOFF_RELEASE
         || manifest.source.object_uri.trim().is_empty()
     {
@@ -38,9 +44,9 @@ pub(crate) fn validate_package(package: &LoadedPackage) -> Result<(), CatalogHan
                 .to_owned(),
         ));
     }
-    if manifest.dataset_release.dataset_code != "usda_fdc"
+    if manifest.dataset_release.dataset_code != FDC_HANDOFF_SOURCE_CODE
         || manifest.dataset_release.version != FDC_HANDOFF_RELEASE
-        || manifest.source.source_code != "usda_fdc"
+        || manifest.source.source_code != FDC_HANDOFF_SOURCE_CODE
         || manifest.source.release != FDC_HANDOFF_RELEASE
     {
         return Err(CatalogHandoffImportError::Semantic(
@@ -61,6 +67,10 @@ pub(crate) fn validate_package(package: &LoadedPackage) -> Result<(), CatalogHan
         || package.dataset_release.record_count != manifest.selection.record_count
         || package.dataset_release.status != "staged_candidate"
         || package.dataset_release.production_eligible
+        || package.dataset_release.artifact_sha256 != manifest.source.artifact_sha256
+        || package.dataset_release.archive_sha256 != manifest.source.archive_sha256
+        || package.dataset_release.object_uri.as_deref()
+            != Some(manifest.source.object_uri.as_str())
     {
         return Err(CatalogHandoffImportError::Semantic(
             "dataset release metadata disagrees with the manifest".to_owned(),
@@ -77,6 +87,8 @@ pub(crate) fn validate_package(package: &LoadedPackage) -> Result<(), CatalogHan
         || source.production_eligible
         || source.extracted_artifact.sha256 != manifest.source.artifact_sha256
         || source.archive_artifact.sha256 != manifest.source.archive_sha256
+        || source.locator != manifest.source.object_uri
+        || source.rights_state != package.dataset_release.source_rights_state
         || source.purpose.trim().is_empty()
         || source.rights_state.trim().is_empty()
         || source.extracted_artifact.size == 0
@@ -100,6 +112,20 @@ pub(crate) fn validate_package(package: &LoadedPackage) -> Result<(), CatalogHan
             "source release provenance disagrees with the manifest".to_owned(),
         ));
     }
+    validate_artifact_acquisition(
+        &source.extracted_artifact,
+        &source.source_code,
+        &source.release,
+        &source.publisher,
+        &source.rights_state,
+    )?;
+    validate_artifact_acquisition(
+        &source.archive_artifact,
+        &source.source_code,
+        &source.release,
+        &source.publisher,
+        &source.rights_state,
+    )?;
     validate_records(package)?;
     Ok(())
 }
@@ -123,6 +149,12 @@ fn validate_records(package: &LoadedPackage) -> Result<(), CatalogHandoffImportE
         if !approved.contains(&record.source_id) {
             return Err(CatalogHandoffImportError::ReferenceIntegrity(format!(
                 "source ID {} is outside the reviewed selection",
+                record.source_id
+            )));
+        }
+        if record.source_code != FDC_HANDOFF_SOURCE_CODE || record.release != FDC_HANDOFF_RELEASE {
+            return Err(CatalogHandoffImportError::ReferenceIntegrity(format!(
+                "source record {} has unsupported source identity",
                 record.source_id
             )));
         }
@@ -199,11 +231,11 @@ fn validate_concepts(
             ))
         })?;
         if !ids.insert(concept.concept_id.clone())
-            || concept.concept_id != format!("source-food:usda_fdc:{id}")
+            || concept.concept_id != format!("source-food:{FDC_HANDOFF_SOURCE_CODE}:{id}")
             || concept.semantic_key != format!("usda-fdc:{id}")
             || concept.entity_kind != "basic_food"
             || concept.lifecycle_status != "candidate"
-            || concept.source_code != "usda_fdc"
+            || concept.source_code != FDC_HANDOFF_SOURCE_CODE
             || concept.source_payload_sha256 != source.payload_sha256
             || concept.review_status != "proposal"
         {
@@ -241,8 +273,10 @@ fn validate_names(
         })?;
         if !ids.insert(name.name_id.clone())
             || !concepts.contains(name.concept_id.as_str())
-            || name.concept_id != format!("source-food:usda_fdc:{id}")
-            || name.source_code != "usda_fdc"
+            || name.concept_id != format!("source-food:{FDC_HANDOFF_SOURCE_CODE}:{id}")
+            || name.name != source.description
+            || name.normalized_name != name.name.to_lowercase()
+            || name.source_code != FDC_HANDOFF_SOURCE_CODE
             || name.locale != "en-US"
             || name.name_type != "preferred"
             || name.status != "source_observed"
@@ -284,8 +318,9 @@ fn validate_mappings(
         })?;
         if !source_ids.insert(mapping.source_id.clone())
             || !concepts.contains(mapping.concept_id.as_str())
-            || mapping.concept_id != format!("source-food:usda_fdc:{id}")
-            || mapping.source_code != "usda_fdc"
+            || mapping.mapping_id != format!("source-mapping:{FDC_HANDOFF_SOURCE_CODE}:{id}")
+            || mapping.concept_id != format!("source-food:{FDC_HANDOFF_SOURCE_CODE}:{id}")
+            || mapping.source_code != FDC_HANDOFF_SOURCE_CODE
             || mapping.release != FDC_HANDOFF_RELEASE
             || mapping.source_payload_sha256 != source.payload_sha256
             || mapping.mapping_type != "exact"
@@ -302,11 +337,20 @@ fn validate_mappings(
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 fn validate_compositions(
     package: &LoadedPackage,
     raw: &BTreeMap<u64, &RawSourceRecord>,
 ) -> Result<(), CatalogHandoffImportError> {
     let mut identities = BTreeSet::new();
+    let mut nutrients_by_source: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let expected_policy = "fdc-nutrient-crosswalk-0.2.0";
+    let expected_targets = BTreeSet::from([
+        "energy_kcal".to_owned(),
+        "protein_g".to_owned(),
+        "fat_g".to_owned(),
+        "carbohydrate_g".to_owned(),
+    ]);
     for value in &package.compositions {
         let id = parse_source_id(&value.source_id)?;
         let source = raw.get(&id).ok_or_else(|| {
@@ -316,7 +360,12 @@ fn validate_compositions(
             ))
         })?;
         if !identities.insert((value.source_id.clone(), value.target_code.clone()))
-            || value.source_code != "usda_fdc"
+            || value.value_id
+                != format!(
+                    "composition:{}:{}:{}",
+                    FDC_HANDOFF_SOURCE_CODE, value.source_id, value.target_code
+                )
+            || value.source_code != FDC_HANDOFF_SOURCE_CODE
             || value.release != FDC_HANDOFF_RELEASE
             || value.source_label.trim().is_empty()
             || value.source_payload_sha256 != source.payload_sha256
@@ -327,6 +376,7 @@ fn validate_compositions(
             || value.conversion != "identity"
             || value.review_status != "proposal"
             || value.reviewer_decision_status != "pending_human_review"
+            || value.policy_version != expected_policy
         {
             return Err(CatalogHandoffImportError::Semantic(format!(
                 "invalid or duplicate composition value {}",
@@ -338,12 +388,22 @@ fn validate_compositions(
         } else {
             ("G", "g")
         };
+        let valid_value_state = match value.value_status.as_str() {
+            "numeric" => value
+                .value
+                .is_some_and(|amount| amount.is_finite() && amount > 0.0),
+            "zero" => value.value == Some(0.0),
+            "missing" => value.value.is_none(),
+            _ => false,
+        };
         if value.source_unit != expected_unit.0
             || value.canonical_unit != expected_unit.1
+            || !valid_value_state
             || value
                 .value
                 .is_some_and(|amount| !amount.is_finite() || amount < 0.0)
             || value.source_nutrient_id == 0
+            || !expected_source_nutrients(&value.target_code).contains(&value.source_nutrient_id)
         {
             return Err(CatalogHandoffImportError::Semantic(format!(
                 "unsupported unit or amount for {}",
@@ -356,6 +416,148 @@ fn validate_compositions(
                 value.value_id
             )));
         }
+        let observation = raw_nutrient_observation(source, value.source_nutrient_id)?;
+        let nutrient = observation.get("nutrient").ok_or_else(|| {
+            CatalogHandoffImportError::ReferenceIntegrity(format!(
+                "composition {} has no raw nutrient object",
+                value.value_id
+            ))
+        })?;
+        let raw_unit = nutrient.get("unitName").and_then(serde_json::Value::as_str);
+        let raw_amount = observation
+            .get("amount")
+            .and_then(serde_json::Value::as_f64);
+        if raw_unit != Some(value.source_unit.as_str()) || raw_amount != value.value {
+            return Err(CatalogHandoffImportError::ReferenceIntegrity(format!(
+                "composition {} is not grounded in raw nutrient evidence",
+                value.value_id
+            )));
+        }
+        let raw_label = nutrient.get("name").and_then(serde_json::Value::as_str);
+        if raw_label.is_some() && raw_label != Some(value.source_label.as_str()) {
+            return Err(CatalogHandoffImportError::ReferenceIntegrity(format!(
+                "composition {} has a non-grounded nutrient label",
+                value.value_id
+            )));
+        }
+        nutrients_by_source
+            .entry(value.source_id.clone())
+            .or_default()
+            .insert(value.target_code.clone());
+    }
+    if package.compositions.len() != package.raw_records.len() * expected_targets.len()
+        || package
+            .compositions
+            .iter()
+            .any(|value| value.value_status == "missing")
+        || nutrients_by_source
+            .iter()
+            .any(|(_, targets)| targets != &expected_targets)
+    {
+        return Err(CatalogHandoffImportError::ReferenceIntegrity(
+            "reviewed profile requires four grounded core nutrients for every selected record"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn expected_source_nutrients(target_code: &str) -> BTreeSet<u64> {
+    match target_code {
+        "protein_g" => BTreeSet::from([1003]),
+        "fat_g" => BTreeSet::from([1004]),
+        "carbohydrate_g" => BTreeSet::from([1005]),
+        "energy_kcal" => BTreeSet::from([2047, 2048]),
+        _ => BTreeSet::new(),
+    }
+}
+
+fn raw_nutrient_observation(
+    source: &RawSourceRecord,
+    source_nutrient_id: u64,
+) -> Result<&serde_json::Value, CatalogHandoffImportError> {
+    let observations = source
+        .payload
+        .get("foodNutrients")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            CatalogHandoffImportError::ReferenceIntegrity(format!(
+                "source record {} has no foodNutrients evidence",
+                source.source_id
+            ))
+        })?;
+    let matches: Vec<&serde_json::Value> = observations
+        .iter()
+        .filter(|item| {
+            item.get("nutrient")
+                .and_then(|nutrient| nutrient.get("id"))
+                .and_then(serde_json::Value::as_u64)
+                == Some(source_nutrient_id)
+        })
+        .collect();
+    if matches.len() != 1 {
+        return Err(CatalogHandoffImportError::ReferenceIntegrity(format!(
+            "source record {} has {} observations for nutrient {}",
+            source.source_id,
+            matches.len(),
+            source_nutrient_id
+        )));
+    }
+    Ok(matches[0])
+}
+
+fn validate_artifact_acquisition(
+    artifact: &super::model::Artifact,
+    source_code: &str,
+    release: &str,
+    publisher: &str,
+    rights_state: &str,
+) -> Result<(), CatalogHandoffImportError> {
+    let Some(acquisition) = artifact.acquisition.as_ref() else {
+        return Ok(());
+    };
+    let matches = acquisition
+        .get("source_code")
+        .and_then(serde_json::Value::as_str)
+        == Some(source_code)
+        && acquisition
+            .get("publisher")
+            .and_then(serde_json::Value::as_str)
+            == Some(publisher)
+        && acquisition
+            .get("release")
+            .and_then(serde_json::Value::as_str)
+            == Some(release)
+        && acquisition
+            .get("rights_state")
+            .and_then(serde_json::Value::as_str)
+            == Some(rights_state)
+        && acquisition
+            .get("sha256")
+            .and_then(serde_json::Value::as_str)
+            == Some(artifact.sha256.as_str())
+        && acquisition.get("size").and_then(serde_json::Value::as_u64) == Some(artifact.size)
+        && acquisition
+            .get("content_type")
+            .and_then(serde_json::Value::as_str)
+            == Some(artifact.content_type.as_str())
+        && acquisition
+            .get("filename")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+        && acquisition
+            .get("retrieved_at")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| !value.is_empty())
+        && acquisition
+            .get("acquisition_tool_version")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| !value.is_empty());
+    if !matches {
+        return Err(CatalogHandoffImportError::Semantic(format!(
+            "artifact acquisition metadata disagrees with {}",
+            artifact.relative_path
+        )));
     }
     Ok(())
 }

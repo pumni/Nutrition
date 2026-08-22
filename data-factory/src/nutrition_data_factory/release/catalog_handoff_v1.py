@@ -23,6 +23,8 @@ CONTRACT_VERSION = "catalog-handoff-1.0.0"
 PACKAGE_KIND = "nutrition-catalog-handoff"
 HANDOFF_PROFILE = "fdc-foundation-reviewed-selection-v1"
 PRODUCER_VERSION = "nutrition-data-factory-catalog-handoff-0.1.0"
+FDC_SOURCE_CODE = "usda_fdc_foundation"
+NUTRIENT_CROSSWALK_POLICY_VERSION = "fdc-nutrient-crosswalk-0.2.0"
 SUPPORTED_NUTRIENT_CODES = frozenset({"energy_kcal", "protein_g", "fat_g", "carbohydrate_g"})
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _SAFE_PATH = re.compile(r"^[A-Za-z0-9._/-]+$")
@@ -55,6 +57,17 @@ def compile_catalog_handoff_v1(
         raise ValueError(f"catalog handoff output is not empty: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
     selection_file = selection_path or Path(__file__).resolve().parents[3] / "config" / "backend-fdc-selection.json"
+    if metadata.code != FDC_SOURCE_CODE:
+        raise ValueError(f"catalog handoff v1 requires source code {FDC_SOURCE_CODE}")
+    if metadata.release != FDC_FOUNDATION_RELEASE:
+        raise ValueError(f"catalog handoff v1 requires release {FDC_FOUNDATION_RELEASE}")
+    if metadata.production_eligible:
+        raise ValueError("catalog handoff v1 cannot consume a production-eligible source")
+    if not metadata.locator.strip() or not metadata.rights_state.strip():
+        raise ValueError("catalog handoff v1 requires source locator and rights state")
+    for artifact in (archive_artifact, extracted_artifact):
+        if not _SHA256.fullmatch(artifact.sha256.lower()) or artifact.size <= 0:
+            raise ValueError("catalog handoff artifacts require a lowercase SHA-256 and positive size")
     selection = load_compatibility_manifest(selection_file)
     selected_ids = tuple(sorted(selection["fdc_ids"]))
     expected_selection_sha256 = selection_fingerprint(selected_ids)
@@ -73,11 +86,11 @@ def compile_catalog_handoff_v1(
         raise ValueError(f"reviewed selection is missing source records: {','.join(missing)}")
     selected_records = [by_id[item] for item in selected_ids]
 
-    raw_by_key = {(item["source_code"], item["release"], item["source_id"]): item for item in selected_records}
     concepts = _canonical_concepts(food_concepts, selected_records)
     names = _canonical_names(food_names, selected_records, concepts)
     mappings = _canonical_mappings(source_food_mappings, selected_records, concepts)
-    compositions = _canonical_compositions(composition_values, selected_records, raw_by_key)
+    compositions = _canonical_compositions(composition_values, selected_records)
+    _validate_profile_completeness(selected_records, compositions)
     _validate_references(selected_records, concepts, names, mappings, compositions)
 
     dataset_release = {
@@ -157,7 +170,7 @@ def compile_catalog_handoff_v1(
         },
         "policy_versions": {
             "handoff": CONTRACT_VERSION,
-            "nutrient_crosswalk": "fdc-nutrient-crosswalk-0.2.0",
+            "nutrient_crosswalk": NUTRIENT_CROSSWALK_POLICY_VERSION,
             "selection": selection["compatibility_version"],
         },
         "dataset_release": {"dataset_code": metadata.code, "version": metadata.release},
@@ -205,14 +218,15 @@ def _canonical_concepts(values: list[dict[str, Any]], records: list[dict[str, An
     output = []
     for record in records:
         source_id = record["source_id"]
+        source_code = record["source_code"]
         original = by_id.get(source_id, {})
-        concept_id = f"source-food:usda_fdc:{source_id}"
+        concept_id = f"source-food:{source_code}:{source_id}"
         output.append({
             "concept_id": concept_id,
             "semantic_key": f"usda-fdc:{source_id}",
             "entity_kind": "basic_food",
             "lifecycle_status": "candidate",
-            "source_code": "usda_fdc",
+            "source_code": source_code,
             "source_id": source_id,
             "source_payload_sha256": record["payload_sha256"],
             "review_status": str(original.get("review_status", "proposal")),
@@ -228,12 +242,15 @@ def _canonical_names(values: list[dict[str, Any]], records: list[dict[str, Any]]
     output = []
     for record in records:
         source_id = record["source_id"]
+        source_code = record["source_code"]
         original = by_id.get(source_id, {})
-        name = str(original.get("name") or record["description"]).strip()
+        if original.get("name") is not None and str(original["name"]).strip() != record["description"]:
+            raise ValueError(f"food name is not grounded in source description for {source_id}")
+        name = record["description"]
         output.append({
-            "name_id": f"source-name:usda_fdc:{source_id}",
+            "name_id": f"source-name:{source_code}:{source_id}",
             "concept_id": concepts_by_id[source_id],
-            "source_code": "usda_fdc",
+            "source_code": source_code,
             "source_id": source_id,
             "locale": "en-US",
             "name": name,
@@ -253,10 +270,11 @@ def _canonical_mappings(values: list[dict[str, Any]], records: list[dict[str, An
     output = []
     for record in records:
         source_id = record["source_id"]
+        source_code = record["source_code"]
         original = by_id.get(source_id, {})
         output.append({
-            "mapping_id": f"source-mapping:usda_fdc:{source_id}",
-            "source_code": "usda_fdc",
+            "mapping_id": f"source-mapping:{source_code}:{source_id}",
+            "source_code": source_code,
             "release": FDC_FOUNDATION_RELEASE,
             "source_id": source_id,
             "source_payload_sha256": record["payload_sha256"],
@@ -271,18 +289,24 @@ def _canonical_mappings(values: list[dict[str, Any]], records: list[dict[str, An
     return output
 
 
-def _canonical_compositions(values: list[dict[str, Any]], records: list[dict[str, Any]], raw_by_key: dict[tuple[str, str, str], dict[str, Any]]) -> list[dict[str, Any]]:
+def _canonical_compositions(values: list[dict[str, Any]], records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     output = []
     seen = set()
     allowed_ids = {"1003", "1004", "1005", "2048", "2047"}
+    raw_by_id = {item["source_id"]: item for item in records}
     for value in values:
         if not isinstance(value, dict) or value.get("target_code") not in SUPPORTED_NUTRIENT_CODES:
             continue
         source_id = str(value.get("source_id", ""))
-        key = ("usda_fdc", FDC_FOUNDATION_RELEASE, source_id)
-        if key not in raw_by_key:
-            continue
-        source_nutrient_id = int(value.get("source_nutrient_id", 0))
+        raw = raw_by_id.get(source_id)
+        if raw is None:
+            raise ValueError(f"composition value references unknown source {source_id}")
+        if value.get("source_code", raw["source_code"]) != raw["source_code"]:
+            raise ValueError(f"composition source identity mismatch for {source_id}")
+        try:
+            source_nutrient_id = int(value.get("source_nutrient_id", 0))
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid source nutrient ID for {source_id}") from error
         if str(source_nutrient_id) not in allowed_ids:
             continue
         target_code = str(value["target_code"])
@@ -290,7 +314,6 @@ def _canonical_compositions(values: list[dict[str, Any]], records: list[dict[str
         if identity in seen:
             raise ValueError(f"duplicate composition value for {source_id}/{target_code}")
         seen.add(identity)
-        raw = raw_by_key[key]
         amount = value.get("value")
         if amount is not None and (isinstance(amount, bool) or not isinstance(amount, (int, float)) or not math.isfinite(float(amount)) or float(amount) < 0):
             raise ValueError(f"invalid composition value for {source_id}/{target_code}")
@@ -305,13 +328,25 @@ def _canonical_compositions(values: list[dict[str, Any]], records: list[dict[str
         value_status = str(value.get("value_status", "numeric"))
         if source_nutrient_id not in expected_source_ids[target_code] or source_unit != expected_unit:
             raise ValueError(f"unsupported source nutrient/unit for {source_id}/{target_code}")
-        if value_status not in {"numeric", "zero", "missing", "trace", "not_detected"}:
-            raise ValueError(f"unsupported composition value status for {source_id}/{target_code}")
-        if value_status == "missing" and amount is not None:
-            raise ValueError(f"missing composition value must have a null amount for {source_id}/{target_code}")
+        observation = _source_nutrient_observation(raw, source_nutrient_id)
+        nutrient = observation.get("nutrient")
+        if not isinstance(nutrient, dict) or str(nutrient.get("unitName", "")).upper() != source_unit:
+            raise ValueError(f"composition unit is not grounded in raw evidence for {source_id}/{target_code}")
+        raw_amount = observation.get("amount")
+        if raw_amount is None:
+            if amount is not None or value_status != "missing":
+                raise ValueError(f"composition missing state is not grounded for {source_id}/{target_code}")
+        elif amount != raw_amount:
+            raise ValueError(f"composition amount is not grounded in raw evidence for {source_id}/{target_code}")
+        expected_status = "missing" if raw_amount is None else ("zero" if raw_amount == 0 else "numeric")
+        if value_status != expected_status:
+            raise ValueError(f"composition value status is not grounded for {source_id}/{target_code}")
+        expected_label = str(nutrient.get("name", "")).strip()
+        if expected_label and str(value.get("source_label", "")).strip() != expected_label:
+            raise ValueError(f"composition label is not grounded in raw evidence for {source_id}/{target_code}")
         output.append({
-            "value_id": f"composition:usda_fdc:{source_id}:{target_code}",
-            "source_code": "usda_fdc",
+            "value_id": f"composition:{raw['source_code']}:{source_id}:{target_code}",
+            "source_code": raw["source_code"],
             "release": FDC_FOUNDATION_RELEASE,
             "source_id": source_id,
             "source_payload_sha256": raw["payload_sha256"],
@@ -324,12 +359,40 @@ def _canonical_compositions(values: list[dict[str, Any]], records: list[dict[str
             "value_status": value_status,
             "conversion": "identity",
             "canonical_unit": "kcal" if target_code == "energy_kcal" else "g",
-            "policy_version": str(value.get("policy_version", "fdc-nutrient-crosswalk-0.2.0")),
+            "policy_version": str(value.get("policy_version", NUTRIENT_CROSSWALK_POLICY_VERSION)),
             "review_status": "proposal",
             "reviewer_decision_status": "pending_human_review",
         })
     output.sort(key=lambda item: (int(item["source_id"]), item["target_code"], item["source_nutrient_id"]))
     return output
+
+
+def _source_nutrient_observation(record: dict[str, Any], source_nutrient_id: int) -> dict[str, Any]:
+    observations = record["payload"].get("foodNutrients")
+    if not isinstance(observations, list):
+        raise ValueError(f"source record {record['source_id']} has no foodNutrients evidence")
+    matches = [
+        item for item in observations
+        if isinstance(item, dict)
+        and isinstance(item.get("nutrient"), dict)
+        and item["nutrient"].get("id") == source_nutrient_id
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"source record {record['source_id']} has {len(matches)} observations for nutrient {source_nutrient_id}")
+    return matches[0]
+
+
+def _validate_profile_completeness(records: list[dict[str, Any]], compositions: list[dict[str, Any]]) -> None:
+    by_source: dict[str, set[str]] = {record["source_id"]: set() for record in records}
+    for value in compositions:
+        by_source.setdefault(value["source_id"], set()).add(value["target_code"])
+        if value["value_status"] not in {"numeric", "zero"} or value["value"] is None:
+            raise ValueError(f"reviewed profile requires numeric core evidence for {value['source_id']}/{value['target_code']}")
+    for source_id, target_codes in by_source.items():
+        if target_codes != set(SUPPORTED_NUTRIENT_CODES):
+            raise ValueError(f"reviewed profile requires all four core nutrients for {source_id}")
+    if len(compositions) != len(records) * len(SUPPORTED_NUTRIENT_CODES):
+        raise ValueError("reviewed profile composition count does not match selected records")
 
 
 def _validate_references(records: list[dict[str, Any]], concepts: list[dict[str, Any]], names: list[dict[str, Any]], mappings: list[dict[str, Any]], compositions: list[dict[str, Any]]) -> None:

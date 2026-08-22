@@ -7,6 +7,7 @@ use uuid::Uuid;
 pub const CATALOG_HANDOFF_CONTRACT_VERSION: &str = "catalog-handoff-1.0.0";
 pub const CATALOG_HANDOFF_PROFILE: &str = "fdc-foundation-reviewed-selection-v1";
 pub const CATALOG_HANDOFF_PACKAGE_KIND: &str = "nutrition-catalog-handoff";
+pub const FDC_HANDOFF_SOURCE_CODE: &str = "usda_fdc_foundation";
 pub const FDC_HANDOFF_RELEASE: &str = "2026-04-30";
 pub const FDC_HANDOFF_SELECTION_SHA256: &str =
     "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2";

@@ -4,7 +4,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["source_code", "release", "publisher", "purpose", "locator", "rights_state", "production_eligible", "archive_artifact", "extracted_artifact"],
   "properties": {
-    "source_code": {"const": "usda_fdc"}, "release": {"const": "2026-04-30"}, "publisher": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1},
+    "source_code": {"const": "usda_fdc_foundation"}, "release": {"const": "2026-04-30"}, "publisher": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1},
     "locator": {"type": "string", "minLength": 1}, "rights_state": {"type": "string", "minLength": 1}, "production_eligible": {"const": false},
     "archive_artifact": {"$ref": "#/$defs/artifact"}, "extracted_artifact": {"$ref": "#/$defs/artifact"}
   },

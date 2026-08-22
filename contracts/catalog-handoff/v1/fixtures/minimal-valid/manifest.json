@@ -4,7 +4,7 @@
   "catalog_release_version": "usda-fdc-foundation-2026-04-30-ad867dbbb6a9",
   "contract_version": "catalog-handoff-1.0.0",
   "dataset_release": {
-    "dataset_code": "usda_fdc",
+    "dataset_code": "usda_fdc_foundation",
     "version": "2026-04-30"
   },
   "files": [
@@ -13,61 +13,61 @@
       "record_count": 1,
       "role": "dataset_release",
       "schema": "dataset-release",
-      "sha256": "e0bb2a37dc25af96b98579a61360a695b621490c04fea1f7b50883e12ebd7587",
-      "size_bytes": 463
+      "sha256": "a6fe576fb39b00d36faf929c1be00a190470bd261abdd7f085af11a1f3c8b47e",
+      "size_bytes": 499
     },
     {
       "path": "source-releases.json",
       "record_count": 1,
       "role": "source_releases",
       "schema": "source-release",
-      "sha256": "23b52d4e88f79a275e3744222da983d5aa4e0d312895f393c5322a9313fc9282",
-      "size_bytes": 743
+      "sha256": "b4393f76b8495c4528f33ece853b6f1883a057957024d80fe92501f118b1f0ba",
+      "size_bytes": 794
     },
     {
       "path": "raw-source-records.jsonl",
       "record_count": 20,
       "role": "raw_source_records",
       "schema": "raw-source-record",
-      "sha256": "d9ada554649733b2bf040bc2b2bcdb6f1f3e144014906aa30c5d60eef0d5c58f",
-      "size_bytes": 7371
+      "sha256": "d0305d0ce57f5b082b60a55f88d15cb17703d5745a81d53607b2a5c356e8f7e1",
+      "size_bytes": 13916
     },
     {
       "path": "food-concepts.jsonl",
       "record_count": 20,
       "role": "food_concepts",
       "schema": "food-concept",
-      "sha256": "7be3500c695e19c1d0808361e6a249ef9fe3a830afcf7a5eb863616f9debdeac",
-      "size_bytes": 6060
+      "sha256": "a0fa8b692f9c9c4a467aaee53c4fc876d4f1dcb0ff678c88de5bf9978fbd1b93",
+      "size_bytes": 6500
     },
     {
       "path": "food-names.jsonl",
       "record_count": 20,
       "role": "food_names",
       "schema": "food-name",
-      "sha256": "bfa437c17bdf739f42e4e41603a1e6c3ae72797ec0b4af564c9f5d0f1c4f7412",
-      "size_bytes": 7800
+      "sha256": "b86c465648f32a47b04ead486bbab9efc5ad47232f710dcc84a9c6aca867dbc7",
+      "size_bytes": 8460
     },
     {
       "path": "source-food-mappings.jsonl",
       "record_count": 20,
       "role": "source_food_mappings",
       "schema": "source-food-mapping",
-      "sha256": "53907193e3b353373451c9167ee52808a9bda8283d9c190825e6bf2fa3740ddb",
-      "size_bytes": 10260
+      "sha256": "be83310c93df976bda4683bfe24777cf48eafd2a45d17f50c2ad9c0e23d703ab",
+      "size_bytes": 10920
     },
     {
       "path": "composition-values.jsonl",
-      "record_count": 4,
+      "record_count": 80,
       "role": "composition_values",
       "schema": "composition-value",
-      "sha256": "4b03209ef5cae3ac98ba716d2f250d5b034e53b86fe98de649dcd293e0044bb8",
-      "size_bytes": 2287
+      "sha256": "d8a6a9de0c0069cc4bf734e11db39fde6dcdfe834ffeb9a4dad383a840b28670",
+      "size_bytes": 47536
     }
   ],
   "handoff_profile": "fdc-foundation-reviewed-selection-v1",
   "import_mode": "staged_only",
-  "package_id": "catalog-handoff-v1-8f9ed3e03aa5dde7b0995b44",
+  "package_id": "catalog-handoff-v1-436c611a411028bf0373c53f",
   "package_kind": "nutrition-catalog-handoff",
   "policy_versions": {
     "handoff": "catalog-handoff-1.0.0",
@@ -86,9 +86,9 @@
   "source": {
     "archive_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    "object_uri": "fixture://fdc/foundation.json",
+    "object_uri": "official USDA FoodData Central Foundation Foods release",
     "published_date": "2026-04-30",
     "release": "2026-04-30",
-    "source_code": "usda_fdc"
+    "source_code": "usda_fdc_foundation"
   }
 }

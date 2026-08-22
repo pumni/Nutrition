@@ -4,7 +4,7 @@
   "type": "object", "additionalProperties": false,
   "required": ["dataset_code", "version", "status", "artifact_sha256", "archive_sha256", "schema_fingerprint", "source_rights_state", "record_count", "production_eligible"],
   "properties": {
-    "dataset_code": {"const": "usda_fdc"}, "version": {"const": "2026-04-30"}, "status": {"const": "staged_candidate"},
+    "dataset_code": {"const": "usda_fdc_foundation"}, "version": {"const": "2026-04-30"}, "status": {"const": "staged_candidate"},
     "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "object_uri": {"type": "string", "minLength": 1}, "schema_fingerprint": {"type": "string", "minLength": 1},
     "source_rights_state": {"type": "string", "minLength": 1}, "record_count": {"type": "integer", "const": 20}, "production_eligible": {"const": false}
