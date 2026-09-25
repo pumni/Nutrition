@@ -57,6 +57,75 @@ fn initialize_tracing() {
         .init();
 }
 
+#[cfg(any(unix, test))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ShutdownSignal {
+    CtrlC,
+    Sigterm,
+}
+
+#[cfg(any(unix, test))]
+async fn wait_for_shutdown_signal<C, T>(ctrl_c: C, sigterm: T) -> ShutdownSignal
+where
+    C: std::future::Future<Output = ()>,
+    T: std::future::Future<Output = ()>,
+{
+    tokio::select! {
+        () = ctrl_c => ShutdownSignal::CtrlC,
+        () = sigterm => ShutdownSignal::Sigterm,
+    }
+}
+
 async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
+    #[cfg(unix)]
+    {
+        let mut terminate =
+            match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                Ok(terminate) => terminate,
+                Err(error) => {
+                    error!(%error, "SIGTERM listener unavailable; waiting for Ctrl-C only");
+                    let _ = tokio::signal::ctrl_c().await;
+                    return;
+                }
+            };
+        let signal = wait_for_shutdown_signal(
+            async {
+                let _ = tokio::signal::ctrl_c().await;
+            },
+            async {
+                let _ = terminate.recv().await;
+            },
+        )
+        .await;
+        match signal {
+            ShutdownSignal::CtrlC => info!("Ctrl-C received; shutting down"),
+            ShutdownSignal::Sigterm => info!("SIGTERM received; shutting down"),
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ShutdownSignal, wait_for_shutdown_signal};
+
+    #[tokio::test]
+    async fn ctrl_c_can_trigger_graceful_shutdown() {
+        assert_eq!(
+            wait_for_shutdown_signal(async {}, std::future::pending()).await,
+            ShutdownSignal::CtrlC
+        );
+    }
+
+    #[tokio::test]
+    async fn sigterm_can_trigger_graceful_shutdown() {
+        assert_eq!(
+            wait_for_shutdown_signal(std::future::pending(), async {}).await,
+            ShutdownSignal::Sigterm
+        );
+    }
 }
