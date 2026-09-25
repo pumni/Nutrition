@@ -27,17 +27,15 @@ const EXACT_FOOD_QUERY: &str = r"
     FROM catalog.food_name food_name
     JOIN catalog.food_entity food
       ON food.id = food_name.food_id
-    JOIN catalog.catalog_release active_release
-      ON active_release.status = 'active'
     JOIN catalog.catalog_release_food_name release_food_name
-      ON release_food_name.catalog_release_id = active_release.id
+      ON release_food_name.catalog_release_id = $3
      AND release_food_name.food_name_id = food_name.id
     JOIN LATERAL (
         SELECT candidate.*
         FROM composition.composition_profile candidate
         JOIN catalog.catalog_release_profile release_profile
           ON release_profile.profile_id = candidate.id
-         AND release_profile.catalog_release_id = active_release.id
+         AND release_profile.catalog_release_id = $3
         WHERE candidate.food_id = food.id
           AND candidate.status = 'published'
           AND candidate.basis_unit = 'g'
@@ -68,12 +66,16 @@ const EXACT_FOOD_QUERY: &str = r"
 #[derive(Clone)]
 pub struct PostgresCatalogEvidenceProvider {
     pool: PgPool,
+    catalog_release_id: CatalogReleaseId,
 }
 
 impl PostgresCatalogEvidenceProvider {
     #[must_use]
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(pool: PgPool, catalog_release_id: CatalogReleaseId) -> Self {
+        Self {
+            pool,
+            catalog_release_id,
+        }
     }
 }
 
@@ -105,6 +107,7 @@ impl FoodEvidenceProvider for PostgresCatalogEvidenceProvider {
         let rows = sqlx::query(EXACT_FOOD_QUERY)
             .bind(normalized_name)
             .bind(locale)
+            .bind(self.catalog_release_id.as_uuid())
             .fetch_all(&self.pool)
             .await
             .map_err(|_| ApplicationError::Persistence)?;

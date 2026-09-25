@@ -28,6 +28,10 @@ falls back to the fixture.
 Food identity, exact-name retrieval, profile selection, nutrient evidence, catalog release
 pinning, portion lookup, and analysis persistence use PostgreSQL. Hosted parsing is available
 behind the existing application port, while active catalog data remains explicitly test-only.
+At API startup, the active catalog release ID is supplied to both evidence providers and stored
+in each analysis behavior version. Food names, profiles, and portions are resolved by membership
+in that pinned release, so later catalog activation does not change evidence used by a running
+process.
 
 ## Hosted parser boundary
 
@@ -48,8 +52,9 @@ optional token counts, output SHA-256, status, and a bounded error code. It has 
 response, meal text, user, or authorization column.
 
 Food resolution and portion resolution are separate application ports. Explicit grams do not
-require a portion observation. Other units require a food-specific observation in the active
-catalog release; unsupported pairs produce insufficient evidence rather than a guessed mass.
+require a portion observation. Other units require a food-specific observation in the release
+pinned by the running process; unsupported pairs produce insufficient evidence rather than a
+guessed mass.
 Observed lower and upper masses are scaled by quantity, propagated by the pure calculator, stored
 in relational item rows, and retained in the immutable result snapshot.
 

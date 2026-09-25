@@ -3,7 +3,10 @@ use application::{
     ResolvedPortionEvidence, normalize_vi_search_key,
 };
 use async_trait::async_trait;
-use domain::{EvidenceQuality, FoodId, MassEstimate, MassResolutionMethod, PortionObservationId};
+use domain::{
+    CatalogReleaseId, EvidenceQuality, FoodId, MassEstimate, MassResolutionMethod,
+    PortionObservationId,
+};
 use rust_decimal::Decimal;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -20,10 +23,8 @@ const PORTION_OBSERVATION_QUERY: &str = r"
     FROM composition.measure_unit measure
     JOIN composition.portion_observation observation
       ON observation.measure_unit_id = measure.id
-    JOIN catalog.catalog_release active_release
-      ON active_release.status = 'active'
     JOIN catalog.catalog_release_portion_observation release_portion
-      ON release_portion.catalog_release_id = active_release.id
+      ON release_portion.catalog_release_id = $3
      AND release_portion.portion_observation_id = observation.id
     WHERE observation.food_id = $1
       AND (
@@ -47,12 +48,16 @@ const PORTION_OBSERVATION_QUERY: &str = r"
 #[derive(Clone)]
 pub struct PostgresPortionEvidenceProvider {
     pool: PgPool,
+    catalog_release_id: CatalogReleaseId,
 }
 
 impl PostgresPortionEvidenceProvider {
     #[must_use]
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(pool: PgPool, catalog_release_id: CatalogReleaseId) -> Self {
+        Self {
+            pool,
+            catalog_release_id,
+        }
     }
 }
 
@@ -79,6 +84,7 @@ impl PortionEvidenceProvider for PostgresPortionEvidenceProvider {
         let row = sqlx::query(PORTION_OBSERVATION_QUERY)
             .bind(food_id.as_uuid())
             .bind(&unit)
+            .bind(self.catalog_release_id.as_uuid())
             .fetch_optional(&self.pool)
             .await
             .map_err(|_| ApplicationError::Persistence)?
@@ -134,10 +140,8 @@ impl PortionEvidenceProvider for PostgresPortionEvidenceProvider {
             FROM composition.measure_unit measure
             JOIN composition.portion_observation observation
               ON observation.measure_unit_id = measure.id
-            JOIN catalog.catalog_release active_release
-              ON active_release.status = 'active'
             JOIN catalog.catalog_release_portion_observation membership
-              ON membership.catalog_release_id = active_release.id
+              ON membership.catalog_release_id = $2
              AND membership.portion_observation_id = observation.id
             WHERE observation.food_id = $1
               AND observation.valid_to IS NULL
@@ -146,6 +150,7 @@ impl PortionEvidenceProvider for PostgresPortionEvidenceProvider {
             ",
         )
         .bind(food_id.as_uuid())
+        .bind(self.catalog_release_id.as_uuid())
         .fetch_all(&self.pool)
         .await
         .map_err(|_| ApplicationError::Persistence)?;
