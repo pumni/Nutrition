@@ -151,8 +151,8 @@ pub async fn build() -> Result<(SocketAddr, AppState), StartupError> {
         ..BehaviorVersions::default()
     };
     let repository = PostgresAnalysisRepository::new(pool.clone());
-    let food_evidence = PostgresCatalogEvidenceProvider::new(pool.clone());
-    let portion_evidence = PostgresPortionEvidenceProvider::new(pool.clone());
+    let food_evidence = PostgresCatalogEvidenceProvider::new(pool.clone(), catalog_release_id);
+    let portion_evidence = PostgresPortionEvidenceProvider::new(pool.clone(), catalog_release_id);
 
     let analyzer = MealAnalysisService::new(
         parser,

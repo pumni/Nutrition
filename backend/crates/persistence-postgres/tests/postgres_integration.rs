@@ -5,7 +5,7 @@ use application::{
     ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, MealAnalysisService,
     ParserInvocationRecord, ParserTelemetrySink, PortionCorrection,
 };
-use domain::{NutrientCode, UserId};
+use domain::{CatalogReleaseId, NutrientCode, UserId};
 use persistence_postgres::{
     PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresParserTelemetrySink,
     PostgresPortionEvidenceProvider, active_catalog_release_id, claim_jobs, complete_job, connect,
@@ -28,15 +28,18 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     seed_foundation_fixture(&pool)
         .await
         .expect("foundation seed must apply idempotently");
+    let pinned_catalog_release_id = active_catalog_release_id(&pool)
+        .await
+        .expect("active catalog release must exist");
     let versions = BehaviorVersions {
-        catalog_release_id: active_catalog_release_id(&pool)
-            .await
-            .expect("active catalog release must exist"),
+        catalog_release_id: pinned_catalog_release_id,
         ..BehaviorVersions::default()
     };
     let repository = PostgresAnalysisRepository::new(pool.clone());
-    let food_evidence = PostgresCatalogEvidenceProvider::new(pool.clone());
-    let portion_evidence = PostgresPortionEvidenceProvider::new(pool.clone());
+    let food_evidence =
+        PostgresCatalogEvidenceProvider::new(pool.clone(), pinned_catalog_release_id);
+    let portion_evidence =
+        PostgresPortionEvidenceProvider::new(pool.clone(), pinned_catalog_release_id);
     let service = MealAnalysisService::new(
         FixtureParser,
         food_evidence.clone(),
@@ -53,19 +56,9 @@ async fn contextual_analysis_is_persisted_and_replayed() {
         required_nutrients(),
     );
 
-    let outcome = service
-        .execute(AnalysisRequest {
-            text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
-            locale: "vi-VN".to_owned(),
-            mode: AnalysisMode::Balanced,
-            idempotency: None,
-            owner_id: Some(UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0098)),
-        })
-        .await
-        .expect("PostgreSQL-backed analysis must complete");
-    let AnalysisOutcome::Completed(snapshot) = outcome else {
-        panic!("supported contextual analysis must complete");
-    };
+    let snapshot =
+        contextual_analysis_after_catalog_activation(&pool, &service, pinned_catalog_release_id)
+            .await;
 
     let replayed = repository
         .find(snapshot.analysis_id)
@@ -122,6 +115,93 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     assert_unknown_food_is_not_persisted(&service, &pool).await;
     assert_clarification_revision_flow(&service, &revision_service, &repository).await;
     assert_correction_revision_flow(&revision_service, &repository, &snapshot).await;
+}
+
+async fn contextual_analysis_after_catalog_activation(
+    pool: &sqlx::PgPool,
+    service: &impl AnalyzeMeal,
+    pinned_catalog_release_id: CatalogReleaseId,
+) -> AnalysisSnapshot {
+    let activated_catalog_release_id =
+        activate_empty_catalog_release_for_pin_regression(pool, pinned_catalog_release_id).await;
+    assert_ne!(activated_catalog_release_id, pinned_catalog_release_id);
+    assert_eq!(
+        active_catalog_release_id(pool)
+            .await
+            .expect("next catalog release must become active"),
+        activated_catalog_release_id
+    );
+
+    let outcome = service
+        .execute(AnalysisRequest {
+            text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
+            locale: "vi-VN".to_owned(),
+            mode: AnalysisMode::Balanced,
+            idempotency: None,
+            owner_id: Some(UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0098)),
+        })
+        .await
+        .expect("PostgreSQL-backed analysis must complete");
+    let AnalysisOutcome::Completed(snapshot) = outcome else {
+        panic!("supported contextual analysis must complete");
+    };
+    assert_eq!(
+        snapshot.versions.catalog_release_id,
+        pinned_catalog_release_id
+    );
+    snapshot
+}
+
+async fn activate_empty_catalog_release_for_pin_regression(
+    pool: &sqlx::PgPool,
+    previous_release_id: CatalogReleaseId,
+) -> CatalogReleaseId {
+    let next_release_id = uuid::Uuid::now_v7();
+    let manifest = serde_json::json!({"test_only": true});
+    sqlx::query(
+        "INSERT INTO catalog.catalog_release
+            (id, version, status, manifest, checksum_sha256, created_by)
+         VALUES ($1, $2, 'staged', $3, $4, $5)",
+    )
+    .bind(next_release_id)
+    .bind(format!("issue-12-pin-regression-{next_release_id}"))
+    .bind(manifest)
+    .bind("0".repeat(64))
+    .bind(uuid::Uuid::now_v7())
+    .execute(pool)
+    .await
+    .expect("test-only staged release must be inserted");
+
+    let mut transaction = pool
+        .begin()
+        .await
+        .expect("catalog release activation transaction must begin");
+    let superseded = sqlx::query(
+        "UPDATE catalog.catalog_release
+            SET status = 'superseded'
+          WHERE id = $1 AND status = 'active'",
+    )
+    .bind(previous_release_id.as_uuid())
+    .execute(&mut *transaction)
+    .await
+    .expect("previous catalog release must be superseded");
+    assert_eq!(superseded.rows_affected(), 1);
+
+    let activated = sqlx::query(
+        "UPDATE catalog.catalog_release
+            SET status = 'active', activated_at = now()
+          WHERE id = $1 AND status = 'staged'",
+    )
+    .bind(next_release_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("next catalog release must be activated");
+    assert_eq!(activated.rows_affected(), 1);
+    transaction
+        .commit()
+        .await
+        .expect("catalog release activation must commit");
+    CatalogReleaseId::from_uuid(next_release_id)
 }
 
 #[tokio::test]
