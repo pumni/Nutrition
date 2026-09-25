@@ -6,22 +6,11 @@ use domain::{
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AnalysisMode {
-    Fast,
-    #[default]
-    Balanced,
-    Precise,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AnalysisRequest {
     pub text: String,
     pub locale: String,
-    #[serde(default)]
-    pub mode: AnalysisMode,
     #[serde(skip)]
     pub idempotency: Option<IdempotencyContext>,
     #[serde(skip)]

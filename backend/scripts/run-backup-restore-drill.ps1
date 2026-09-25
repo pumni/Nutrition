@@ -714,7 +714,7 @@ try {
         }
         $applicationChecks["api_readiness"] = "passed"
         $ownerId = "0198f100-0000-0000-8000-000000000098"
-        $createBody = @{ text = "2 quả trứng gà luộc"; locale = "vi-VN"; mode = "balanced" } | ConvertTo-Json
+        $createBody = @{ text = "2 quả trứng gà luộc"; locale = "vi-VN" } | ConvertTo-Json
         $createResponse = Invoke-WebRequest `
             -Method Post `
             -Uri "$baseUrl/v1/nutrition/analyses" `

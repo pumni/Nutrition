@@ -309,8 +309,7 @@ fn fixture_food(id: FoodId, name: &str, values: &[(&str, &str, NutrientUnit)]) -
 mod tests {
     use super::*;
     use application::{
-        AnalysisMode, AnalysisOutcome, AnalysisRequest, AnalyzeMeal, BehaviorVersions,
-        MealAnalysisService,
+        AnalysisOutcome, AnalysisRequest, AnalyzeMeal, BehaviorVersions, MealAnalysisService,
     };
 
     #[tokio::test]
@@ -332,7 +331,6 @@ mod tests {
             .execute(AnalysisRequest {
                 text: "100 g trứng gà luộc, 150 g cơm trắng".to_owned(),
                 locale: "vi-VN".to_owned(),
-                mode: AnalysisMode::Balanced,
                 idempotency: None,
                 owner_id: None,
             })
@@ -371,7 +369,6 @@ mod tests {
             .execute(AnalysisRequest {
                 text: "100 g món không tồn tại".to_owned(),
                 locale: "vi-VN".to_owned(),
-                mode: AnalysisMode::Balanced,
                 idempotency: None,
                 owner_id: None,
             })
@@ -395,7 +392,6 @@ mod tests {
             .execute(AnalysisRequest {
                 text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
                 locale: "vi-VN".to_owned(),
-                mode: AnalysisMode::Balanced,
                 idempotency: None,
                 owner_id: None,
             })
@@ -429,7 +425,6 @@ mod tests {
             .execute(AnalysisRequest {
                 text: "1 ly cơm trắng".to_owned(),
                 locale: "vi-VN".to_owned(),
-                mode: AnalysisMode::Balanced,
                 idempotency: None,
                 owner_id: None,
             })

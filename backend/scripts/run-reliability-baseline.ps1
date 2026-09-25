@@ -204,7 +204,6 @@ try {
     $createBody = @{
         text = "2 quả trứng gà luộc, 1 bát cơm trắng"
         locale = "vi-VN"
-        mode = "balanced"
     } | ConvertTo-Json -Compress
     $createKey = "reliability-create-$runId"
     $createResults = Invoke-ConcurrentPost `
@@ -283,7 +282,6 @@ try {
     $clarificationSeedBody = @{
         text = "1 ly cơm trắng"
         locale = "vi-VN"
-        mode = "balanced"
     } | ConvertTo-Json -Compress
     $clarificationSeed = Invoke-RestMethod `
         -Method Post `

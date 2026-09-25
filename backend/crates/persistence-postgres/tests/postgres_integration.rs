@@ -1,6 +1,6 @@
 use adapters::FixtureParser;
 use application::{
-    AnalysisMode, AnalysisOutcome, AnalysisRequest, AnalysisRevisionService, AnalysisSnapshot,
+    AnalysisOutcome, AnalysisRequest, AnalysisRevisionService, AnalysisSnapshot,
     AnalysisSnapshotReader, AnalyzeMeal, AnswerClarification, ApplicationError, BehaviorVersions,
     ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, MealAnalysisService,
     ParserInvocationRecord, ParserTelemetrySink, PortionCorrection,
@@ -196,7 +196,6 @@ async fn execute_contextual_analysis(
         .execute(AnalysisRequest {
             text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
             locale: "vi-VN".to_owned(),
-            mode: AnalysisMode::Balanced,
             idempotency: None,
             owner_id,
         })
@@ -577,7 +576,6 @@ async fn assert_unknown_food_is_not_persisted(
         .execute(AnalysisRequest {
             text: "100 g món không tồn tại".to_owned(),
             locale: "vi-VN".to_owned(),
-            mode: AnalysisMode::Balanced,
             idempotency: None,
             owner_id: None,
         })
@@ -600,7 +598,6 @@ async fn assert_clarification_revision_flow(
         .execute(AnalysisRequest {
             text: "1 ly cơm trắng".to_owned(),
             locale: "vi-VN".to_owned(),
-            mode: AnalysisMode::Balanced,
             idempotency: None,
             owner_id: None,
         })
