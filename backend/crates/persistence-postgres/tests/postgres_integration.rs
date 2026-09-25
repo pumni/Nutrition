@@ -58,14 +58,13 @@ async fn contextual_analysis_is_persisted_and_replayed() {
 
     let outcome = execute_contextual_analysis(
         &service,
-        Some(UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0098)),
+        Some(UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0000_0098)),
     )
     .await
     .expect("PostgreSQL-backed analysis must complete");
     let AnalysisOutcome::Completed(snapshot) = outcome else {
         panic!("supported contextual analysis must complete");
     };
-
     let replayed = repository
         .find(snapshot.analysis_id)
         .await
