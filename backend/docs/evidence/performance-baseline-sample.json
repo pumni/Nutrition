@@ -1,332 +1,326 @@
 {
-    "schema_version":  "performance-baseline-0.1.0",
-    "scope":  {
-                  "local_ci_evidence_only":  true,
-                  "production_credentials_used":  false,
-                  "real_hosted_provider_called":  false,
-                  "production_slo":  false,
-                  "production_capacity_claim":  false
-              },
-    "percentile_definition":  "nearest-rank: sort ascending, rank = ceil(percent * sample_count), one-based; p50/p95/p99 select that rank",
-    "environment":  {
-                        "source_revision":  "c1bdf9e6956f1835ea985dfc0e5bcde121db6be9",
-                        "operating_system":  "windows",
-                        "architecture":  "x86_64",
-                        "rustc_version":  "rustc 1.97.1 (8bab26f4f 2026-07-14)",
-                        "build_profile":  "test-debug",
-                        "logical_cpu_count":  12,
-                        "postgresql_server_version":  "18.4 (Debian 18.4-1.pgdg13+1)",
-                        "dataset":  "foundation-fixture-seed"
-                    },
-    "db_oriented_api":  {
-                            "request_path":  "in-process Axum router; no TCP listener or hosted parser",
-                            "parser":  "FixtureParser",
-                            "scenarios":  [
-                                              {
-                                                  "item_count":  1,
-                                                  "workload":  {
-                                                                   "scenario":  "fixture_api_create_one_seeded_item",
-                                                                   "operation":  "POST /v1/nutrition/analyses via in-process Axum router",
-                                                                   "request_count":  100,
-                                                                   "warmup_request_count":  10,
-                                                                   "concurrency":  4,
-                                                                   "elapsed_ms":  1643.3637999999999,
-                                                                   "throughput_requests_per_second":  60.85079883103182,
-                                                                   "latency":  {
-                                                                                   "sample_count":  100,
-                                                                                   "min_ms":  46.1805,
-                                                                                   "max_ms":  165.15279999999998,
-                                                                                   "mean_ms":  60.12383,
-                                                                                   "p50_ms":  53.6878,
-                                                                                   "p95_ms":  114.9169,
-                                                                                   "p99_ms":  129.64139999999998
-                                                                               },
-                                                                   "status_distribution":  {
-                                                                                               "200":  100
-                                                                                           },
-                                                                   "error_code_distribution":  {
-
-                                                                                               }
-                                                               },
-                                                  "database":  {
-                                                                   "configured_max_connections":  8,
-                                                                   "pool_before":  {
-                                                                                       "size":  7,
-                                                                                       "idle":  6
-                                                                                   },
-                                                                   "pool_during":  {
-                                                                                       "observation_count":  400,
-                                                                                       "minimum_size":  7,
-                                                                                       "maximum_size":  8,
-                                                                                       "minimum_idle":  0,
-                                                                                       "maximum_idle":  5
-                                                                                   },
-                                                                   "pool_after":  {
-                                                                                      "size":  8,
-                                                                                      "idle":  5
-                                                                                  },
-                                                                   "evidence_resolution":  {
-                                                                                               "food":  {
-                                                                                                            "calls":  100,
-                                                                                                            "total_ms":  552.3976999999996,
-                                                                                                            "mean_ms":  5.523976999999997,
-                                                                                                            "latency":  {
-                                                                                                                            "sample_count":  100,
-                                                                                                                            "min_ms":  2.6300999999999997,
-                                                                                                                            "max_ms":  102.914,
-                                                                                                                            "mean_ms":  5.523977000000001,
-                                                                                                                            "p50_ms":  3.888,
-                                                                                                                            "p95_ms":  7.6139,
-                                                                                                                            "p99_ms":  16.0854
-                                                                                                                        }
-                                                                                                        },
-                                                                                               "portion":  {
-                                                                                                               "calls":  100,
-                                                                                                               "total_ms":  466.5669,
-                                                                                                               "mean_ms":  4.665668999999999,
-                                                                                                               "latency":  {
-                                                                                                                               "sample_count":  100,
-                                                                                                                               "min_ms":  2.3459000000000003,
-                                                                                                                               "max_ms":  9.895199999999999,
-                                                                                                                               "mean_ms":  4.665668999999999,
-                                                                                                                               "p50_ms":  4.4597999999999995,
-                                                                                                                               "p95_ms":  7.3594,
-                                                                                                                               "p99_ms":  8.3237
-                                                                                                                           }
-                                                                                                           },
-                                                                                               "portion_suggestions":  {
-                                                                                                                           "calls":  0,
-                                                                                                                           "total_ms":  0.0,
-                                                                                                                           "mean_ms":  0.0,
-                                                                                                                           "latency":  null
-                                                                                                                       },
-                                                                                               "total_calls":  200,
-                                                                                               "total_observed_ms":  1018.9645999999996,
-                                                                                               "mean_observed_ms_per_request":  10.189645999999996
-                                                                                           }
-                                                               }
-                                              },
-                                              {
-                                                  "item_count":  2,
-                                                  "workload":  {
-                                                                   "scenario":  "fixture_api_create_two_seeded_items",
-                                                                   "operation":  "POST /v1/nutrition/analyses via in-process Axum router",
-                                                                   "request_count":  100,
-                                                                   "warmup_request_count":  10,
-                                                                   "concurrency":  4,
-                                                                   "elapsed_ms":  1838.1777000000002,
-                                                                   "throughput_requests_per_second":  54.40170447068311,
-                                                                   "latency":  {
-                                                                                   "sample_count":  100,
-                                                                                   "min_ms":  63.4412,
-                                                                                   "max_ms":  115.6079,
-                                                                                   "mean_ms":  69.92246099999997,
-                                                                                   "p50_ms":  68.2006,
-                                                                                   "p95_ms":  74.80680000000001,
-                                                                                   "p99_ms":  113.7963
-                                                                               },
-                                                                   "status_distribution":  {
-                                                                                               "200":  100
-                                                                                           },
-                                                                   "error_code_distribution":  {
-
-                                                                                               }
-                                                               },
-                                                  "database":  {
-                                                                   "configured_max_connections":  8,
-                                                                   "pool_before":  {
-                                                                                       "size":  8,
-                                                                                       "idle":  6
-                                                                                   },
-                                                                   "pool_during":  {
-                                                                                       "observation_count":  800,
-                                                                                       "minimum_size":  8,
-                                                                                       "maximum_size":  8,
-                                                                                       "minimum_idle":  1,
-                                                                                       "maximum_idle":  4
-                                                                                   },
-                                                                   "pool_after":  {
-                                                                                      "size":  8,
-                                                                                      "idle":  5
-                                                                                  },
-                                                                   "evidence_resolution":  {
-                                                                                               "food":  {
-                                                                                                            "calls":  200,
-                                                                                                            "total_ms":  693.3932000000001,
-                                                                                                            "mean_ms":  3.4669660000000007,
-                                                                                                            "latency":  {
-                                                                                                                            "sample_count":  200,
-                                                                                                                            "min_ms":  2.5774,
-                                                                                                                            "max_ms":  7.1316,
-                                                                                                                            "mean_ms":  3.4669660000000007,
-                                                                                                                            "p50_ms":  3.3857000000000004,
-                                                                                                                            "p95_ms":  4.071899999999999,
-                                                                                                                            "p99_ms":  6.2928999999999995
-                                                                                                                        }
-                                                                                                        },
-                                                                                               "portion":  {
-                                                                                                               "calls":  200,
-                                                                                                               "total_ms":  773.8565000000004,
-                                                                                                               "mean_ms":  3.8692825000000024,
-                                                                                                               "latency":  {
-                                                                                                                               "sample_count":  200,
-                                                                                                                               "min_ms":  2.4,
-                                                                                                                               "max_ms":  7.256600000000001,
-                                                                                                                               "mean_ms":  3.8692825000000033,
-                                                                                                                               "p50_ms":  3.5146,
-                                                                                                                               "p95_ms":  5.9959,
-                                                                                                                               "p99_ms":  6.505999999999999
-                                                                                                                           }
-                                                                                                           },
-                                                                                               "portion_suggestions":  {
-                                                                                                                           "calls":  0,
-                                                                                                                           "total_ms":  0.0,
-                                                                                                                           "mean_ms":  0.0,
-                                                                                                                           "latency":  null
-                                                                                                                       },
-                                                                                               "total_calls":  400,
-                                                                                               "total_observed_ms":  1467.2497000000005,
-                                                                                               "mean_observed_ms_per_request":  14.672497000000005
-                                                                                           }
-                                                               }
-                                              }
-                                          ]
-                        },
-    "hosted_parser_analysis":  {
-                                   "request_path":  "in-process Axum router with HostedMealParser and deterministic StructuredModel fake",
-                                   "parser":  "HostedMealParser",
-                                   "workload":  {
-                                                    "scenario":  "hosted_parser_in_process_deterministic_fake",
-                                                    "operation":  "POST /v1/nutrition/analyses via in-process Axum router",
-                                                    "request_count":  100,
-                                                    "warmup_request_count":  10,
-                                                    "concurrency":  4,
-                                                    "elapsed_ms":  2424.1228,
-                                                    "throughput_requests_per_second":  41.25203558169578,
-                                                    "latency":  {
-                                                                    "sample_count":  100,
-                                                                    "min_ms":  78.91499999999999,
-                                                                    "max_ms":  117.5418,
-                                                                    "mean_ms":  91.17891800000001,
-                                                                    "p50_ms":  89.9364,
-                                                                    "p95_ms":  108.9194,
-                                                                    "p99_ms":  112.7276
-                                                                },
-                                                    "status_distribution":  {
-                                                                                "200":  100
-                                                                            },
-                                                    "error_code_distribution":  {
-
-                                                                                }
-                                                },
-                                   "database":  {
-                                                    "configured_max_connections":  8,
-                                                    "pool_before":  {
-                                                                        "size":  8,
-                                                                        "idle":  6
-                                                                    },
-                                                    "pool_during":  {
-                                                                        "observation_count":  400,
-                                                                        "minimum_size":  8,
-                                                                        "maximum_size":  8,
-                                                                        "minimum_idle":  1,
-                                                                        "maximum_idle":  8
-                                                                    },
-                                                    "pool_after":  {
-                                                                       "size":  8,
-                                                                       "idle":  7
-                                                                   },
-                                                    "evidence_resolution":  {
-                                                                                "food":  {
-                                                                                             "calls":  100,
-                                                                                             "total_ms":  468.4022000000002,
-                                                                                             "mean_ms":  4.684022000000002,
-                                                                                             "latency":  {
-                                                                                                             "sample_count":  100,
-                                                                                                             "min_ms":  2.6297,
-                                                                                                             "max_ms":  8.2153,
-                                                                                                             "mean_ms":  4.684022000000002,
-                                                                                                             "p50_ms":  4.072100000000001,
-                                                                                                             "p95_ms":  6.954,
-                                                                                                             "p99_ms":  7.676200000000001
-                                                                                                         }
-                                                                                         },
-                                                                                "portion":  {
-                                                                                                "calls":  100,
-                                                                                                "total_ms":  413.47779999999995,
-                                                                                                "mean_ms":  4.134778,
-                                                                                                "latency":  {
-                                                                                                                "sample_count":  100,
-                                                                                                                "min_ms":  2.6545,
-                                                                                                                "max_ms":  5.7105999999999995,
-                                                                                                                "mean_ms":  4.134778,
-                                                                                                                "p50_ms":  4.0911,
-                                                                                                                "p95_ms":  5.2561,
-                                                                                                                "p99_ms":  5.6517
-                                                                                                            }
-                                                                                            },
-                                                                                "portion_suggestions":  {
-                                                                                                            "calls":  0,
-                                                                                                            "total_ms":  0.0,
-                                                                                                            "mean_ms":  0.0,
-                                                                                                            "latency":  null
-                                                                                                        },
-                                                                                "total_calls":  200,
-                                                                                "total_observed_ms":  881.8800000000001,
-                                                                                "mean_observed_ms_per_request":  8.818800000000001
-                                                                            }
-                                                },
-                                   "fake_profile":  {
-                                                        "fake_model":  "deterministic-test-fake/performance-baseline-v1",
-                                                        "fixed_delay_ms":  25,
-                                                        "transient_error_every_nth_call":  17,
-                                                        "transient_error_code":  "benchmark_transient",
-                                                        "external_credential_required":  false,
-                                                        "real_provider_called":  false
-                                                    },
-                                   "fake_model_call_count":  106,
-                                   "fake_provider_latency":  {
-                                                                 "sample_count":  106,
-                                                                 "min_ms":  25.5299,
-                                                                 "max_ms":  45.401900000000005,
-                                                                 "mean_ms":  37.93668018867923,
-                                                                 "p50_ms":  38.8294,
-                                                                 "p95_ms":  43.224199999999996,
-                                                                 "p99_ms":  44.284200000000006
-                                                             },
-                                   "derived_backend_overhead_observation":  {
-                                                                                "p50_ms":  51.107000000000006,
-                                                                                "p95_ms":  65.6952,
-                                                                                "p99_ms":  68.4434,
-                                                                                "method":  "difference between matching percentile summaries; unpaired, approximate observation, not a causal decomposition"
-                                                                            },
-                                   "fake_error_distribution":  {
-                                                                   "benchmark_transient":  6
-                                                               }
-                               },
-    "issue_20_decision":  {
-                              "threshold_predeclared_at_revision":  "c1bdf9e6956f1835ea985dfc0e5bcde121db6be9",
-                              "outcome":  "threshold_not_met",
-                              "next_action":  "close_issue_20_as_not_planned_with_this_evidence",
-                              "triggered":  false,
-                              "threshold":  {
-                                                "comparison":  "same local environment, pool size, concurrency and request count: 1 item vs 2 seeded items",
-                                                "minimum_p95_increase_ms":  25.0,
-                                                "minimum_p95_increase_fraction":  0.25,
-                                                "minimum_p99_increase_ms":  50.0,
-                                                "minimum_p99_increase_fraction":  0.25,
-                                                "minimum_added_evidence_ms_per_request":  10.0,
-                                                "minimum_added_evidence_fraction_of_p95_increase":  0.5
-                                            },
-                              "observed":  {
-                                               "p95_increase_ms":  -40.11009999999999,
-                                               "p99_increase_ms":  -15.845099999999974,
-                                               "added_evidence_ms_per_request":  4.482851000000009,
-                                               "added_evidence_fraction_of_p95_increase":  0.0,
-                                               "one_item_evidence_calls_per_request":  2.0,
-                                               "multi_item_evidence_calls_per_request":  4.0,
-                                               "both_workloads_succeeded":  true,
-                                               "expected_round_trip_counts_observed":  true
-                                           }
-                          }
+  "schema_version": "performance-baseline-0.1.0",
+  "scope": {
+    "local_ci_evidence_only": true,
+    "production_credentials_used": false,
+    "real_hosted_provider_called": false,
+    "production_slo": false,
+    "production_capacity_claim": false
+  },
+  "percentile_definition": "nearest-rank: sort ascending, rank = ceil(percent * sample_count), one-based; p50/p95/p99 select that rank",
+  "environment": {
+    "source_revision": "1b09d50e6d813e4aec7cea33b62e613c0c30a5c5",
+    "operating_system": "windows",
+    "architecture": "x86_64",
+    "rustc_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "build_profile": "test-debug",
+    "logical_cpu_count": 12,
+    "postgresql_server_version": "18.4 (Debian 18.4-1.pgdg13+1)",
+    "dataset": "foundation-fixture-seed"
+  },
+  "db_oriented_api": {
+    "request_path": "in-process Axum router; no TCP listener or hosted parser",
+    "parser": "FixtureParser",
+    "scenarios": [
+      {
+        "item_count": 1,
+        "workload": {
+          "scenario": "fixture_api_create_one_seeded_item",
+          "operation": "POST /v1/nutrition/analyses via in-process Axum router",
+          "request_count": 100,
+          "warmup_request_count": 10,
+          "concurrency": 4,
+          "elapsed_ms": 1422.6948,
+          "throughput_requests_per_second": 70.28914423529207,
+          "latency": {
+            "sample_count": 100,
+            "min_ms": 45.9286,
+            "max_ms": 109.2975,
+            "mean_ms": 53.05873600000001,
+            "p50_ms": 50.6275,
+            "p95_ms": 73.33449999999999,
+            "p99_ms": 92.9495
+          },
+          "status_distribution": {
+            "200": 100
+          },
+          "error_code_distribution": {}
+        },
+        "database": {
+          "configured_max_connections": 8,
+          "pool_before": {
+            "size": 7,
+            "idle": 5
+          },
+          "pool_during": {
+            "observation_count": 400,
+            "minimum_size": 7,
+            "maximum_size": 8,
+            "minimum_idle": 0,
+            "maximum_idle": 4
+          },
+          "pool_after": {
+            "size": 8,
+            "idle": 4
+          },
+          "evidence_resolution": {
+            "food": {
+              "calls": 100,
+              "total_ms": 434.2243,
+              "mean_ms": 4.342243,
+              "latency": {
+                "sample_count": 100,
+                "min_ms": 2.7635,
+                "max_ms": 63.04750000000001,
+                "mean_ms": 4.342243,
+                "p50_ms": 3.5795000000000003,
+                "p95_ms": 5.0787,
+                "p99_ms": 5.3785
+              }
+            },
+            "portion": {
+              "calls": 100,
+              "total_ms": 406.9847999999999,
+              "mean_ms": 4.069847999999999,
+              "latency": {
+                "sample_count": 100,
+                "min_ms": 2.5991,
+                "max_ms": 7.0334,
+                "mean_ms": 4.0698479999999995,
+                "p50_ms": 4.0197,
+                "p95_ms": 5.1563,
+                "p99_ms": 6.0501000000000005
+              }
+            },
+            "portion_suggestions": {
+              "calls": 0,
+              "total_ms": -0.0,
+              "mean_ms": 0.0,
+              "latency": null
+            },
+            "total_calls": 200,
+            "total_observed_ms": 841.2090999999999,
+            "mean_observed_ms_per_request": 8.412090999999998
+          }
+        }
+      },
+      {
+        "item_count": 2,
+        "workload": {
+          "scenario": "fixture_api_create_two_seeded_items",
+          "operation": "POST /v1/nutrition/analyses via in-process Axum router",
+          "request_count": 100,
+          "warmup_request_count": 10,
+          "concurrency": 4,
+          "elapsed_ms": 1976.2378,
+          "throughput_requests_per_second": 50.601197892277945,
+          "latency": {
+            "sample_count": 100,
+            "min_ms": 64.6672,
+            "max_ms": 94.45299999999999,
+            "mean_ms": 75.65446500000002,
+            "p50_ms": 74.3851,
+            "p95_ms": 90.8683,
+            "p99_ms": 94.3835
+          },
+          "status_distribution": {
+            "200": 100
+          },
+          "error_code_distribution": {}
+        },
+        "database": {
+          "configured_max_connections": 8,
+          "pool_before": {
+            "size": 8,
+            "idle": 6
+          },
+          "pool_during": {
+            "observation_count": 800,
+            "minimum_size": 8,
+            "maximum_size": 8,
+            "minimum_idle": 1,
+            "maximum_idle": 4
+          },
+          "pool_after": {
+            "size": 8,
+            "idle": 4
+          },
+          "evidence_resolution": {
+            "food": {
+              "calls": 200,
+              "total_ms": 756.7843999999996,
+              "mean_ms": 3.783921999999998,
+              "latency": {
+                "sample_count": 200,
+                "min_ms": 2.6343,
+                "max_ms": 8.9146,
+                "mean_ms": 3.7839219999999982,
+                "p50_ms": 3.5044,
+                "p95_ms": 5.368600000000001,
+                "p99_ms": 8.1374
+              }
+            },
+            "portion": {
+              "calls": 200,
+              "total_ms": 846.4333000000001,
+              "mean_ms": 4.232166500000001,
+              "latency": {
+                "sample_count": 200,
+                "min_ms": 2.3858,
+                "max_ms": 9.1449,
+                "mean_ms": 4.2321665,
+                "p50_ms": 3.7778,
+                "p95_ms": 6.8623,
+                "p99_ms": 7.9136
+              }
+            },
+            "portion_suggestions": {
+              "calls": 0,
+              "total_ms": -0.0,
+              "mean_ms": 0.0,
+              "latency": null
+            },
+            "total_calls": 400,
+            "total_observed_ms": 1603.2176999999997,
+            "mean_observed_ms_per_request": 16.032176999999997
+          }
+        }
+      }
+    ]
+  },
+  "hosted_parser_analysis": {
+    "request_path": "in-process Axum router with HostedMealParser and deterministic StructuredModel fake",
+    "parser": "HostedMealParser",
+    "workload": {
+      "scenario": "hosted_parser_in_process_deterministic_fake",
+      "operation": "POST /v1/nutrition/analyses via in-process Axum router",
+      "request_count": 100,
+      "warmup_request_count": 10,
+      "concurrency": 4,
+      "elapsed_ms": 2433.0797,
+      "throughput_requests_per_second": 41.10017440037004,
+      "latency": {
+        "sample_count": 100,
+        "min_ms": 80.08619999999999,
+        "max_ms": 118.22710000000001,
+        "mean_ms": 91.08339900000003,
+        "p50_ms": 89.4382,
+        "p95_ms": 108.6548,
+        "p99_ms": 111.3303
+      },
+      "status_distribution": {
+        "200": 100
+      },
+      "error_code_distribution": {}
+    },
+    "database": {
+      "configured_max_connections": 8,
+      "pool_before": {
+        "size": 8,
+        "idle": 6
+      },
+      "pool_during": {
+        "observation_count": 400,
+        "minimum_size": 8,
+        "maximum_size": 8,
+        "minimum_idle": 1,
+        "maximum_idle": 8
+      },
+      "pool_after": {
+        "size": 8,
+        "idle": 7
+      },
+      "evidence_resolution": {
+        "food": {
+          "calls": 100,
+          "total_ms": 487.60249999999996,
+          "mean_ms": 4.876024999999999,
+          "latency": {
+            "sample_count": 100,
+            "min_ms": 2.6702000000000004,
+            "max_ms": 11.9562,
+            "mean_ms": 4.876024999999999,
+            "p50_ms": 4.4064000000000005,
+            "p95_ms": 7.2691,
+            "p99_ms": 9.454600000000001
+          }
+        },
+        "portion": {
+          "calls": 100,
+          "total_ms": 417.9401,
+          "mean_ms": 4.1794009999999995,
+          "latency": {
+            "sample_count": 100,
+            "min_ms": 2.4019000000000004,
+            "max_ms": 6.2816,
+            "mean_ms": 4.1794009999999995,
+            "p50_ms": 4.1399,
+            "p95_ms": 5.6589,
+            "p99_ms": 6.1197
+          }
+        },
+        "portion_suggestions": {
+          "calls": 0,
+          "total_ms": -0.0,
+          "mean_ms": 0.0,
+          "latency": null
+        },
+        "total_calls": 200,
+        "total_observed_ms": 905.5426,
+        "mean_observed_ms_per_request": 9.055426
+      }
+    },
+    "fake_profile": {
+      "fake_model": "deterministic-test-fake/performance-baseline-v1",
+      "fixed_delay_ms": 25,
+      "transient_error_every_nth_call": 17,
+      "transient_error_code": "benchmark_transient",
+      "external_credential_required": false,
+      "real_provider_called": false
+    },
+    "fake_model_call_count": 106,
+    "fake_error_distribution": {
+      "benchmark_transient": 6
+    },
+    "fake_provider_latency": {
+      "sample_count": 106,
+      "min_ms": 25.8937,
+      "max_ms": 47.368599999999994,
+      "mean_ms": 36.2401679245283,
+      "p50_ms": 37.013,
+      "p95_ms": 41.966499999999996,
+      "p99_ms": 46.4117
+    },
+    "derived_backend_overhead_observation": {
+      "p50_ms": 52.4252,
+      "p95_ms": 66.6883,
+      "p99_ms": 64.9186,
+      "method": "difference between matching percentile summaries; unpaired, approximate observation, not a causal decomposition"
+    }
+  },
+  "issue_20_decision": {
+    "threshold_predeclared_at_revision": "c1bdf9e6956f1835ea985dfc0e5bcde121db6be9",
+    "outcome": "threshold_not_met",
+    "next_action": "close_issue_20_as_not_planned_with_this_evidence",
+    "triggered": false,
+    "threshold": {
+      "comparison": "same local environment, pool size, concurrency and request count: 1 item vs 2 seeded items",
+      "minimum_p95_increase_ms": 25.0,
+      "minimum_p95_increase_fraction": 0.25,
+      "minimum_p99_increase_ms": 50.0,
+      "minimum_p99_increase_fraction": 0.25,
+      "minimum_added_evidence_ms_per_request": 10.0,
+      "minimum_added_evidence_fraction_of_p95_increase": 0.5
+    },
+    "observed": {
+      "p95_increase_ms": 17.533800000000014,
+      "p99_increase_ms": 1.4339999999999975,
+      "added_evidence_ms_per_request": 7.620085999999999,
+      "added_evidence_fraction_of_p95_increase": 0.43459409825593953,
+      "one_item_evidence_calls_per_request": 2.0,
+      "multi_item_evidence_calls_per_request": 4.0,
+      "both_workloads_succeeded": true,
+      "expected_round_trip_counts_observed": true
+    }
+  }
 }

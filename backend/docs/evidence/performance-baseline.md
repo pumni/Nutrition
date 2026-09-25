@@ -51,6 +51,30 @@ unexpected provider call count makes the result inconclusive and requires a repa
 comparison is valid but any threshold is missed, the next action is to close #20 as `not planned`
 with the report linked.
 
+## Recorded sample
+
+The committed [sample JSON report](performance-baseline-sample.json) was generated from source
+revision `1b09d50e6d813e4aec7cea33b62e613c0c30a5c5`. It records Windows x86_64, Rust 1.97.1,
+PostgreSQL 18.4, 12 logical CPUs, 100 measured requests, concurrency 4, and pool size 8. No host
+name, user identity, local path, credential, or meal text is stored in the report.
+
+| DB workload | Throughput | p50 | p95 | p99 | Evidence time/request | Evidence calls/request |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 seeded item | 70.29 req/s | 50.63 ms | 73.33 ms | 92.95 ms | 8.41 ms | 2 |
+| 2 seeded items | 50.60 req/s | 74.39 ms | 90.87 ms | 94.38 ms | 16.03 ms | 4 |
+
+Both workloads returned 100/100 HTTP 200 responses with no API error codes and the expected
+resolver call counts. Pool size was observed at 7–8 connections for the one-item run and 8 for the
+two-item run. The p95 increase was 17.53 ms, p99 increased 1.43 ms, and evidence-resolution time
+increased 7.62 ms/request. The thresholds require increases of 25 ms p95, 50 ms p99, and
+10 ms/request evidence time for this sample. The comparison is valid and does not trigger #20; the
+next action is to close #20 as `not planned` with this report linked.
+
+For the hosted-parser path, the fake model recorded 106 calls and 6 transient errors for 100 API
+requests; the parser retried those calls and all 100 responses were HTTP 200. Fake-call p95 was
+41.97 ms, while full request p95/p99 were 108.65/111.33 ms. The report labels the derived overhead
+as approximate because provider-call and request samples are unpaired.
+
 ## Run locally
 
 From `backend`, use a disposable local/CI PostgreSQL database. The default runner starts the
