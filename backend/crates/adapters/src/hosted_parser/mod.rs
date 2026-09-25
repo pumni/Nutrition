@@ -178,15 +178,7 @@ impl MealTextParser for HostedMealParser {
                     if error.classification == StructuredModelErrorClassification::Transient
                         && attempt == 0 => {}
                 Ok(Err(error)) => {
-                    return Err(self
-                        .fail(
-                            started,
-                            attempt,
-                            (None, None),
-                            None,
-                            error.code().to_owned(),
-                        )
-                        .await);
+                    return Err(self.fail_model_error(started, attempt, error).await);
                 }
                 Err(_) if attempt == 0 => {}
                 Err(_) => {

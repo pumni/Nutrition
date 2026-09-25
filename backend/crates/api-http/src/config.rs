@@ -2,8 +2,9 @@ use crate::{app::AppState, auth::Authenticator};
 use adapters::{
     APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS, APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD,
     APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES, APPROVED_HOSTED_TIMEOUT_MS, ConfiguredMealParser,
-    FixtureParser, HOSTED_PROMPT_VERSION, HostedMealParser, HostedParserConfig,
-    PARSER_SCHEMA_VERSION, ProviderSelection, StructuredModelProviderRegistry,
+    DEFAULT_HOSTED_MAX_IN_FLIGHT, FixtureParser, HOSTED_PROMPT_VERSION, HostedMealParser,
+    HostedParserConfig, MAXIMUM_HOSTED_MAX_IN_FLIGHT, PARSER_SCHEMA_VERSION, ProviderModelBulkhead,
+    ProviderSelection, StructuredModelProviderRegistry,
 };
 use application::{AnalysisRevisionService, BehaviorVersions, MealAnalysisService};
 use domain::NutrientCode;
@@ -274,6 +275,10 @@ fn configured_parser(
             let provider = required_env("LLM_PROVIDER")?;
             let model = required_env("LLM_MODEL")?;
             let endpoint = required_env("LLM_ENDPOINT")?;
+            let maximum_in_flight = validate_hosted_max_in_flight(environment_number(
+                "LLM_MAX_IN_FLIGHT",
+                DEFAULT_HOSTED_MAX_IN_FLIGHT,
+            )?)?;
             let timeout_ms = environment_number("LLM_TIMEOUT_MS", APPROVED_HOSTED_TIMEOUT_MS)?;
             let maximum_response_bytes = environment_number(
                 "LLM_MAXIMUM_RESPONSE_BYTES",
@@ -306,7 +311,13 @@ fn configured_parser(
             };
             let selection = select_hosted_model(&config)?;
             let model_provider_version = selection.behavior_version();
-            let parser = HostedMealParser::new(config, selection.structured_model())
+            let bulkhead =
+                ProviderModelBulkhead::new(selection, maximum_in_flight).map_err(|_| {
+                    ConfigError::InvalidNumeric {
+                        name: "LLM_MAX_IN_FLIGHT",
+                    }
+                })?;
+            let parser = HostedMealParser::new(config, Arc::new(bulkhead))
                 .map_err(|_| ConfigError::HostedParser)?
                 .with_telemetry(Arc::new(PostgresParserTelemetrySink::new(pool.clone())));
             Ok((
@@ -325,6 +336,16 @@ fn select_hosted_model(config: &HostedParserConfig) -> Result<ProviderSelection,
     StructuredModelProviderRegistry
         .select(config)
         .map_err(|_| ConfigError::HostedParser)
+}
+
+fn validate_hosted_max_in_flight(maximum_in_flight: usize) -> Result<usize, ConfigError> {
+    if (1..=MAXIMUM_HOSTED_MAX_IN_FLIGHT).contains(&maximum_in_flight) {
+        Ok(maximum_in_flight)
+    } else {
+        Err(ConfigError::InvalidNumeric {
+            name: "LLM_MAX_IN_FLIGHT",
+        })
+    }
 }
 
 fn required_env(name: &'static str) -> Result<String, ConfigError> {
@@ -351,8 +372,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        AppEnvironment, ConfigError, configured_cursor_hmac_secret, select_hosted_model,
-        validate_auth_mode, validate_parser_mode,
+        AppEnvironment, ConfigError, MAXIMUM_HOSTED_MAX_IN_FLIGHT, configured_cursor_hmac_secret,
+        select_hosted_model, validate_auth_mode, validate_hosted_max_in_flight,
+        validate_parser_mode,
     };
 
     #[test]
@@ -418,6 +440,27 @@ mod tests {
         assert_eq!(
             selection.behavior_version(),
             format!("{APPROVED_HOSTED_PROVIDER}/{APPROVED_HOSTED_MODEL}")
+        );
+    }
+
+    #[test]
+    fn hosted_model_concurrency_is_bounded_and_configurable() {
+        assert_eq!(validate_hosted_max_in_flight(1), Ok(1));
+        assert_eq!(
+            validate_hosted_max_in_flight(MAXIMUM_HOSTED_MAX_IN_FLIGHT),
+            Ok(MAXIMUM_HOSTED_MAX_IN_FLIGHT)
+        );
+        assert_eq!(
+            validate_hosted_max_in_flight(0),
+            Err(ConfigError::InvalidNumeric {
+                name: "LLM_MAX_IN_FLIGHT"
+            })
+        );
+        assert_eq!(
+            validate_hosted_max_in_flight(MAXIMUM_HOSTED_MAX_IN_FLIGHT + 1),
+            Err(ConfigError::InvalidNumeric {
+                name: "LLM_MAX_IN_FLIGHT"
+            })
         );
     }
 

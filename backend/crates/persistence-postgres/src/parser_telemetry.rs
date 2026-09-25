@@ -94,11 +94,26 @@ impl ParserTelemetrySink for PostgresParserTelemetrySink {
 fn parser_error_class(error_code: &str) -> &'static str {
     match error_code {
         "provider_circuit_open" => "circuit_open",
+        "provider_bulkhead_saturated" => "bulkhead_saturated",
         "provider_timeout" => "timeout",
         "provider_schema_validation_failed" => "schema_validation",
         "provider_usage_invalid" => "usage_invalid",
         "provider_http_4xx" => "provider_client_error",
         "provider_http_5xx" => "provider_server_error",
         _ => "other",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parser_error_class;
+
+    #[test]
+    fn parser_error_classes_are_bounded_and_include_bulkhead_saturation() {
+        assert_eq!(
+            parser_error_class("provider_bulkhead_saturated"),
+            "bulkhead_saturated"
+        );
+        assert_eq!(parser_error_class("arbitrary_provider_text"), "other");
     }
 }
