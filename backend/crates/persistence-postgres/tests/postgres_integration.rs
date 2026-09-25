@@ -56,9 +56,15 @@ async fn contextual_analysis_is_persisted_and_replayed() {
         required_nutrients(),
     );
 
-    let (snapshot, activated_catalog_release_id) =
-        contextual_analysis_after_catalog_activation(&pool, &service, pinned_catalog_release_id)
-            .await;
+    let outcome = execute_contextual_analysis(
+        &service,
+        Some(UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0098)),
+    )
+    .await
+    .expect("PostgreSQL-backed analysis must complete");
+    let AnalysisOutcome::Completed(snapshot) = outcome else {
+        panic!("supported contextual analysis must complete");
+    };
 
     let replayed = repository
         .find(snapshot.analysis_id)
@@ -115,39 +121,59 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     assert_unknown_food_is_not_persisted(&service, &pool).await;
     assert_clarification_revision_flow(&service, &revision_service, &repository).await;
     assert_correction_revision_flow(&revision_service, &repository, &snapshot).await;
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn startup_catalog_release_survives_active_release_change() {
+    let database_url =
+        env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
+    let pool = connect(&database_url, 4)
+        .await
+        .expect("integration database must connect");
+    migrate(&pool)
+        .await
+        .expect("integration migrations must apply");
+    seed_foundation_fixture(&pool)
+        .await
+        .expect("foundation seed must apply idempotently");
+
+    let pinned_catalog_release_id = active_catalog_release_id(&pool)
+        .await
+        .expect("active catalog release must exist");
+    let versions = BehaviorVersions {
+        catalog_release_id: pinned_catalog_release_id,
+        ..BehaviorVersions::default()
+    };
+    let repository = PostgresAnalysisRepository::new(pool.clone());
+    let service = MealAnalysisService::new(
+        FixtureParser,
+        PostgresCatalogEvidenceProvider::new(pool.clone(), pinned_catalog_release_id),
+        PostgresPortionEvidenceProvider::new(pool.clone(), pinned_catalog_release_id),
+        repository.clone(),
+        versions,
+        required_nutrients(),
+    );
+
+    let activated_catalog_release_id =
+        activate_empty_catalog_release_for_pin_regression(&pool, pinned_catalog_release_id).await;
+    assert_ne!(activated_catalog_release_id, pinned_catalog_release_id);
+    assert_eq!(
+        active_catalog_release_id(&pool)
+            .await
+            .expect("next catalog release must become active"),
+        activated_catalog_release_id
+    );
+
+    let outcome = execute_contextual_analysis(&service, None).await;
     restore_active_catalog_release_after_pin_regression(
         &pool,
         pinned_catalog_release_id,
         activated_catalog_release_id,
     )
     .await;
-}
 
-async fn contextual_analysis_after_catalog_activation(
-    pool: &sqlx::PgPool,
-    service: &impl AnalyzeMeal,
-    pinned_catalog_release_id: CatalogReleaseId,
-) -> (AnalysisSnapshot, CatalogReleaseId) {
-    let activated_catalog_release_id =
-        activate_empty_catalog_release_for_pin_regression(pool, pinned_catalog_release_id).await;
-    assert_ne!(activated_catalog_release_id, pinned_catalog_release_id);
-    assert_eq!(
-        active_catalog_release_id(pool)
-            .await
-            .expect("next catalog release must become active"),
-        activated_catalog_release_id
-    );
-
-    let outcome = service
-        .execute(AnalysisRequest {
-            text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
-            locale: "vi-VN".to_owned(),
-            mode: AnalysisMode::Balanced,
-            idempotency: None,
-            owner_id: Some(UserId::from_u128(0x0198_f100_0000_7000_8000_0000_0098)),
-        })
-        .await
-        .expect("PostgreSQL-backed analysis must complete");
+    let outcome = outcome.expect("PostgreSQL-backed analysis must complete");
     let AnalysisOutcome::Completed(snapshot) = outcome else {
         panic!("supported contextual analysis must complete");
     };
@@ -155,7 +181,27 @@ async fn contextual_analysis_after_catalog_activation(
         snapshot.versions.catalog_release_id,
         pinned_catalog_release_id
     );
-    (snapshot, activated_catalog_release_id)
+    let replayed = repository
+        .find(snapshot.analysis_id)
+        .await
+        .expect("snapshot read must succeed")
+        .expect("snapshot must exist");
+    assert_contextual_snapshot(&snapshot, &replayed);
+}
+
+async fn execute_contextual_analysis(
+    service: &impl AnalyzeMeal,
+    owner_id: Option<UserId>,
+) -> Result<AnalysisOutcome, ApplicationError> {
+    service
+        .execute(AnalysisRequest {
+            text: "2 quả trứng gà luộc, 1 bát cơm trắng".to_owned(),
+            locale: "vi-VN".to_owned(),
+            mode: AnalysisMode::Balanced,
+            idempotency: None,
+            owner_id,
+        })
+        .await
 }
 
 async fn activate_empty_catalog_release_for_pin_regression(
