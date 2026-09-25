@@ -24,6 +24,15 @@ Required in every environment:
 - `AUTH_MODE`
 - `PARSER_MODE`
 
+`API_DATABASE_POOL_SIZE` accepts `1..=32`. It defaults to `8` in `local` and `ci`; staging and
+production must set it explicitly.
+
+Treat this value as a database connection budget, not a standalone throughput setting. Across all
+API and worker replicas, the API may open up to
+`API_DATABASE_POOL_SIZE` connections per replica, and each worker uses up to
+`WORKER_DATABASE_POOL_SIZE` connections. Include migration, monitoring, and administrative clients
+in the database limit, and leave capacity for them when choosing replica counts and pool sizes.
+
 `API_CURSOR_HMAC_SECRET` must contain at least 32 bytes in `staging` and `production`; it signs the
 owner/filter-bound analysis listing cursor. Local and CI use a non-deployment-only verification fallback
 when it is omitted.

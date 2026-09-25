@@ -15,6 +15,10 @@ use persistence_postgres::{
 use std::{env, net::SocketAddr, str::FromStr, sync::Arc, time::Duration};
 use thiserror::Error;
 
+const API_DATABASE_POOL_SIZE_DEFAULT: u32 = 8;
+const API_DATABASE_POOL_SIZE_MINIMUM: u32 = 1;
+const API_DATABASE_POOL_SIZE_MAXIMUM: u32 = 32;
+
 #[derive(Debug, Error, Eq, PartialEq)]
 pub enum ConfigError {
     #[error("{name} is required")]
@@ -31,6 +35,12 @@ pub enum ConfigError {
     InvalidSecretLength { name: &'static str },
     #[error("{name} must be a valid number")]
     InvalidNumeric { name: &'static str },
+    #[error("{name} must be between {minimum} and {maximum}")]
+    InvalidNumericBounds {
+        name: &'static str,
+        minimum: u32,
+        maximum: u32,
+    },
     #[error("hosted parser configuration is invalid")]
     HostedParser,
 }
@@ -95,6 +105,7 @@ impl AppEnvironment {
 /// to, or no active catalog release is available.
 pub async fn build() -> Result<(SocketAddr, AppState), StartupError> {
     let environment = AppEnvironment::from_env()?;
+    let database_pool_size = api_database_pool_size(environment)?;
     let auth_mode = required_env("AUTH_MODE")?;
     validate_auth_mode(environment, &auth_mode)?;
     let authenticator = Authenticator::from_env(&auth_mode)
@@ -125,7 +136,7 @@ pub async fn build() -> Result<(SocketAddr, AppState), StartupError> {
             name: "APP_BIND_ADDR",
         })?;
     let database_url = required_env("DATABASE_URL")?;
-    let pool = persistence_postgres::connect(&database_url, 8)
+    let pool = persistence_postgres::connect(&database_url, database_pool_size)
         .await
         .map_err(|_| StartupError::DatabaseConnection)?;
     let cursor_hmac_secret = configured_cursor_hmac_secret(environment)?;
@@ -356,6 +367,43 @@ fn required_env(name: &'static str) -> Result<String, ConfigError> {
     }
 }
 
+fn api_database_pool_size(environment: AppEnvironment) -> Result<u32, ConfigError> {
+    match env::var("API_DATABASE_POOL_SIZE") {
+        Ok(value) => configured_database_pool_size(environment, Some(&value)),
+        Err(env::VarError::NotPresent) => configured_database_pool_size(environment, None),
+        Err(env::VarError::NotUnicode(_)) => Err(ConfigError::InvalidUnicode {
+            name: "API_DATABASE_POOL_SIZE",
+        }),
+    }
+}
+
+fn configured_database_pool_size(
+    environment: AppEnvironment,
+    value: Option<&str>,
+) -> Result<u32, ConfigError> {
+    let size = match value {
+        Some(value) => value.parse().map_err(|_| ConfigError::InvalidNumeric {
+            name: "API_DATABASE_POOL_SIZE",
+        })?,
+        None if environment.allows_development_adapters() => API_DATABASE_POOL_SIZE_DEFAULT,
+        None => {
+            return Err(ConfigError::MissingEnvironment {
+                name: "API_DATABASE_POOL_SIZE",
+            });
+        }
+    };
+
+    if (API_DATABASE_POOL_SIZE_MINIMUM..=API_DATABASE_POOL_SIZE_MAXIMUM).contains(&size) {
+        Ok(size)
+    } else {
+        Err(ConfigError::InvalidNumericBounds {
+            name: "API_DATABASE_POOL_SIZE",
+            minimum: API_DATABASE_POOL_SIZE_MINIMUM,
+            maximum: API_DATABASE_POOL_SIZE_MAXIMUM,
+        })
+    }
+}
+
 fn environment_number<T>(name: &'static str, default: T) -> Result<T, ConfigError>
 where
     T: FromStr + Copy,
@@ -372,9 +420,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        AppEnvironment, ConfigError, MAXIMUM_HOSTED_MAX_IN_FLIGHT, configured_cursor_hmac_secret,
-        select_hosted_model, validate_auth_mode, validate_hosted_max_in_flight,
-        validate_parser_mode,
+        API_DATABASE_POOL_SIZE_DEFAULT, API_DATABASE_POOL_SIZE_MAXIMUM,
+        API_DATABASE_POOL_SIZE_MINIMUM, AppEnvironment, ConfigError, MAXIMUM_HOSTED_MAX_IN_FLIGHT,
+        configured_cursor_hmac_secret, configured_database_pool_size, select_hosted_model,
+        validate_auth_mode, validate_hosted_max_in_flight, validate_parser_mode,
     };
 
     #[test]
@@ -412,6 +461,58 @@ mod tests {
         assert!(validate_parser_mode(AppEnvironment::Production, "fixture").is_err());
         assert!(validate_parser_mode(AppEnvironment::Staging, "hosted").is_ok());
         assert!(validate_parser_mode(AppEnvironment::Production, "hosted").is_ok());
+    }
+
+    #[test]
+    fn api_database_pool_size_defaults_only_in_local_and_ci() {
+        assert_eq!(
+            configured_database_pool_size(AppEnvironment::Local, None),
+            Ok(API_DATABASE_POOL_SIZE_DEFAULT)
+        );
+        assert_eq!(
+            configured_database_pool_size(AppEnvironment::Ci, None),
+            Ok(API_DATABASE_POOL_SIZE_DEFAULT)
+        );
+        for environment in [AppEnvironment::Staging, AppEnvironment::Production] {
+            assert_eq!(
+                configured_database_pool_size(environment, None),
+                Err(ConfigError::MissingEnvironment {
+                    name: "API_DATABASE_POOL_SIZE"
+                })
+            );
+            assert_eq!(
+                configured_database_pool_size(environment, Some("8")),
+                Ok(API_DATABASE_POOL_SIZE_DEFAULT)
+            );
+        }
+    }
+
+    #[test]
+    fn api_database_pool_size_is_bounded_and_rejects_malformed_values() {
+        assert_eq!(
+            configured_database_pool_size(AppEnvironment::Ci, Some("1")),
+            Ok(API_DATABASE_POOL_SIZE_MINIMUM)
+        );
+        assert_eq!(
+            configured_database_pool_size(AppEnvironment::Ci, Some("32")),
+            Ok(API_DATABASE_POOL_SIZE_MAXIMUM)
+        );
+        for value in ["0", "33"] {
+            assert_eq!(
+                configured_database_pool_size(AppEnvironment::Ci, Some(value)),
+                Err(ConfigError::InvalidNumericBounds {
+                    name: "API_DATABASE_POOL_SIZE",
+                    minimum: API_DATABASE_POOL_SIZE_MINIMUM,
+                    maximum: API_DATABASE_POOL_SIZE_MAXIMUM,
+                })
+            );
+        }
+        assert_eq!(
+            configured_database_pool_size(AppEnvironment::Ci, Some("not-a-number")),
+            Err(ConfigError::InvalidNumeric {
+                name: "API_DATABASE_POOL_SIZE"
+            })
+        );
     }
 
     #[test]
