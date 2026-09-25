@@ -56,7 +56,7 @@ async fn contextual_analysis_is_persisted_and_replayed() {
         required_nutrients(),
     );
 
-    let snapshot =
+    let (snapshot, activated_catalog_release_id) =
         contextual_analysis_after_catalog_activation(&pool, &service, pinned_catalog_release_id)
             .await;
 
@@ -115,13 +115,19 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     assert_unknown_food_is_not_persisted(&service, &pool).await;
     assert_clarification_revision_flow(&service, &revision_service, &repository).await;
     assert_correction_revision_flow(&revision_service, &repository, &snapshot).await;
+    restore_active_catalog_release_after_pin_regression(
+        &pool,
+        pinned_catalog_release_id,
+        activated_catalog_release_id,
+    )
+    .await;
 }
 
 async fn contextual_analysis_after_catalog_activation(
     pool: &sqlx::PgPool,
     service: &impl AnalyzeMeal,
     pinned_catalog_release_id: CatalogReleaseId,
-) -> AnalysisSnapshot {
+) -> (AnalysisSnapshot, CatalogReleaseId) {
     let activated_catalog_release_id =
         activate_empty_catalog_release_for_pin_regression(pool, pinned_catalog_release_id).await;
     assert_ne!(activated_catalog_release_id, pinned_catalog_release_id);
@@ -149,13 +155,7 @@ async fn contextual_analysis_after_catalog_activation(
         snapshot.versions.catalog_release_id,
         pinned_catalog_release_id
     );
-    restore_active_catalog_release_after_pin_regression(
-        pool,
-        pinned_catalog_release_id,
-        activated_catalog_release_id,
-    )
-    .await;
-    snapshot
+    (snapshot, activated_catalog_release_id)
 }
 
 async fn activate_empty_catalog_release_for_pin_regression(
