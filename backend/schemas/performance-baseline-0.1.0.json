@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "performance-baseline-0.1.0",
+  "title": "Local performance baseline evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope",
+    "percentile_definition",
+    "environment",
+    "db_oriented_api",
+    "hosted_parser_analysis",
+    "issue_20_decision"
+  ],
+  "properties": {
+    "schema_version": { "const": "performance-baseline-0.1.0" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "percentile_definition": { "type": "string", "minLength": 1 },
+    "environment": { "$ref": "#/$defs/environment" },
+    "db_oriented_api": { "$ref": "#/$defs/dbOrientedApi" },
+    "hosted_parser_analysis": { "$ref": "#/$defs/hostedParserAnalysis" },
+    "issue_20_decision": { "$ref": "#/$defs/issue20Decision" }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_ci_evidence_only",
+        "production_credentials_used",
+        "real_hosted_provider_called",
+        "production_slo",
+        "production_capacity_claim"
+      ],
+      "properties": {
+        "local_ci_evidence_only": { "const": true },
+        "production_credentials_used": { "const": false },
+        "real_hosted_provider_called": { "const": false },
+        "production_slo": { "const": false },
+        "production_capacity_claim": { "const": false }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_revision",
+        "operating_system",
+        "architecture",
+        "rustc_version",
+        "build_profile",
+        "logical_cpu_count",
+        "postgresql_server_version",
+        "dataset"
+      ],
+      "properties": {
+        "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "operating_system": { "type": "string", "minLength": 1 },
+        "architecture": { "type": "string", "minLength": 1 },
+        "rustc_version": { "type": "string", "minLength": 1 },
+        "build_profile": { "type": "string", "minLength": 1 },
+        "logical_cpu_count": { "type": ["integer", "null"], "minimum": 1 },
+        "postgresql_server_version": { "type": "string", "minLength": 1 },
+        "dataset": { "type": "string", "minLength": 1 }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario",
+        "operation",
+        "request_count",
+        "warmup_request_count",
+        "concurrency",
+        "elapsed_ms",
+        "throughput_requests_per_second",
+        "latency",
+        "status_distribution",
+        "error_code_distribution"
+      ],
+      "properties": {
+        "scenario": { "type": "string", "minLength": 1 },
+        "operation": { "type": "string", "minLength": 1 },
+        "request_count": { "type": "integer", "minimum": 1 },
+        "warmup_request_count": { "type": "integer", "minimum": 0 },
+        "concurrency": { "type": "integer", "minimum": 1 },
+        "elapsed_ms": { "type": "number", "exclusiveMinimum": 0 },
+        "throughput_requests_per_second": { "type": "number", "exclusiveMinimum": 0 },
+        "latency": { "$ref": "#/$defs/latency" },
+        "status_distribution": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "error_code_distribution": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z0-9_]{1,64}$" },
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "latency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_count", "min_ms", "max_ms", "mean_ms", "p50_ms", "p95_ms", "p99_ms"],
+      "properties": {
+        "sample_count": { "type": "integer", "minimum": 1 },
+        "min_ms": { "type": "number", "minimum": 0 },
+        "max_ms": { "type": "number", "minimum": 0 },
+        "mean_ms": { "type": "number", "minimum": 0 },
+        "p50_ms": { "type": "number", "minimum": 0 },
+        "p95_ms": { "type": "number", "minimum": 0 },
+        "p99_ms": { "type": "number", "minimum": 0 }
+      }
+    },
+    "poolSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "idle"],
+      "properties": {
+        "size": { "type": "integer", "minimum": 0 },
+        "idle": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "poolRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_count", "minimum_size", "maximum_size", "minimum_idle", "maximum_idle"],
+      "properties": {
+        "observation_count": { "type": "integer", "minimum": 0 },
+        "minimum_size": { "type": "integer", "minimum": 0 },
+        "maximum_size": { "type": "integer", "minimum": 0 },
+        "minimum_idle": { "type": "integer", "minimum": 0 },
+        "maximum_idle": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "operationTiming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["calls", "total_ms", "mean_ms", "latency"],
+      "properties": {
+        "calls": { "type": "integer", "minimum": 0 },
+        "total_ms": { "type": "number", "minimum": 0 },
+        "mean_ms": { "type": "number", "minimum": 0 },
+        "latency": { "oneOf": [{ "$ref": "#/$defs/latency" }, { "type": "null" }] }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["configured_max_connections", "pool_before", "pool_during", "pool_after", "evidence_resolution"],
+      "properties": {
+        "configured_max_connections": { "type": "integer", "minimum": 1 },
+        "pool_before": { "$ref": "#/$defs/poolSnapshot" },
+        "pool_during": { "$ref": "#/$defs/poolRange" },
+        "pool_after": { "$ref": "#/$defs/poolSnapshot" },
+        "evidence_resolution": { "$ref": "#/$defs/evidenceResolution" }
+      }
+    },
+    "evidenceResolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["food", "portion", "portion_suggestions", "total_calls", "total_observed_ms", "mean_observed_ms_per_request"],
+      "properties": {
+        "food": { "$ref": "#/$defs/operationTiming" },
+        "portion": { "$ref": "#/$defs/operationTiming" },
+        "portion_suggestions": { "$ref": "#/$defs/operationTiming" },
+        "total_calls": { "type": "integer", "minimum": 0 },
+        "total_observed_ms": { "type": "number", "minimum": 0 },
+        "mean_observed_ms_per_request": { "type": "number", "minimum": 0 }
+      }
+    },
+    "dbScenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_count", "workload", "database"],
+      "properties": {
+        "item_count": { "type": "integer", "minimum": 1 },
+        "workload": { "$ref": "#/$defs/workload" },
+        "database": { "$ref": "#/$defs/database" }
+      }
+    },
+    "dbOrientedApi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_path", "parser", "scenarios"],
+      "properties": {
+        "request_path": { "type": "string", "minLength": 1 },
+        "parser": { "type": "string", "minLength": 1 },
+        "scenarios": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/dbScenario" }
+        }
+      }
+    },
+    "fakeProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fake_model", "fixed_delay_ms", "transient_error_every_nth_call", "transient_error_code", "external_credential_required", "real_provider_called"],
+      "properties": {
+        "fake_model": { "type": "string", "minLength": 1 },
+        "fixed_delay_ms": { "type": "integer", "minimum": 0 },
+        "transient_error_every_nth_call": { "type": "integer", "minimum": 1 },
+        "transient_error_code": { "type": "string", "pattern": "^[a-z0-9_]{1,64}$" },
+        "external_credential_required": { "const": false },
+        "real_provider_called": { "const": false }
+      }
+    },
+    "derivedBackendOverhead": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p50_ms", "p95_ms", "p99_ms", "method"],
+      "properties": {
+        "p50_ms": { "type": "number" },
+        "p95_ms": { "type": "number" },
+        "p99_ms": { "type": "number" },
+        "method": { "type": "string", "minLength": 1 }
+      }
+    },
+    "hostedParserAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_path", "parser", "workload", "database", "fake_profile", "fake_model_call_count", "fake_provider_latency", "derived_backend_overhead_observation"],
+      "properties": {
+        "request_path": { "type": "string", "minLength": 1 },
+        "parser": { "type": "string", "minLength": 1 },
+        "workload": { "$ref": "#/$defs/workload" },
+        "database": { "$ref": "#/$defs/database" },
+        "fake_profile": { "$ref": "#/$defs/fakeProfile" },
+        "fake_model_call_count": { "type": "integer", "minimum": 1 },
+        "fake_provider_latency": { "$ref": "#/$defs/latency" },
+        "derived_backend_overhead_observation": { "$ref": "#/$defs/derivedBackendOverhead" }
+      }
+    },
+    "issue20Threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["comparison", "minimum_p95_increase_ms", "minimum_p95_increase_fraction", "minimum_p99_increase_ms", "minimum_p99_increase_fraction", "minimum_added_evidence_ms_per_request", "minimum_added_evidence_fraction_of_p95_increase"],
+      "properties": {
+        "comparison": { "type": "string", "minLength": 1 },
+        "minimum_p95_increase_ms": { "type": "number", "minimum": 0 },
+        "minimum_p95_increase_fraction": { "type": "number", "minimum": 0 },
+        "minimum_p99_increase_ms": { "type": "number", "minimum": 0 },
+        "minimum_p99_increase_fraction": { "type": "number", "minimum": 0 },
+        "minimum_added_evidence_ms_per_request": { "type": "number", "minimum": 0 },
+        "minimum_added_evidence_fraction_of_p95_increase": { "type": "number", "minimum": 0 }
+      }
+    },
+    "issue20Measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p95_increase_ms", "p99_increase_ms", "added_evidence_ms_per_request", "added_evidence_fraction_of_p95_increase", "one_item_evidence_calls_per_request", "multi_item_evidence_calls_per_request", "both_workloads_succeeded", "expected_round_trip_counts_observed"],
+      "properties": {
+        "p95_increase_ms": { "type": "number" },
+        "p99_increase_ms": { "type": "number" },
+        "added_evidence_ms_per_request": { "type": "number" },
+        "added_evidence_fraction_of_p95_increase": { "type": "number" },
+        "one_item_evidence_calls_per_request": { "type": "number", "minimum": 0 },
+        "multi_item_evidence_calls_per_request": { "type": "number", "minimum": 0 },
+        "both_workloads_succeeded": { "type": "boolean" },
+        "expected_round_trip_counts_observed": { "type": "boolean" }
+      }
+    },
+    "issue20Decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold_predeclared_at_revision", "outcome", "next_action", "triggered", "threshold", "observed"],
+      "properties": {
+        "threshold_predeclared_at_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "outcome": { "enum": ["inconclusive", "threshold_triggered", "threshold_not_met"] },
+        "next_action": { "enum": ["repair_or_rerun_baseline_before_deciding_issue_20", "investigate_issue_20_without_authorizing_implementation", "close_issue_20_as_not_planned_with_this_evidence"] },
+        "triggered": { "type": "boolean" },
+        "threshold": { "$ref": "#/$defs/issue20Threshold" },
+        "observed": { "$ref": "#/$defs/issue20Measurements" }
+      }
+    }
+  }
+}
