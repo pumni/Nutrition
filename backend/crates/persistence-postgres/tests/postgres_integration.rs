@@ -149,6 +149,12 @@ async fn contextual_analysis_after_catalog_activation(
         snapshot.versions.catalog_release_id,
         pinned_catalog_release_id
     );
+    restore_active_catalog_release_after_pin_regression(
+        pool,
+        pinned_catalog_release_id,
+        activated_catalog_release_id,
+    )
+    .await;
     snapshot
 }
 
@@ -202,6 +208,80 @@ async fn activate_empty_catalog_release_for_pin_regression(
         .await
         .expect("catalog release activation must commit");
     CatalogReleaseId::from_uuid(next_release_id)
+}
+
+async fn restore_active_catalog_release_after_pin_regression(
+    pool: &sqlx::PgPool,
+    evidence_release_id: CatalogReleaseId,
+    active_test_release_id: CatalogReleaseId,
+) {
+    let restored_release_id = uuid::Uuid::now_v7();
+    let mut transaction = pool
+        .begin()
+        .await
+        .expect("catalog release cleanup transaction must begin");
+    let restored = sqlx::query(
+        "INSERT INTO catalog.catalog_release
+            (id, version, status, manifest, checksum_sha256, created_by)
+         SELECT $1, $2, 'staged', manifest, checksum_sha256, created_by
+           FROM catalog.catalog_release
+          WHERE id = $3",
+    )
+    .bind(restored_release_id)
+    .bind(format!(
+        "issue-12-pin-regression-restore-{restored_release_id}"
+    ))
+    .bind(evidence_release_id.as_uuid())
+    .execute(&mut *transaction)
+    .await
+    .expect("restoration release must be staged");
+    assert_eq!(restored.rows_affected(), 1);
+
+    for statement in [
+        "INSERT INTO catalog.catalog_release_food_name (catalog_release_id, food_name_id)
+         SELECT $1, food_name_id FROM catalog.catalog_release_food_name WHERE catalog_release_id = $2",
+        "INSERT INTO catalog.catalog_release_profile (catalog_release_id, profile_id)
+         SELECT $1, profile_id FROM catalog.catalog_release_profile WHERE catalog_release_id = $2",
+        "INSERT INTO catalog.catalog_release_portion_observation (catalog_release_id, portion_observation_id)
+         SELECT $1, portion_observation_id FROM catalog.catalog_release_portion_observation WHERE catalog_release_id = $2",
+    ] {
+        sqlx::query(statement)
+            .bind(restored_release_id)
+            .bind(evidence_release_id.as_uuid())
+            .execute(&mut *transaction)
+            .await
+            .expect("restoration release membership must be copied");
+    }
+
+    sqlx::query(
+        "UPDATE catalog.catalog_release
+            SET status = 'superseded'
+          WHERE id = $1 AND status = 'active'",
+    )
+    .bind(active_test_release_id.as_uuid())
+    .execute(&mut *transaction)
+    .await
+    .expect("empty test release must be superseded");
+    sqlx::query(
+        "UPDATE catalog.catalog_release
+            SET status = 'active', activated_at = now()
+          WHERE id = $1 AND status = 'staged'",
+    )
+    .bind(restored_release_id)
+    .execute(&mut *transaction)
+    .await
+    .expect("restoration release must become active");
+    transaction
+        .commit()
+        .await
+        .expect("catalog release cleanup must commit");
+
+    assert_eq!(
+        active_catalog_release_id(pool)
+            .await
+            .expect("restoration release must be active"),
+        CatalogReleaseId::from_uuid(restored_release_id)
+    );
 }
 
 #[tokio::test]
