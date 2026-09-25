@@ -6,3 +6,6 @@ pub mod config;
 mod handlers;
 mod observability;
 pub mod router;
+
+#[cfg(test)]
+mod performance_baseline;

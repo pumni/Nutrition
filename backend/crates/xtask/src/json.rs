@@ -3,6 +3,7 @@ use std::{error::Error, fs, path::Path};
 
 const ARTIFACTS: &[&str] = &[
     "schemas/parsed-meal-0.1.0.json",
+    "schemas/performance-baseline-0.1.0.json",
     "schemas/vietnamese-meal-bench-annotation-0.1.0.json",
     "schemas/vietnamese-meal-bench-prediction-0.1.0.json",
     "fixtures/vietnamese-meal-bench/manifest.json",
