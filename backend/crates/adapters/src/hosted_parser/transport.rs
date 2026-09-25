@@ -1,4 +1,4 @@
-//! Bounded HTTPS transport for the current OpenAI mapping; parser retry and circuit policy stay
+//! Bounded HTTPS transport for the current `OpenAI` mapping; parser retry and circuit policy stay
 //! in the hosted parser facade.
 
 #![allow(clippy::wildcard_imports)]
