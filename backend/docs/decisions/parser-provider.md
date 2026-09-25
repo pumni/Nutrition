@@ -19,9 +19,9 @@ benchmark evidence, and owner approval.
 The application remains provider-neutral. Inside `crates/adapters`, the parser owns prompt
 semantics, the strict output schema and its schema/semantic validation, grounding, repair policy,
 privacy, and content-free parser telemetry. Provider implementations map the neutral structured
-request/response and classified errors to their protocol, and enforce transport bounds. The current
-OpenAI Responses mapping remains behind that SPI. Production requires the separately approved
-provider privacy/retention gate.
+request/response and classified errors to their protocol, and enforce transport bounds. The concrete
+`OpenAiResponsesProvider` owns the current OpenAI Responses wire mapping and bounded HTTPS client
+behind that SPI. Production requires the separately approved provider privacy/retention gate.
 
 ## Evidence / affected paths
 

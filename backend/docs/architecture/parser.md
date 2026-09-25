@@ -16,9 +16,10 @@ JSON value and bounded token-usage metadata; failures carry a transient/permanen
 a content-free code. The SPI contains no provider SDK or wire types.
 
 The parser owns prompt semantics, schema definition and validation, nutrition-specific semantic
-validation, grounding, repair policy, privacy, and parser telemetry. A provider implementation owns
-mapping the neutral request and response to its protocol and enforcing transport bounds. The current
-approved v1 implementation maps the SPI to the OpenAI Responses API at
+validation, grounding, repair policy, privacy, timeout/retry/circuit policy, and parser telemetry.
+A provider implementation owns mapping the neutral request and response to its protocol, HTTP status
+classification, credential headers, redirect policy, and response-size bounds. The concrete
+`OpenAiResponsesProvider` maps the SPI to the OpenAI Responses API at
 `https://api.openai.com/v1/responses` using provider `openai` and model `gpt-5.6-luna`. It must not
 fall back to another provider or model.
 
