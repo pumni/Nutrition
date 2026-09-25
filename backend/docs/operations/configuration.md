@@ -47,10 +47,15 @@ The adapter discovers JWKS from the configured issuer, accepts `RS256` only, req
 
 `PARSER_MODE=hosted` requires:
 
-- `LLM_ENDPOINT=https://api.openai.com/v1/responses`
+- `LLM_PROVIDER=openai`, resolved against the installed server-side provider registry;
+- `LLM_MODEL=gpt-5.6-luna`, supported by that provider;
+- `LLM_ENDPOINT=https://api.openai.com/v1/responses`;
 - `LLM_API_KEY`
-- `LLM_PROVIDER=openai`
-- `LLM_MODEL=gpt-5.6-luna`
+
+Unknown providers, unsupported models, missing secrets, and endpoints that do not match the
+installed provider fail startup. Provider selection is server-side and static for the process;
+provider secrets are supplied separately and are not stored in registry metadata. The resolved
+provider/model pair is recorded in analysis behavior metadata.
 
 The owner-approved hosted parser bounds are fixed and any supplied override must match:
 
@@ -59,8 +64,9 @@ The owner-approved hosted parser bounds are fixed and any supplied override must
 - `LLM_CIRCUIT_FAILURE_THRESHOLD=5`
 - `LLM_CIRCUIT_COOLDOWN_SECONDS=30`
 
-The hosted request is mapped to the OpenAI Responses API with `store=false`, strict
-`parsed-meal-0.1.0` JSON Schema output, and no provider/model fallback. Production hosted parsing
+The installed registry currently contains the OpenAI Responses provider. The hosted request is
+mapped to that API with `store=false`, strict `parsed-meal-0.1.0` JSON Schema output, and no
+provider/model fallback. Production hosted parsing
 remains blocked until the provider retention/privacy gate, Vietnamese benchmark gate, and final
 release gate are closed. Staging must use benchmark, synthetic, or explicitly approved test text.
 

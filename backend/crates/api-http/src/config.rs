@@ -1,9 +1,9 @@
 use crate::{app::AppState, auth::Authenticator};
 use adapters::{
     APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS, APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD,
-    APPROVED_HOSTED_ENDPOINT, APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES, APPROVED_HOSTED_MODEL,
-    APPROVED_HOSTED_PROVIDER, APPROVED_HOSTED_TIMEOUT_MS, ConfiguredMealParser, FixtureParser,
-    HOSTED_PROMPT_VERSION, HostedMealParser, HostedParserConfig, PARSER_SCHEMA_VERSION,
+    APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES, APPROVED_HOSTED_TIMEOUT_MS, ConfiguredMealParser,
+    FixtureParser, HOSTED_PROMPT_VERSION, HostedMealParser, HostedParserConfig,
+    PARSER_SCHEMA_VERSION, ProviderSelection, StructuredModelProviderRegistry,
 };
 use application::{AnalysisRevisionService, BehaviorVersions, MealAnalysisService};
 use domain::NutrientCode;
@@ -274,12 +274,6 @@ fn configured_parser(
             let provider = required_env("LLM_PROVIDER")?;
             let model = required_env("LLM_MODEL")?;
             let endpoint = required_env("LLM_ENDPOINT")?;
-            if provider != APPROVED_HOSTED_PROVIDER
-                || model != APPROVED_HOSTED_MODEL
-                || endpoint != APPROVED_HOSTED_ENDPOINT
-            {
-                return Err(ConfigError::HostedParser);
-            }
             let timeout_ms = environment_number("LLM_TIMEOUT_MS", APPROVED_HOSTED_TIMEOUT_MS)?;
             let maximum_response_bytes = environment_number(
                 "LLM_MAXIMUM_RESPONSE_BYTES",
@@ -310,19 +304,27 @@ fn configured_parser(
                 circuit_failure_threshold,
                 circuit_cooldown: Duration::from_secs(circuit_cooldown_seconds),
             };
-            let parser = HostedMealParser::with_reqwest(config)
+            let selection = select_hosted_model(&config)?;
+            let model_provider_version = selection.behavior_version();
+            let parser = HostedMealParser::new(config, selection.structured_model())
                 .map_err(|_| ConfigError::HostedParser)?
                 .with_telemetry(Arc::new(PostgresParserTelemetrySink::new(pool.clone())));
             Ok((
                 ConfiguredMealParser::Hosted(Box::new(parser)),
                 HOSTED_PROMPT_VERSION.to_owned(),
-                format!("{provider}/{model}"),
+                model_provider_version,
             ))
         }
         _ => Err(ConfigError::InvalidConfiguration {
             name: "PARSER_MODE",
         }),
     }
+}
+
+fn select_hosted_model(config: &HostedParserConfig) -> Result<ProviderSelection, ConfigError> {
+    StructuredModelProviderRegistry
+        .select(config)
+        .map_err(|_| ConfigError::HostedParser)
 }
 
 fn required_env(name: &'static str) -> Result<String, ConfigError> {
@@ -349,8 +351,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        AppEnvironment, ConfigError, configured_cursor_hmac_secret, validate_auth_mode,
-        validate_parser_mode,
+        AppEnvironment, ConfigError, configured_cursor_hmac_secret, select_hosted_model,
+        validate_auth_mode, validate_parser_mode,
     };
 
     #[test]
@@ -386,7 +388,37 @@ mod tests {
         assert!(validate_parser_mode(AppEnvironment::Ci, "fixture").is_ok());
         assert!(validate_parser_mode(AppEnvironment::Staging, "fixture").is_err());
         assert!(validate_parser_mode(AppEnvironment::Production, "fixture").is_err());
+        assert!(validate_parser_mode(AppEnvironment::Staging, "hosted").is_ok());
         assert!(validate_parser_mode(AppEnvironment::Production, "hosted").is_ok());
+    }
+
+    #[test]
+    fn behavior_model_version_comes_from_resolved_registry_selection() {
+        use adapters::{
+            APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS, APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD,
+            APPROVED_HOSTED_ENDPOINT, APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES,
+            APPROVED_HOSTED_MODEL, APPROVED_HOSTED_PROVIDER, APPROVED_HOSTED_TIMEOUT_MS,
+            HostedParserConfig,
+        };
+        use std::time::Duration;
+
+        let config = HostedParserConfig {
+            endpoint: APPROVED_HOSTED_ENDPOINT.to_owned(),
+            api_key: "unit-test-secret".to_owned(),
+            provider: APPROVED_HOSTED_PROVIDER.to_owned(),
+            model: APPROVED_HOSTED_MODEL.to_owned(),
+            timeout: Duration::from_millis(APPROVED_HOSTED_TIMEOUT_MS),
+            maximum_response_bytes: APPROVED_HOSTED_MAXIMUM_RESPONSE_BYTES,
+            circuit_failure_threshold: APPROVED_HOSTED_CIRCUIT_FAILURE_THRESHOLD,
+            circuit_cooldown: Duration::from_secs(APPROVED_HOSTED_CIRCUIT_COOLDOWN_SECONDS),
+        };
+
+        let selection = select_hosted_model(&config).expect("installed provider is selectable");
+
+        assert_eq!(
+            selection.behavior_version(),
+            format!("{APPROVED_HOSTED_PROVIDER}/{APPROVED_HOSTED_MODEL}")
+        );
     }
 
     #[test]

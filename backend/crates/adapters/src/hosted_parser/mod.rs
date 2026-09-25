@@ -74,16 +74,6 @@ impl HostedMealParser {
         })
     }
 
-    /// Creates a hosted parser using the concrete `OpenAI` Responses provider over bounded HTTPS.
-    ///
-    /// # Errors
-    ///
-    /// Returns `InvalidInput` when configuration or client construction fails.
-    pub fn with_reqwest(config: HostedParserConfig) -> Result<Self, ApplicationError> {
-        let model = Arc::new(OpenAiResponsesProvider::new(&config)?);
-        Self::new(config, model)
-    }
-
     #[must_use]
     pub fn with_telemetry(mut self, telemetry: Arc<dyn ParserTelemetrySink>) -> Self {
         self.telemetry = telemetry;

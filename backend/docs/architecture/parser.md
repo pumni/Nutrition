@@ -23,6 +23,11 @@ classification, credential headers, redirect policy, and response-size bounds. T
 `https://api.openai.com/v1/responses` using provider `openai` and model `gpt-5.6-luna`. It must not
 fall back to another provider or model.
 
+At startup, API composition resolves server-side provider and model settings through the static
+`StructuredModelProviderRegistry`. It rejects uninstalled providers, unsupported models, missing
+secrets, and endpoints outside the installed provider definition. The resolved provider/model pair
+also supplies the behavior metadata; clients cannot select it.
+
 ## Request envelope
 
 The parser passes a structured-generation request containing:
