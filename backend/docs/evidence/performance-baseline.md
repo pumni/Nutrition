@@ -21,9 +21,9 @@ The hosted-parser path uses `HostedMealParser` with the existing provider-neutra
 returns a transient `benchmark_transient` error on every 17th call; the parser's bounded retry may
 therefore add a second fake call. The endpoint is `.invalid`, and its placeholder key is never used
 for a network request. No `LLM_API_KEY` or other external credential is read. The report gives
-measured fake-call latency and total API latency separately. Backend-overhead percentiles are the
-difference between matching percentile summaries; because those samples are unpaired, this is an
-approximate observation rather than a causal decomposition.
+measured fake-call latency, fake-provider error counts, and total API latency separately.
+Backend-overhead percentiles are the difference between matching percentile summaries; because
+those samples are unpaired, this is an approximate observation rather than a causal decomposition.
 
 Request latency percentiles use nearest rank: sort samples ascending, calculate the one-based rank
 `ceil(percent × sample_count)`, and select that rank. The report contract is

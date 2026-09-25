@@ -222,7 +222,7 @@
     "hostedParserAnalysis": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["request_path", "parser", "workload", "database", "fake_profile", "fake_model_call_count", "fake_provider_latency", "derived_backend_overhead_observation"],
+      "required": ["request_path", "parser", "workload", "database", "fake_profile", "fake_model_call_count", "fake_error_distribution", "fake_provider_latency", "derived_backend_overhead_observation"],
       "properties": {
         "request_path": { "type": "string", "minLength": 1 },
         "parser": { "type": "string", "minLength": 1 },
@@ -230,6 +230,11 @@
         "database": { "$ref": "#/$defs/database" },
         "fake_profile": { "$ref": "#/$defs/fakeProfile" },
         "fake_model_call_count": { "type": "integer", "minimum": 1 },
+        "fake_error_distribution": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z0-9_]{1,64}$" },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
         "fake_provider_latency": { "$ref": "#/$defs/latency" },
         "derived_backend_overhead_observation": { "$ref": "#/$defs/derivedBackendOverhead" }
       }

@@ -47,6 +47,7 @@ use uuid::Uuid;
 
 const REPORT_SCHEMA_VERSION: &str = "performance-baseline-0.1.0";
 const API_DATABASE_POOL_SIZE: u32 = 8;
+const ISSUE_20_THRESHOLD_PREDECLARED_AT_REVISION: &str = "c1bdf9e6956f1835ea985dfc0e5bcde121db6be9";
 const DB_SINGLE_ITEM_TEXT: &str = "2 quả trứng gà luộc";
 const DB_MULTI_ITEM_TEXT: &str = "2 quả trứng gà luộc, 1 bát cơm trắng";
 const HOSTED_FAKE_TEXT: &str = "2 quả trứng gà luộc";
@@ -185,6 +186,7 @@ struct HostedParserReport {
     database: DatabaseReport,
     fake_profile: FakeProfileReport,
     fake_model_call_count: usize,
+    fake_error_distribution: BTreeMap<String, usize>,
     fake_provider_latency: LatencyDistribution,
     derived_backend_overhead_observation: DerivedOverheadReport,
 }
@@ -256,6 +258,7 @@ struct FakeProfile {
 struct DeterministicStructuredModel {
     profile: FakeProfile,
     calls: AtomicUsize,
+    failures: AtomicUsize,
     observed_latency_ms: Mutex<Vec<f64>>,
 }
 
@@ -264,12 +267,14 @@ impl DeterministicStructuredModel {
         Self {
             profile,
             calls: AtomicUsize::new(0),
+            failures: AtomicUsize::new(0),
             observed_latency_ms: Mutex::new(Vec::new()),
         }
     }
 
     fn reset(&self) {
         self.calls.store(0, Ordering::SeqCst);
+        self.failures.store(0, Ordering::SeqCst);
         self.observed_latency_ms
             .lock()
             .expect("fake timing mutex is not poisoned")
@@ -278,6 +283,10 @@ impl DeterministicStructuredModel {
 
     fn call_count(&self) -> usize {
         self.calls.load(Ordering::SeqCst)
+    }
+
+    fn failure_count(&self) -> usize {
+        self.failures.load(Ordering::SeqCst)
     }
 
     fn observed_latency_ms(&self) -> Vec<f64> {
@@ -308,6 +317,7 @@ impl StructuredModel for DeterministicStructuredModel {
             .error_every_nth_call
             .is_some_and(|every| call.is_multiple_of(every))
         {
+            self.failures.fetch_add(1, Ordering::SeqCst);
             let classification = match self
                 .profile
                 .failure_kind
@@ -923,6 +933,7 @@ fn validate_workload(workload: &WorkloadReport) -> Result<(), String> {
     if workload.latency.sample_count != workload.request_count {
         return Err("latency sample count must equal request count".to_owned());
     }
+    validate_latency(&workload.latency)?;
     if workload.status_distribution.values().sum::<usize>() != workload.request_count {
         return Err("status distribution must include every measured request".to_owned());
     }
@@ -939,6 +950,102 @@ fn validate_workload(workload: &WorkloadReport) -> Result<(), String> {
     {
         return Err("throughput does not match request count and elapsed time".to_owned());
     }
+    if workload
+        .error_code_distribution
+        .keys()
+        .any(|code| !is_safe_error_code(code))
+    {
+        return Err("error-code distribution contains an unsafe key".to_owned());
+    }
+    Ok(())
+}
+
+fn validate_latency(latency: &LatencyDistribution) -> Result<(), String> {
+    let values = [
+        latency.min_ms,
+        latency.max_ms,
+        latency.mean_ms,
+        latency.p50_ms,
+        latency.p95_ms,
+        latency.p99_ms,
+    ];
+    if latency.sample_count == 0
+        || values
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+    {
+        return Err("latency values must be finite, non-negative, and sampled".to_owned());
+    }
+    let tolerance = latency.max_ms.max(1.0) * 0.000_001;
+    if latency.min_ms > latency.max_ms
+        || latency.mean_ms < latency.min_ms - tolerance
+        || latency.mean_ms > latency.max_ms + tolerance
+        || latency.p50_ms < latency.min_ms
+        || latency.p50_ms > latency.p95_ms
+        || latency.p95_ms > latency.p99_ms
+        || latency.p99_ms > latency.max_ms
+    {
+        return Err("latency summary is internally inconsistent".to_owned());
+    }
+    Ok(())
+}
+
+fn validate_operation_timing(operation: &OperationTimingReport) -> Result<(), String> {
+    if !operation.total_ms.is_finite()
+        || operation.total_ms < 0.0
+        || !operation.mean_ms.is_finite()
+        || operation.mean_ms < 0.0
+    {
+        return Err("evidence timing values must be finite and non-negative".to_owned());
+    }
+    if operation.calls == 0 {
+        if operation.total_ms != 0.0 || operation.mean_ms != 0.0 || operation.latency.is_some() {
+            return Err("an uncalled evidence operation must have no timing samples".to_owned());
+        }
+        return Ok(());
+    }
+    let latency = operation
+        .latency
+        .as_ref()
+        .ok_or("called evidence operations must include latency samples")?;
+    if latency.sample_count != operation.calls {
+        return Err("evidence latency sample count must equal operation calls".to_owned());
+    }
+    validate_latency(latency)?;
+    let expected_total_ms = operation.mean_ms * usize_as_f64(operation.calls);
+    let tolerance = expected_total_ms.abs().max(1.0) * 0.000_001;
+    if (operation.total_ms - expected_total_ms).abs() > tolerance {
+        return Err("evidence timing total does not match its mean and call count".to_owned());
+    }
+    Ok(())
+}
+
+fn validate_database_report(database: &DatabaseReport, request_count: usize) -> Result<(), String> {
+    if database.pool_during.minimum_size > database.pool_during.maximum_size
+        || database.pool_during.minimum_idle > database.pool_during.maximum_idle
+        || database.pool_during.maximum_size > database.configured_max_connections
+        || database.pool_during.maximum_idle > database.pool_during.maximum_size as usize
+    {
+        return Err("database pool observations are internally inconsistent".to_owned());
+    }
+    let evidence = &database.evidence_resolution;
+    validate_operation_timing(&evidence.food)?;
+    validate_operation_timing(&evidence.portion)?;
+    validate_operation_timing(&evidence.portion_suggestions)?;
+    let expected_calls =
+        evidence.food.calls + evidence.portion.calls + evidence.portion_suggestions.calls;
+    let expected_total_ms =
+        evidence.food.total_ms + evidence.portion.total_ms + evidence.portion_suggestions.total_ms;
+    let tolerance = expected_total_ms.abs().max(1.0) * 0.000_001;
+    if evidence.total_calls != expected_calls
+        || !evidence.total_observed_ms.is_finite()
+        || (evidence.total_observed_ms - expected_total_ms).abs() > tolerance
+        || (evidence.mean_observed_ms_per_request - expected_total_ms / usize_as_f64(request_count))
+            .abs()
+            > tolerance
+    {
+        return Err("database evidence totals do not match their operation timings".to_owned());
+    }
     Ok(())
 }
 
@@ -954,13 +1061,32 @@ fn validate_report(report: &PerformanceBaselineReport) -> Result<(), String> {
     {
         return Err("performance evidence scope flags are unsafe".to_owned());
     }
+    if report.db_oriented_api.scenarios.len() != 2
+        || report.db_oriented_api.scenarios[0].item_count != 1
+        || report.db_oriented_api.scenarios[1].item_count != 2
+    {
+        return Err("DB workload must compare one item with two seeded items".to_owned());
+    }
+    let one_item = &report.db_oriented_api.scenarios[0];
+    let multi_item = &report.db_oriented_api.scenarios[1];
+    if one_item.workload.request_count != multi_item.workload.request_count
+        || one_item.workload.concurrency != multi_item.workload.concurrency
+    {
+        return Err("DB workloads must use the same request count and concurrency".to_owned());
+    }
     for scenario in &report.db_oriented_api.scenarios {
         validate_workload(&scenario.workload)?;
+        validate_database_report(&scenario.database, scenario.workload.request_count)?;
         if scenario.database.configured_max_connections != API_DATABASE_POOL_SIZE {
             return Err("DB pool configuration differs from the declared baseline".to_owned());
         }
     }
     validate_workload(&report.hosted_parser_analysis.workload)?;
+    validate_database_report(
+        &report.hosted_parser_analysis.database,
+        report.hosted_parser_analysis.workload.request_count,
+    )?;
+    validate_latency(&report.hosted_parser_analysis.fake_provider_latency)?;
     if report
         .hosted_parser_analysis
         .fake_profile
@@ -985,6 +1111,35 @@ fn validate_report(report: &PerformanceBaselineReport) -> Result<(), String> {
         || report.hosted_parser_analysis.fake_model_call_count == 0
     {
         return Err("fake provider calls must match measured provider latency samples".to_owned());
+    }
+    let fake_error_count = report
+        .hosted_parser_analysis
+        .fake_error_distribution
+        .values()
+        .sum::<usize>();
+    let expected_fake_error_count = report.hosted_parser_analysis.fake_model_call_count
+        / report
+            .hosted_parser_analysis
+            .fake_profile
+            .transient_error_every_nth_call;
+    if fake_error_count != expected_fake_error_count
+        || report
+            .hosted_parser_analysis
+            .fake_error_distribution
+            .keys()
+            .any(|code| !is_safe_error_code(code))
+    {
+        return Err(
+            "fake provider error distribution does not match its deterministic profile".to_owned(),
+        );
+    }
+    let expected_decision = evaluate_issue20_threshold(
+        &report.issue_20_decision.threshold_predeclared_at_revision,
+        one_item,
+        multi_item,
+    );
+    if expected_decision != report.issue_20_decision {
+        return Err("issue 20 decision does not match its measurements and threshold".to_owned());
     }
     if report
         .issue_20_decision
@@ -1198,6 +1353,12 @@ async fn write_local_baseline_report() -> Result<(), Box<dyn Error>> {
     )
     .await;
     let provider_distribution = latency_distribution(&fake_model.observed_latency_ms());
+    let fake_error_count = fake_model.failure_count();
+    let fake_error_distribution = if fake_error_count == 0 {
+        BTreeMap::new()
+    } else {
+        BTreeMap::from([("benchmark_transient".to_owned(), fake_error_count)])
+    };
     let hosted_report = HostedParserReport {
         request_path:
             "in-process Axum router with HostedMealParser and deterministic StructuredModel fake"
@@ -1218,11 +1379,16 @@ async fn write_local_baseline_report() -> Result<(), Box<dyn Error>> {
             real_provider_called: false,
         },
         fake_model_call_count: fake_model.call_count(),
+        fake_error_distribution,
         fake_provider_latency: provider_distribution,
     };
 
     let revision = source_revision;
-    let decision = evaluate_issue20_threshold(&revision, &single_scenario, &multi_scenario);
+    let decision = evaluate_issue20_threshold(
+        ISSUE_20_THRESHOLD_PREDECLARED_AT_REVISION,
+        &single_scenario,
+        &multi_scenario,
+    );
     let report = PerformanceBaselineReport {
         schema_version: REPORT_SCHEMA_VERSION.to_owned(),
         scope: ReportScope {
@@ -1328,6 +1494,7 @@ mod tests {
         assert_eq!(error.code(), "benchmark_transient");
         assert!(fake.generate(&request, 16_384).await.is_ok());
         assert_eq!(fake.call_count(), 3);
+        assert_eq!(fake.failure_count(), 1);
         assert_eq!(fake.observed_latency_ms().len(), 3);
     }
 
@@ -1347,6 +1514,7 @@ mod tests {
             StructuredModelErrorClassification::Permanent
         );
         assert_eq!(error.code(), "benchmark_permanent");
+        assert_eq!(fake.failure_count(), 1);
     }
 
     #[test]
@@ -1370,6 +1538,20 @@ mod tests {
         assert!(schema["$defs"]["scope"]["properties"]["real_hosted_provider_called"].is_object());
         assert!(schema["$defs"]["dbOrientedApi"]["properties"]["scenarios"].is_object());
         assert!(schema["$defs"]["hostedParserAnalysis"]["properties"]["fake_profile"].is_object());
+    }
+
+    #[test]
+    fn committed_sample_report_matches_its_schema_version_and_internal_math() {
+        let report: PerformanceBaselineReport = serde_json::from_str(include_str!(
+            "../../../docs/evidence/performance-baseline-sample.json"
+        ))
+        .expect("committed sample report matches the report data contract");
+        validate_report(&report).expect("committed sample report math is internally consistent");
+        assert_eq!(
+            report.issue_20_decision.threshold_predeclared_at_revision,
+            ISSUE_20_THRESHOLD_PREDECLARED_AT_REVISION
+        );
+        assert_eq!(report.issue_20_decision.outcome, "threshold_not_met");
     }
 
     fn fake_generation_request() -> StructuredGenerationRequest {
