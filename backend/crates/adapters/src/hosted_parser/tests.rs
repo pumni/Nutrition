@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::{ProviderId, ProviderModelBulkhead, ProviderSelection};
 use crate::{StructuredGenerationResponse, StructuredModelError, StructuredResponseMetadata};
 use application::ParserInvocationRecord;
 use serde_json::json;
@@ -260,9 +261,46 @@ async fn opens_circuit_after_bounded_transient_retry() {
 }
 
 #[tokio::test]
-async fn retries_timeout_once_then_fails_closed() {
+async fn bulkhead_saturation_is_not_retried_or_counted_by_the_circuit() {
+    let saturated = Err(StructuredModelError::new(
+        StructuredModelErrorClassification::CapacityRejected,
+        "provider_bulkhead_saturated",
+    ));
+    let transport = Arc::new(FakeStructuredModel::new(vec![
+        saturated,
+        Ok(valid_response()),
+    ]));
+    let parser = HostedMealParser::new(config(1), transport.clone()).expect("valid parser");
+
+    let error = parser
+        .parse(request("2 quả trứng gà luộc"))
+        .await
+        .expect_err("saturation fails closed");
+    assert!(matches!(
+        error,
+        ApplicationError::ParserUnavailable(ref code) if code == "provider_bulkhead_saturated"
+    ));
+    assert_eq!(transport.calls.load(Ordering::SeqCst), 1);
+
+    parser
+        .parse(request("2 quả trứng gà luộc"))
+        .await
+        .expect("saturation does not open the provider circuit");
+    assert_eq!(transport.calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn parser_timeout_cancels_generation_and_releases_bulkhead_permit() {
     let transport = Arc::new(FakeStructuredModel::slow(Duration::from_millis(125)));
-    let parser = HostedMealParser::new(config(5), transport.clone()).expect("valid parser");
+    let selection =
+        ProviderSelection::for_test(ProviderId::OpenAi, "mock-model", transport.clone());
+    let bulkhead = Arc::new(
+        ProviderModelBulkhead::new(selection, 1).expect("valid model concurrency capacity"),
+    );
+    let mut parser_config = config(5);
+    parser_config.provider = "openai".to_owned();
+    parser_config.model = "mock-model".to_owned();
+    let parser = HostedMealParser::new(parser_config, bulkhead.clone()).expect("valid parser");
 
     let error = parser
         .parse(request("2 quả trứng gà luộc"))
@@ -274,4 +312,12 @@ async fn retries_timeout_once_then_fails_closed() {
         ApplicationError::ParserUnavailable(ref code) if code == "provider_timeout"
     ));
     assert_eq!(transport.calls.load(Ordering::SeqCst), 2);
+
+    let generation_request = parser.generation_request(&request("2 quả trứng gà luộc"), false);
+    let after_timeout = bulkhead
+        .generate(&generation_request, 16_384)
+        .await
+        .expect_err("fake model's next result is its configured error");
+    assert_eq!(after_timeout.code(), "mock_response_missing");
+    assert_eq!(transport.calls.load(Ordering::SeqCst), 3);
 }

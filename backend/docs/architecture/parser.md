@@ -23,6 +23,10 @@ classification, credential headers, redirect policy, and response-size bounds. T
 `https://api.openai.com/v1/responses` using provider `openai` and model `gpt-5.6-luna`. It must not
 fall back to another provider or model.
 
+`ProviderModelBulkhead` is a separate decorator around the selected model. It bounds in-flight calls
+for that resolved provider/model pair, rejects immediately when saturated, and keeps no waiter queue.
+Capacity rejection is non-retryable and does not count as provider failure for the circuit breaker.
+
 At startup, API composition resolves server-side provider and model settings through the static
 `StructuredModelProviderRegistry`. It rejects uninstalled providers, unsupported models, missing
 secrets, and endpoints outside the installed provider definition. The resolved provider/model pair

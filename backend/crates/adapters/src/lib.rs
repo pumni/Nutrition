@@ -1,8 +1,13 @@
+mod bulkhead;
 mod fixture;
 mod hosted_parser;
 mod provider_registry;
 mod structured_model;
 
+pub use bulkhead::{
+    DEFAULT_HOSTED_MAX_IN_FLIGHT, MAXIMUM_HOSTED_MAX_IN_FLIGHT, ProviderModelBulkhead,
+    ProviderModelBulkheadError,
+};
 pub use fixture::{
     FixtureCatalog, FixtureParser, FixturePortionEvidenceProvider, InMemoryAnalysisRepository,
 };

@@ -11,6 +11,7 @@ async-trait.workspace = true
 domain.workspace = true
 hex.workspace = true
 jsonschema.workspace = true
+metrics.workspace = true
 reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true

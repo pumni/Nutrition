@@ -90,6 +90,23 @@ impl ProviderSelection {
     pub fn structured_model(&self) -> Arc<dyn StructuredModel> {
         Arc::clone(&self.implementation)
     }
+
+    pub(crate) fn into_parts(self) -> (ProviderId, ModelIdentity, Arc<dyn StructuredModel>) {
+        (self.provider, self.model, self.implementation)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(
+        provider: ProviderId,
+        model: &str,
+        implementation: Arc<dyn StructuredModel>,
+    ) -> Self {
+        Self {
+            provider,
+            model: ModelIdentity::new(model),
+            implementation,
+        }
+    }
 }
 
 /// Resolves configured provider/model pairs against the providers installed in this binary.

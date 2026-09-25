@@ -50,12 +50,18 @@ The adapter discovers JWKS from the configured issuer, accepts `RS256` only, req
 - `LLM_PROVIDER=openai`, resolved against the installed server-side provider registry;
 - `LLM_MODEL=gpt-5.6-luna`, supported by that provider;
 - `LLM_ENDPOINT=https://api.openai.com/v1/responses`;
-- `LLM_API_KEY`
+- `LLM_API_KEY`;
+- optional `LLM_MAX_IN_FLIGHT`, default `1`, with an allowed range of `1..=64`.
 
 Unknown providers, unsupported models, missing secrets, and endpoints that do not match the
 installed provider fail startup. Provider selection is server-side and static for the process;
 provider secrets are supplied separately and are not stored in registry metadata. The resolved
 provider/model pair is recorded in analysis behavior metadata.
+
+The per-provider/model bulkhead rejects excess calls immediately; it has no waiting queue. The
+default of one in-flight call is a conservative startup bound, not a production capacity target.
+Choose deployment values from staging latency/load benchmarks and the provider's quota. Values
+outside `1..=64` fail startup.
 
 The owner-approved hosted parser bounds are fixed and any supplied override must match:
 

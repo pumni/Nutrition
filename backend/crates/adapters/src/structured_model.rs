@@ -96,6 +96,8 @@ pub struct StructuredGenerationResponse {
 pub enum StructuredModelErrorClassification {
     Transient,
     Permanent,
+    /// Local capacity rejection; do not retry or count it as provider failure.
+    CapacityRejected,
 }
 
 /// Content-free structured model failure.

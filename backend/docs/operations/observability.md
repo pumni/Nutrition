@@ -36,14 +36,27 @@ Runtime histograms use explicit bounded buckets so the SLO rules can evaluate Pr
 
 ## Privacy and cardinality
 
-Metric labels are limited to the fixed method set (`GET`, `POST`, `DELETE`, `OTHER`), normalized route class, status class, outcome, parser mode,
-retry class, parser error class, database operation, worker job class, and operation outcome.
+Metric labels are limited to the fixed method set (`GET`, `POST`, `DELETE`, `OTHER`), normalized route
+class, status class, outcome, parser mode, retry class, parser error class, database operation,
+worker job class, operation outcome, and installed provider/model identities used by the model
+bulkhead. Provider/model labels come only from the static registry, never from client input.
 Request IDs are correlation fields in structured JSON request spans and response headers, never
 metric labels. Client-supplied non-UUID request IDs are hashed for logs while the response header
 continues to preserve the approved propagated value. Raw paths are normalized before metrics are
 emitted. Meal text, tokens, authorization
 material, user IDs, analysis IDs, provider payloads, database URLs, and arbitrary job payloads are
 not emitted by this contract.
+
+The hosted model bulkhead exposes `nutrition_structured_model_bulkhead_in_flight` and
+`nutrition_structured_model_bulkhead_requests_total` with fixed `provider`, `model`, and (for the
+counter) `outcome=accepted|saturated` labels. Calls are rejected immediately when the configured
+per-model limit is full, so there is no acquisition-wait metric or hidden queue. `LLM_MAX_IN_FLIGHT`
+defaults conservatively to `1`, is bounded to `1..=64`, and should be tuned using staging load
+benchmarks and the provider quota; the default is not a production capacity recommendation.
+
+Provider `Retry-After` headers are currently ignored. The parser timeout is applied per generation
+attempt, while the one parser retry is immediate; honoring a delay would require defining a
+request-wide deadline so the delay cannot extend the total parser lifetime.
 
 Expected `4xx` responses, `needs_clarification`, and contract-valid insufficient evidence remain
 product outcomes; they are not counted as API availability failures. Server-error rates and
