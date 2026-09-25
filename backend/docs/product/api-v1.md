@@ -8,6 +8,10 @@ It is hand-authored and covered by the `api-http` contract test; no OpenAPI gene
 
 ## Approved boundary
 
+- `POST /v1/nutrition/analyses` accepts exactly `text` and `locale`. The former `mode` field had no
+  analysis semantics and has been removed; strict request validation rejects legacy payloads that
+  still include it with `400 invalid_request`. Provider and model selection remain server-side and
+  are not available through client request fields.
 - `GET /v1/nutrition/analyses` returns only owner-scoped summaries: `analysis_id`, `status`, `locale`,
   `created_at`, `current_revision_number`, `result_status`, and `quality_label`.
 - Listing uses `page_size` (default `20`, maximum `50`) and an opaque HMAC-protected keyset cursor.

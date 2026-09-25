@@ -87,7 +87,7 @@ mod tests {
     use async_trait::async_trait;
     use axum::{
         Router,
-        body::Body,
+        body::{Body, to_bytes},
         http::{Method, Request, StatusCode},
         routing::post,
     };
@@ -347,7 +347,7 @@ mod tests {
                         ("idempotency-key", "runtime-log-capture-db-failure"),
                         ("x-provider-secret", SECRET_SENTINEL),
                     ],
-                    format!(r#"{{"text":"{MEAL_SENTINEL}","locale":"vi-VN","mode":"balanced"}}"#),
+                    format!(r#"{{"text":"{MEAL_SENTINEL}","locale":"vi-VN"}}"#),
                 ),
             )
             .await,
@@ -394,6 +394,31 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn legacy_analysis_mode_is_rejected_as_an_invalid_request() {
+        let response = build_router(test_state())
+            .oneshot(request(
+                Method::POST,
+                "/v1/nutrition/analyses",
+                &[
+                    ("authorization", VALID_AUTHORIZATION),
+                    ("content-type", "application/json"),
+                    ("idempotency-key", "legacy-analysis-mode"),
+                ],
+                r#"{"text":"2 quả trứng gà luộc","locale":"vi-VN","mode":"balanced"}"#,
+            ))
+            .await
+            .expect("test router must produce a response");
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = to_bytes(response.into_body(), 64 * 1024)
+            .await
+            .expect("error response body must be readable");
+        let envelope: Value = serde_json::from_slice(&body).expect("error response must be JSON");
+        assert_eq!(envelope["error"]["code"], "invalid_request");
+        assert_eq!(envelope["error"]["message"], "invalid request");
+    }
+
     #[test]
     fn hand_authored_openapi_covers_the_approved_v1_surface() {
         let path = concat!(
@@ -404,6 +429,18 @@ mod tests {
             &std::fs::read_to_string(path).expect("OpenAPI contract must be readable"),
         )
         .expect("OpenAPI contract must be valid JSON");
+        let analysis_request = &document["components"]["schemas"]["AnalysisRequest"];
+        let analysis_properties = analysis_request["properties"]
+            .as_object()
+            .expect("analysis request properties");
+        assert_eq!(analysis_properties.len(), 2);
+        assert!(analysis_properties.contains_key("text"));
+        assert!(analysis_properties.contains_key("locale"));
+        assert_eq!(
+            analysis_request["required"],
+            serde_json::json!(["text", "locale"])
+        );
+        assert_eq!(analysis_request["additionalProperties"], false);
         assert_eq!(
             document["info"]["x-owner-decision-ref"],
             "docs/decisions/product-api-v1.md#adr-product-api-v1"

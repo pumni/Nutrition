@@ -457,3 +457,51 @@ fn to_json_value(
 ) -> Result<serde_json::Value, application::ApplicationError> {
     serde_json::to_value(value).map_err(|_| application::ApplicationError::Persistence)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::json_hash;
+    use application::{AnalysisRequest, IdempotencyContext};
+    use domain::UserId;
+
+    fn request(text: &str, locale: &str) -> AnalysisRequest {
+        AnalysisRequest {
+            text: text.to_owned(),
+            locale: locale.to_owned(),
+            idempotency: None,
+            owner_id: None,
+        }
+    }
+
+    fn hash(request: &AnalysisRequest) -> String {
+        json_hash(request).unwrap_or_else(|_| panic!("valid request must be hashable"))
+    }
+
+    #[test]
+    fn analysis_request_hash_covers_only_real_public_content() {
+        let original = request("2 quả trứng gà luộc", "vi-VN");
+        let identical = request("2 quả trứng gà luộc", "vi-VN");
+        let changed_text = request("3 quả trứng gà luộc", "vi-VN");
+        let changed_locale = request("2 quả trứng gà luộc", "en-US");
+
+        assert_eq!(hash(&original), hash(&identical));
+        assert_ne!(hash(&original), hash(&changed_text));
+        assert_ne!(hash(&original), hash(&changed_locale));
+        assert_eq!(
+            serde_json::to_value(&original).expect("request should serialize"),
+            serde_json::json!({
+                "text": "2 quả trứng gà luộc",
+                "locale": "vi-VN"
+            })
+        );
+
+        let mut with_internal_context = original.clone();
+        with_internal_context.idempotency = Some(IdempotencyContext {
+            scope_key: "user:test:create".to_owned(),
+            key: "request-key".to_owned(),
+            request_hash: "previous-hash".to_owned(),
+        });
+        with_internal_context.owner_id = Some(UserId::from_u128(1));
+        assert_eq!(hash(&original), hash(&with_internal_context));
+    }
+}

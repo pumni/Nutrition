@@ -47,12 +47,23 @@ async fn http_create_read_replay_and_ownership_contract() -> Result<(), Box<dyn 
             .header("Idempotency-Key", &key)
             .json(&json!({
                 "text": "100 g trứng gà luộc",
-                "locale": "vi-VN",
-                "mode": "balanced"
+                "locale": "vi-VN"
             }))
             .send()
             .await?;
         assert_eq!(conflict.status(), StatusCode::CONFLICT);
+
+        let locale_conflict = client
+            .post(format!("{BASE_URL}/v1/nutrition/analyses"))
+            .header("Authorization", AUTHORIZATION)
+            .header("Idempotency-Key", &key)
+            .json(&json!({
+                "text": "2 quả trứng gà luộc, 1 bát cơm trắng",
+                "locale": "en-US"
+            }))
+            .send()
+            .await?;
+        assert_eq!(locale_conflict.status(), StatusCode::CONFLICT);
         Ok::<(), Box<dyn Error>>(())
     }
     .await;
@@ -68,8 +79,7 @@ async fn assert_create_read_replay_and_ownership(
     let key = format!("xtask-postgres-create-{}", uuid::Uuid::now_v7());
     let request = json!({
         "text": "2 quả trứng gà luộc, 1 bát cơm trắng",
-        "locale": "vi-VN",
-        "mode": "balanced"
+        "locale": "vi-VN"
     });
     let created_response = client
         .post(format!("{BASE_URL}/v1/nutrition/analyses"))
@@ -191,8 +201,7 @@ async fn assert_clarification_flow(client: &Client) -> Result<(), Box<dyn Error>
         )
         .json(&json!({
             "text": "1 ly cơm trắng",
-            "locale": "vi-VN",
-            "mode": "balanced"
+            "locale": "vi-VN"
         }))
         .send()
         .await?;
