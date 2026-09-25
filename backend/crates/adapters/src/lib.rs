@@ -1,5 +1,6 @@
 mod fixture;
 mod hosted_parser;
+mod provider_registry;
 mod structured_model;
 
 pub use fixture::{
@@ -11,6 +12,9 @@ pub use hosted_parser::{
     APPROVED_HOSTED_PROVIDER, APPROVED_HOSTED_TIMEOUT_MS, ConfiguredMealParser,
     HOSTED_PROMPT_VERSION, HostedMealParser, HostedParserConfig, OpenAiResponsesProvider,
     PARSER_SCHEMA_VERSION,
+};
+pub use provider_registry::{
+    ProviderId, ProviderRegistryError, ProviderSelection, StructuredModelProviderRegistry,
 };
 pub use structured_model::{
     ModelIdentity, ProviderIdentity, StrictJsonSchema, StructuredGenerationRequest,
