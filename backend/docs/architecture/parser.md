@@ -9,22 +9,34 @@ The hosted model is a constrained language parser only. Nutrition values, food r
 portion mass, composition selection, and calculation remain deterministic backend responsibilities.
 The model must not return calories, nutrients, internal IDs, URLs, or inferred gram weights.
 
-The adapter contract is provider-neutral. The approved v1 gateway maps it to the OpenAI Responses
-API at `https://api.openai.com/v1/responses` using provider `openai` and model `gpt-5.6-luna`.
-The gateway must not fall back to another provider or model.
+The hosted parser calls a provider-neutral structured-generation SPI in `crates/adapters`. Its
+request contains typed provider/model identities, the parser-owned system instruction, one opaque
+untrusted input string, and the parser-owned strict JSON Schema. The response contains a structured
+JSON value and bounded token-usage metadata; failures carry a transient/permanent classification and
+a content-free code. The SPI contains no provider SDK or wire types.
+
+The parser owns prompt semantics, schema definition and validation, nutrition-specific semantic
+validation, grounding, repair policy, privacy, and parser telemetry. A provider implementation owns
+mapping the neutral request and response to its protocol and enforcing transport bounds. The current
+approved v1 implementation maps the SPI to the OpenAI Responses API at
+`https://api.openai.com/v1/responses` using provider `openai` and model `gpt-5.6-luna`. It must not
+fall back to another provider or model.
 
 ## Request envelope
 
-The adapter sends an HTTPS bearer-authenticated JSON request containing:
+The parser passes a structured-generation request containing:
 
-- provider and exact model identifiers;
-- a fixed system instruction;
-- the exact `parsed-meal-0.1.0` JSON Schema;
-- a repair flag that is true only for the single schema-repair retry;
-- `input.locale` and `input.untrusted_meal_text`.
+- typed provider and exact model identities;
+- a fixed system instruction, with the single schema-repair instruction added by the parser only on
+  the schema-repair retry;
+- the exact `parsed-meal-0.1.0` strict JSON Schema;
+- one untrusted input string containing the locale and meal text.
+
+The current OpenAI mapping turns that input into the Responses API user message and maps the schema
+to strict JSON-schema output formatting. Those wire details stay behind the provider implementation.
 
 No user ID, authorization header value, account metadata, meal history, resolved food ID,
-nutrition result, or source URL is placed in the JSON body. The bearer secret exists only in the
+nutrition result, or source URL is part of the SPI request. The bearer secret exists only in the
 transport header and is never included in telemetry. HTTP redirects are disabled so meal text
 cannot be forwarded to an endpoint other than the explicitly configured HTTPS URL.
 
@@ -50,9 +62,9 @@ cannot be forwarded to an endpoint other than the explicitly configured HTTPS UR
 }
 ```
 
-Unknown envelope fields are rejected. Token fields are optional but cannot be negative. The
-response is streamed into a buffer with a configurable hard limit; declared and actual oversized
-responses fail closed.
+The provider mapping accepts only the structured output and bounded metadata used by the parser.
+Token fields are optional but cannot be negative. The response is streamed into a buffer with a
+configurable hard limit; declared and actual oversized responses fail closed.
 
 ## Validation and resilience
 

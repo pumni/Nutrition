@@ -1,17 +1,13 @@
-//! HTTPS, timeout, response-byte bound, retry, and redirect responsibility.
+//! Bounded HTTPS transport for the current `OpenAI` mapping; parser retry and circuit policy stay
+//! in the hosted parser facade.
 
 #![allow(clippy::wildcard_imports)]
 
 use super::*;
-
-#[async_trait]
-pub trait HostedLlmTransport: Send + Sync {
-    async fn complete(
-        &self,
-        request: &ProviderRequest,
-        maximum_response_bytes: usize,
-    ) -> Result<ProviderResponse, TransportError>;
-}
+use crate::{
+    StructuredGenerationRequest, StructuredGenerationResponse, StructuredModel,
+    StructuredModelError, StructuredModelErrorClassification,
+};
 
 #[derive(Clone)]
 pub struct ReqwestHostedLlmTransport {
@@ -42,12 +38,12 @@ impl ReqwestHostedLlmTransport {
 }
 
 #[async_trait]
-impl HostedLlmTransport for ReqwestHostedLlmTransport {
-    async fn complete(
+impl StructuredModel for ReqwestHostedLlmTransport {
+    async fn generate(
         &self,
-        request: &ProviderRequest,
+        request: &StructuredGenerationRequest,
         maximum_response_bytes: usize,
-    ) -> Result<ProviderResponse, TransportError> {
+    ) -> Result<StructuredGenerationResponse, StructuredModelError> {
         let body = openai_responses_request(request);
         let mut response = self
             .client
@@ -59,23 +55,23 @@ impl HostedLlmTransport for ReqwestHostedLlmTransport {
             .map_err(|error| classify_reqwest_error(&error))?;
         let status = response.status();
         if !status.is_success() {
-            return Err(TransportError {
-                kind: if status.as_u16() == 429 || status.is_server_error() {
-                    TransportErrorKind::Transient
+            return Err(StructuredModelError::new(
+                if status.as_u16() == 429 || status.is_server_error() {
+                    StructuredModelErrorClassification::Transient
                 } else {
-                    TransportErrorKind::Permanent
+                    StructuredModelErrorClassification::Permanent
                 },
-                code: format!("provider_http_{}", status.as_u16()),
-            });
+                format!("provider_http_{}", status.as_u16()),
+            ));
         }
         if response
             .content_length()
             .is_some_and(|length| length > maximum_response_bytes as u64)
         {
-            return Err(TransportError {
-                kind: TransportErrorKind::Permanent,
-                code: "provider_response_too_large".to_owned(),
-            });
+            return Err(StructuredModelError::new(
+                StructuredModelErrorClassification::Permanent,
+                "provider_response_too_large",
+            ));
         }
         let mut bytes = Vec::with_capacity(
             response
@@ -90,10 +86,10 @@ impl HostedLlmTransport for ReqwestHostedLlmTransport {
             .map_err(|error| classify_reqwest_error(&error))?
         {
             if bytes.len().saturating_add(chunk.len()) > maximum_response_bytes {
-                return Err(TransportError {
-                    kind: TransportErrorKind::Permanent,
-                    code: "provider_response_too_large".to_owned(),
-                });
+                return Err(StructuredModelError::new(
+                    StructuredModelErrorClassification::Permanent,
+                    "provider_response_too_large",
+                ));
             }
             bytes.extend_from_slice(&chunk);
         }
