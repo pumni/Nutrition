@@ -108,64 +108,6 @@ fn request(text: &str) -> ParseRequest {
 }
 
 #[test]
-fn maps_provider_neutral_request_to_bounded_openai_responses_shape() {
-    let parser = HostedMealParser::new(config(5), Arc::new(FakeStructuredModel::new(vec![])))
-        .expect("valid parser");
-    let generation_request = parser.generation_request(&request("2 quả trứng gà luộc"), false);
-    let body = openai_responses_request(&generation_request);
-
-    assert_eq!(body["model"], generation_request.model.as_str());
-    assert_eq!(body["store"], false);
-    assert_eq!(body["text"]["format"]["type"], "json_schema");
-    assert_eq!(body["text"]["format"]["name"], "parsed_meal");
-    assert_eq!(body["text"]["format"]["strict"], true);
-    assert!(body.get("provider").is_none());
-    let input_text = body["input"][0]["content"][0]["text"]
-        .as_str()
-        .expect("input text");
-    assert!(input_text.contains("locale: vi-VN"));
-    assert!(input_text.contains("meal: 2 quả trứng gà luộc"));
-    assert!(!input_text.contains("test-secret"));
-}
-
-#[test]
-fn maps_openai_responses_output_and_usage_without_accepting_extra_model_content() {
-    let output = valid_response().output;
-    let response = json!({
-        "output": [{
-            "type": "message",
-            "role": "assistant",
-            "content": [{
-                "type": "output_text",
-                "text": serde_json::to_string(&output).expect("output JSON"),
-                "annotations": []
-            }]
-        }],
-        "usage": {"input_tokens": 20, "output_tokens": 30}
-    });
-    let mapped = parse_openai_response(&serde_json::to_vec(&response).expect("response JSON"))
-        .expect("valid Responses API response");
-
-    assert_eq!(mapped.output, output);
-    assert_eq!(mapped.metadata.input_tokens, Some(20));
-    assert_eq!(mapped.metadata.output_tokens, Some(30));
-}
-
-#[test]
-fn maps_non_json_output_to_schema_retry_sentinel() {
-    let response = json!({
-        "output": [{
-            "type": "message",
-            "content": [{"type": "output_text", "text": "not-json"}]
-        }]
-    });
-    let mapped = parse_openai_response(&serde_json::to_vec(&response).expect("response JSON"))
-        .expect("valid outer response");
-
-    assert_eq!(mapped.output, Value::Null);
-}
-
-#[test]
 fn rejects_non_https_or_credentialed_endpoint() {
     let mut invalid = config(5);
     invalid.endpoint = "http://provider.example/v1/parse".to_owned();

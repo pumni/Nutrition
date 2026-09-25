@@ -24,7 +24,6 @@ mod config;
 mod error;
 mod providers;
 mod telemetry;
-mod transport;
 mod validation;
 
 pub use config::{
@@ -33,12 +32,10 @@ pub use config::{
     APPROVED_HOSTED_PROVIDER, APPROVED_HOSTED_TIMEOUT_MS, HOSTED_PROMPT_VERSION,
     HostedParserConfig, PARSER_SCHEMA_VERSION,
 };
-pub use transport::ReqwestHostedLlmTransport;
+pub use providers::openai_responses::OpenAiResponsesProvider;
 
 pub(crate) use circuit_breaker::CircuitState;
 pub(crate) use config::{PARSER_SCHEMA, SYSTEM_PROMPT};
-pub(crate) use error::classify_reqwest_error;
-pub(crate) use providers::openai_responses::{openai_responses_request, parse_openai_response};
 pub(crate) use telemetry::NoopParserTelemetry;
 pub(crate) use validation::{OutputFailure, validate_output, validate_parse_request};
 
@@ -77,13 +74,13 @@ impl HostedMealParser {
         })
     }
 
-    /// Creates a hosted parser using the bounded HTTPS transport.
+    /// Creates a hosted parser using the concrete `OpenAI` Responses provider over bounded HTTPS.
     ///
     /// # Errors
     ///
     /// Returns `InvalidInput` when configuration or client construction fails.
     pub fn with_reqwest(config: HostedParserConfig) -> Result<Self, ApplicationError> {
-        let model = Arc::new(ReqwestHostedLlmTransport::new(&config)?);
+        let model = Arc::new(OpenAiResponsesProvider::new(&config)?);
         Self::new(config, model)
     }
 
