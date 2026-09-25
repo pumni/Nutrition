@@ -3,18 +3,7 @@
 #![allow(clippy::wildcard_imports)]
 
 use super::*;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TransportErrorKind {
-    Transient,
-    Permanent,
-}
-
-#[derive(Clone, Debug)]
-pub struct TransportError {
-    pub kind: TransportErrorKind,
-    pub code: String,
-}
+use crate::{StructuredModelError, StructuredModelErrorClassification};
 
 impl HostedMealParser {
     pub(crate) async fn fail(
@@ -38,18 +27,18 @@ impl HostedMealParser {
     }
 }
 
-pub(crate) fn classify_reqwest_error(error: &reqwest::Error) -> TransportError {
-    TransportError {
-        kind: if error.is_timeout() || error.is_connect() {
-            TransportErrorKind::Transient
+pub(crate) fn classify_reqwest_error(error: &reqwest::Error) -> StructuredModelError {
+    StructuredModelError::new(
+        if error.is_timeout() || error.is_connect() {
+            StructuredModelErrorClassification::Transient
         } else {
-            TransportErrorKind::Permanent
+            StructuredModelErrorClassification::Permanent
         },
-        code: if error.is_timeout() {
+        if error.is_timeout() {
             "provider_timeout"
         } else {
             "provider_transport_error"
         }
         .to_owned(),
-    }
+    )
 }

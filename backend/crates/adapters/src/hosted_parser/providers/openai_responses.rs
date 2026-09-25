@@ -2,34 +2,29 @@
 
 #![allow(clippy::wildcard_imports)]
 
-use super::super::*;
+use crate::{
+    StructuredGenerationRequest, StructuredGenerationResponse, StructuredModelError,
+    StructuredModelErrorClassification, StructuredResponseMetadata,
+};
+use serde::Deserialize;
+use serde_json::{Value, json};
 
-pub(crate) fn openai_responses_request(request: &ProviderRequest) -> Value {
-    let instructions = if request.repair_schema_output {
-        format!(
-            "{SYSTEM_PROMPT} Return a schema-compliant JSON object on this repair attempt; do not add any explanation."
-        )
-    } else {
-        SYSTEM_PROMPT.to_owned()
-    };
+pub(crate) fn openai_responses_request(request: &StructuredGenerationRequest) -> Value {
     json!({
-        "model": request.model,
-        "instructions": instructions,
+        "model": request.model.as_str(),
+        "instructions": request.system_instruction,
         "input": [{
             "role": "user",
             "content": [{
                 "type": "input_text",
-                "text": format!(
-                    "locale: {}\nmeal: {}",
-                    request.input.locale, request.input.untrusted_meal_text
-                )
+                "text": request.untrusted_input.as_str()
             }]
         }],
         "text": {
             "format": {
                 "type": "json_schema",
                 "name": "parsed_meal",
-                "schema": request.schema,
+                "schema": request.schema.value(),
                 "strict": true
             }
         },
@@ -68,12 +63,15 @@ struct OpenAiUsage {
     output_tokens: Option<i64>,
 }
 
-pub(crate) fn parse_openai_response(bytes: &[u8]) -> Result<ProviderResponse, TransportError> {
-    let response: OpenAiResponseEnvelope =
-        serde_json::from_slice(bytes).map_err(|_| TransportError {
-            kind: TransportErrorKind::Permanent,
-            code: "provider_envelope_invalid".to_owned(),
-        })?;
+pub(crate) fn parse_openai_response(
+    bytes: &[u8],
+) -> Result<StructuredGenerationResponse, StructuredModelError> {
+    let response: OpenAiResponseEnvelope = serde_json::from_slice(bytes).map_err(|_| {
+        StructuredModelError::new(
+            StructuredModelErrorClassification::Permanent,
+            "provider_envelope_invalid",
+        )
+    })?;
     let text_outputs = response
         .output
         .iter()
@@ -87,12 +85,14 @@ pub(crate) fn parse_openai_response(bytes: &[u8]) -> Result<ProviderResponse, Tr
     } else {
         Value::Null
     };
-    Ok(ProviderResponse {
+    Ok(StructuredGenerationResponse {
         output,
-        input_tokens: response.usage.as_ref().and_then(|usage| usage.input_tokens),
-        output_tokens: response
-            .usage
-            .as_ref()
-            .and_then(|usage| usage.output_tokens),
+        metadata: StructuredResponseMetadata {
+            input_tokens: response.usage.as_ref().and_then(|usage| usage.input_tokens),
+            output_tokens: response
+                .usage
+                .as_ref()
+                .and_then(|usage| usage.output_tokens),
+        },
     })
 }
