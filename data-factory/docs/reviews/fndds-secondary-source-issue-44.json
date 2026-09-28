@@ -1,0 +1,916 @@
+{
+  "activation_attempted": false,
+  "candidate_packets": [
+    {
+      "normalized_vietnamese_target": "cơm trắng",
+      "nutrient_mapping_version": "fndds-required-nutrients-0.1.0",
+      "packet_version": "fndds-source-review-packet-0.1.0",
+      "production_eligible": false,
+      "proposal_id": "fndds-proposal-d7772be2123024935757",
+      "rejected_alternatives": [
+        {
+          "description": "Rice, white, cooked, NS as to fat",
+          "fdc_id": 2708403,
+          "fndds_food_code": "56205001",
+          "reason_code": "fat_state_unspecified",
+          "record_sha256": "feeeb981fa55061f98279651c46195ba140ca853da174d212787e7d35d179dff",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Rice"
+        },
+        {
+          "description": "Rice, white, cooked, made with oil",
+          "fdc_id": 2708404,
+          "fndds_food_code": "56205002",
+          "reason_code": "added_fat_variant",
+          "record_sha256": "7a6542ade0d40c63e6c674e2ce9700c323dd9f8e475a816e498d53a29be5e2b6",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Rice"
+        },
+        {
+          "description": "Rice, white, cooked, glutinous",
+          "fdc_id": 2708422,
+          "fndds_food_code": "56205190",
+          "reason_code": "glutinous_rice_variant_not_selected",
+          "record_sha256": "08a146cf62065c14d279b80b9a11322ceaa4bbb3bc0cebc25f0588941f88ea69",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Rice"
+        }
+      ],
+      "required_nutrient_completeness": {
+        "complete": true,
+        "mapping_version": "fndds-required-nutrients-0.1.0",
+        "rejected": [],
+        "required_nutrients": [
+          {
+            "basis": "per_100g_edible_portion",
+            "fndds_nutrient_code": "205",
+            "source_label": "Carbohydrate, by difference",
+            "source_method": null,
+            "source_method_available": false,
+            "source_nutrient_id": 1005,
+            "source_unit": "g",
+            "target_code": "carbohydrate_g",
+            "value_state": "present"
+          },
+          {
+            "basis": "per_100g_edible_portion",
+            "fndds_nutrient_code": "208",
+            "source_label": "Energy",
+            "source_method": null,
+            "source_method_available": false,
+            "source_nutrient_id": 1008,
+            "source_unit": "kcal",
+            "target_code": "energy_kcal",
+            "value_state": "present"
+          },
+          {
+            "basis": "per_100g_edible_portion",
+            "fndds_nutrient_code": "204",
+            "source_label": "Total lipid (fat)",
+            "source_method": null,
+            "source_method_available": false,
+            "source_nutrient_id": 1004,
+            "source_unit": "g",
+            "target_code": "fat_g",
+            "value_state": "present"
+          },
+          {
+            "basis": "per_100g_edible_portion",
+            "fndds_nutrient_code": "203",
+            "source_label": "Protein",
+            "source_method": null,
+            "source_method_available": false,
+            "source_nutrient_id": 1003,
+            "source_unit": "g",
+            "target_code": "protein_g",
+            "value_state": "present"
+          }
+        ]
+      },
+      "reviewer_approved": false,
+      "reviewer_reference": null,
+      "reviewer_state": "pending_human_review",
+      "semantic_rationale": "The exact FNDDS description states white rice cooked with no added fat, matching the current issue #35 source constraints for rice, white, cooked. The record does not specify rice cultivar. This remains a proposal for human/domain review and does not establish Vietnamese identity or preparation equivalence.",
+      "source_artifact": {
+        "archive_filename": "FoodData_Central_survey_food_json_2024-10-31.zip",
+        "archive_locator": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+        "archive_sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+        "archive_size_bytes": 3835292,
+        "member_name": "surveyDownload.json",
+        "member_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808",
+        "member_size_bytes": 66294426,
+        "project_decision_reference": "github:issue/41#issuecomment-5867171847",
+        "publisher": "USDA Agricultural Research Service",
+        "release": "2021-2023",
+        "release_date": "2024-10",
+        "rights_citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.",
+        "rights_evidence": "https://fdc.nal.usda.gov/api-guide/",
+        "rights_license": "CC0 1.0 Universal",
+        "rights_state": "reference_only",
+        "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+        "source_code": "usda_fndds"
+      },
+      "source_nutrient_definitions": [
+        {
+          "fndds_nutrient_code": "203",
+          "source_label": "Protein",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1003,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "204",
+          "source_label": "Total lipid (fat)",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1004,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "205",
+          "source_label": "Carbohydrate, by difference",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1005,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "208",
+          "source_label": "Energy",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1008,
+          "source_unit": "kcal"
+        },
+        {
+          "fndds_nutrient_code": "221",
+          "source_label": "Alcohol, ethyl",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1018,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "255",
+          "source_label": "Water",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1051,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "262",
+          "source_label": "Caffeine",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1057,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "263",
+          "source_label": "Theobromine",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1058,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "269",
+          "source_label": "Total Sugars",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 2000,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "291",
+          "source_label": "Fiber, total dietary",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1079,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "301",
+          "source_label": "Calcium, Ca",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1087,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "303",
+          "source_label": "Iron, Fe",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1089,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "304",
+          "source_label": "Magnesium, Mg",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1090,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "305",
+          "source_label": "Phosphorus, P",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1091,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "306",
+          "source_label": "Potassium, K",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1092,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "307",
+          "source_label": "Sodium, Na",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1093,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "309",
+          "source_label": "Zinc, Zn",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1095,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "312",
+          "source_label": "Copper, Cu",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1098,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "317",
+          "source_label": "Selenium, Se",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1103,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "319",
+          "source_label": "Retinol",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1105,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "320",
+          "source_label": "Vitamin A, RAE",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1106,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "321",
+          "source_label": "Carotene, beta",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1107,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "322",
+          "source_label": "Carotene, alpha",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1108,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "323",
+          "source_label": "Vitamin E (alpha-tocopherol)",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1109,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "328",
+          "source_label": "Vitamin D (D2 + D3)",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1114,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "334",
+          "source_label": "Cryptoxanthin, beta",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1120,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "337",
+          "source_label": "Lycopene",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1122,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "338",
+          "source_label": "Lutein + zeaxanthin",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1123,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "401",
+          "source_label": "Vitamin C, total ascorbic acid",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1162,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "404",
+          "source_label": "Thiamin",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1165,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "405",
+          "source_label": "Riboflavin",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1166,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "406",
+          "source_label": "Niacin",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1167,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "415",
+          "source_label": "Vitamin B-6",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1175,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "417",
+          "source_label": "Folate, total",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1177,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "418",
+          "source_label": "Vitamin B-12",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1178,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "421",
+          "source_label": "Choline, total",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1180,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "430",
+          "source_label": "Vitamin K (phylloquinone)",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1185,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "431",
+          "source_label": "Folic acid",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1186,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "432",
+          "source_label": "Folate, food",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1187,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "435",
+          "source_label": "Folate, DFE",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1190,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "573",
+          "source_label": "Vitamin E, added",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1242,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "578",
+          "source_label": "Vitamin B-12, added",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1246,
+          "source_unit": "µg"
+        },
+        {
+          "fndds_nutrient_code": "601",
+          "source_label": "Cholesterol",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1253,
+          "source_unit": "mg"
+        },
+        {
+          "fndds_nutrient_code": "606",
+          "source_label": "Fatty acids, total saturated",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1258,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "607",
+          "source_label": "SFA 4:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1259,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "608",
+          "source_label": "SFA 6:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1260,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "609",
+          "source_label": "SFA 8:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1261,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "610",
+          "source_label": "SFA 10:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1262,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "611",
+          "source_label": "SFA 12:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1263,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "612",
+          "source_label": "SFA 14:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1264,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "613",
+          "source_label": "SFA 16:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1265,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "614",
+          "source_label": "SFA 18:0",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1266,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "617",
+          "source_label": "MUFA 18:1",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1268,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "618",
+          "source_label": "PUFA 18:2",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1269,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "619",
+          "source_label": "PUFA 18:3",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1270,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "620",
+          "source_label": "PUFA 20:4",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1271,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "621",
+          "source_label": "PUFA 22:6 n-3 (DHA)",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1272,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "626",
+          "source_label": "MUFA 16:1",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1275,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "627",
+          "source_label": "PUFA 18:4",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1276,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "628",
+          "source_label": "MUFA 20:1",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1277,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "629",
+          "source_label": "PUFA 20:5 n-3 (EPA)",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1278,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "630",
+          "source_label": "MUFA 22:1",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1279,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "631",
+          "source_label": "PUFA 22:5 n-3 (DPA)",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1280,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "645",
+          "source_label": "Fatty acids, total monounsaturated",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1292,
+          "source_unit": "g"
+        },
+        {
+          "fndds_nutrient_code": "646",
+          "source_label": "Fatty acids, total polyunsaturated",
+          "source_method": null,
+          "source_method_available": false,
+          "source_nutrient_id": 1293,
+          "source_unit": "g"
+        }
+      ],
+      "source_precedence": {
+        "fallback_status": "review_proposal_pending_human_review",
+        "foundation_accepted_mapping_exists": false,
+        "foundation_state_reference": "github:issue/35#issuecomment-5863469233",
+        "policy_version": "foundation-primary-fndds-secondary-0.1.0",
+        "primary_source": "usda_fdc_foundation",
+        "secondary_source": "usda_fndds"
+      },
+      "source_preparation_state": "cooked; no added fat",
+      "source_record": {
+        "description": "Rice, white, cooked, no added fat",
+        "fdc_id": 2708408,
+        "fndds_food_code": "56205008",
+        "record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc",
+        "source_code": "usda_fndds",
+        "wweia_category_description": "Rice"
+      },
+      "target_id": "vmb-public-0002",
+      "target_preparation_state": "white rice, cooked; cultivar unspecified"
+    }
+  ],
+  "counts": {
+    "accepted_record_count": 5432,
+    "candidate_packet_count": 1,
+    "foundation_suppressed_count": 0,
+    "no_proposal_count": 6,
+    "raw_record_count": 5432,
+    "rejected_record_count": 0,
+    "target_count": 7
+  },
+  "foundation_precedence": {
+    "accepted_foundation_target_ids": [],
+    "foundation_state_reference": "github:issue/35#issuecomment-5863469233",
+    "policy_version": "foundation-primary-fndds-secondary-0.1.0",
+    "primary_source": "usda_fdc_foundation",
+    "secondary_source": "usda_fndds"
+  },
+  "importer_version": "fndds-survey-json-0.1.0",
+  "issue_reference": "https://github.com/pumni/Nutrition/issues/44",
+  "nutrient_mapping_version": "fndds-required-nutrients-0.1.0",
+  "production_eligible": false,
+  "project_decision_reference": "github:issue/41#issuecomment-5867171847",
+  "review_policy_sha256": "e59f5acef6aa583e2b357e4cc3c01e05af420a659dd34c540cbf9844ae13fc66",
+  "review_policy_version": "fndds-secondary-review-policy-0.1.0",
+  "schema_version": "fndds-secondary-source-review-report-0.1.0",
+  "source_artifact": {
+    "archive_filename": "FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_locator": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+    "archive_size_bytes": 3835292,
+    "member_name": "surveyDownload.json",
+    "member_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808",
+    "member_size_bytes": 66294426,
+    "project_decision_reference": "github:issue/41#issuecomment-5867171847",
+    "publisher": "USDA Agricultural Research Service",
+    "release": "2021-2023",
+    "release_date": "2024-10",
+    "rights_citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.",
+    "rights_evidence": "https://fdc.nal.usda.gov/api-guide/",
+    "rights_license": "CC0 1.0 Universal",
+    "rights_state": "reference_only",
+    "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+    "source_code": "usda_fndds"
+  },
+  "source_registry_evidence": {
+    "allowed_uses": [
+      "analysis",
+      "reference"
+    ],
+    "production_eligible": false,
+    "production_ingestion": "blocked_until_product_selection",
+    "prohibited_uses": [
+      "staged_candidate",
+      "unreviewed_vietnamese_mapping"
+    ],
+    "rights_state": "reference_only",
+    "sha256": "9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da",
+    "source_code": "usda_fndds",
+    "status_initial": "controlled_secondary"
+  },
+  "staged_candidate_created": false,
+  "target_results": [
+    {
+      "foundation_mapping_state": "no_accepted_mapping_recorded",
+      "normalized_vietnamese_target": "cơm trắng",
+      "outcome": "review_packet_created",
+      "proposal_id": "fndds-proposal-d7772be2123024935757",
+      "reason_code": null,
+      "source_record": {
+        "description": "Rice, white, cooked, no added fat",
+        "fdc_id": 2708408,
+        "fndds_food_code": "56205008",
+        "record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc",
+        "source_code": "usda_fndds",
+        "wweia_category_description": "Rice"
+      },
+      "target_id": "vmb-public-0002",
+      "target_preparation_state": "white rice, cooked; cultivar unspecified"
+    },
+    {
+      "foundation_mapping_state": "no_accepted_mapping_recorded",
+      "literal_absence_checks": [],
+      "normalized_vietnamese_target": "trứng gà luộc",
+      "outcome": "no_proposal",
+      "reason_code": "preparation_ambiguous",
+      "rejected_source_records": [
+        {
+          "description": "Egg, whole, boiled or poached",
+          "fdc_id": 2707154,
+          "fndds_food_code": "31103010",
+          "reason_code": "boiled_or_poached_combined",
+          "record_sha256": "8a5576b24303e3dc675ffcbff1b2dfd21f1d02e40dcf49784b144f528263ff53",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Eggs and omelets"
+        },
+        {
+          "description": "Egg, whole, cooked, NS as to cooking method",
+          "fdc_id": 2707153,
+          "fndds_food_code": "31102000",
+          "reason_code": "cooking_method_unspecified",
+          "record_sha256": "a67fd5dd673d5a6c9a8c9f022a325690434df28956a84bf10615160cf133bbda",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Eggs and omelets"
+        }
+      ],
+      "target_id": "vmb-public-0005",
+      "target_preparation_state": "whole chicken egg, boiled"
+    },
+    {
+      "foundation_mapping_state": "no_accepted_mapping_recorded",
+      "literal_absence_checks": [],
+      "normalized_vietnamese_target": "thịt bò",
+      "outcome": "no_proposal",
+      "reason_code": "nfs_profile_and_preparation_not_exact",
+      "rejected_source_records": [
+        {
+          "description": "Beef, NFS",
+          "fdc_id": 2705822,
+          "fndds_food_code": "21000100",
+          "reason_code": "nfs_profile_not_exact_food_identity",
+          "record_sha256": "76321d9ef10e1c71ec9e5506e302c7f2c7401d4d6291958344ab0c69c7660804",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Beef, excludes ground"
+        }
+      ],
+      "target_id": "vmb-public-0003",
+      "target_preparation_state": "stir-fried beef in the benchmark case; no cut specified"
+    },
+    {
+      "foundation_mapping_state": "no_accepted_mapping_recorded",
+      "literal_absence_checks": [],
+      "normalized_vietnamese_target": "thịt gà",
+      "outcome": "no_proposal",
+      "reason_code": "ns_profile_not_exact_food_identity",
+      "rejected_source_records": [
+        {
+          "description": "Chicken, NS as to part and cooking method, NS as to skin eaten",
+          "fdc_id": 2705929,
+          "fndds_food_code": "24100000",
+          "reason_code": "ns_profile_not_exact_food_identity",
+          "record_sha256": "6fab083b5b596d2701c8e5bad096473bd89aac8e8bb738f5e541add9af1cfe26",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Chicken, whole pieces"
+        }
+      ],
+      "target_id": "vmb-public-0007",
+      "target_preparation_state": "chicken; part and preparation unspecified in the target"
+    },
+    {
+      "foundation_mapping_state": "no_accepted_mapping_recorded",
+      "literal_absence_checks": [
+        {
+          "all_terms": [
+            "chicken",
+            "boiled"
+          ],
+          "description": "No exact source description containing both literal terms was found.",
+          "match_count": 0,
+          "matched_source_records": []
+        }
+      ],
+      "normalized_vietnamese_target": "thịt gà luộc",
+      "outcome": "no_proposal",
+      "reason_code": "no_exact_generic_boiled_record",
+      "rejected_source_records": [
+        {
+          "description": "Chicken, NS as to part, stewed, NS as to skin eaten",
+          "fdc_id": 2705938,
+          "fndds_food_code": "24103000",
+          "reason_code": "stewed_is_not_boiled",
+          "record_sha256": "e6e477176ec61f3ae702380791e5073b659133fe190fa49c5e1dee664eed6479",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Chicken, whole pieces"
+        }
+      ],
+      "target_id": "vmb-public-0012",
+      "target_preparation_state": "chicken, boiled; part unspecified"
+    },
+    {
+      "foundation_mapping_state": "no_accepted_mapping_recorded",
+      "literal_absence_checks": [],
+      "normalized_vietnamese_target": "sữa tươi",
+      "outcome": "no_proposal",
+      "reason_code": "nfs_fat_class_profile_is_aggregate",
+      "rejected_source_records": [
+        {
+          "description": "Milk, NFS",
+          "fdc_id": 2705384,
+          "fndds_food_code": "11100000",
+          "reason_code": "nfs_profile_aggregates_fat_classes",
+          "record_sha256": "e73393dbc84455132f3a2afe135fb50a1fe6bdccfc359713af5c8986db3d424e",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Milk, reduced fat"
+        }
+      ],
+      "target_id": "vmb-public-0010",
+      "target_preparation_state": "fluid milk; fat class unspecified"
+    },
+    {
+      "foundation_mapping_state": "no_accepted_mapping_recorded",
+      "literal_absence_checks": [
+        {
+          "all_terms": [
+            "water spinach"
+          ],
+          "match_count": 0,
+          "matched_source_records": []
+        },
+        {
+          "all_terms": [
+            "morning glory"
+          ],
+          "match_count": 0,
+          "matched_source_records": []
+        }
+      ],
+      "normalized_vietnamese_target": "rau muống",
+      "outcome": "no_proposal",
+      "reason_code": "exact_water_spinach_record_unavailable",
+      "rejected_source_records": [
+        {
+          "description": "Spinach, raw",
+          "fdc_id": 2709614,
+          "fndds_food_code": "72125100",
+          "reason_code": "no_identity_equivalence_assumed",
+          "record_sha256": "85d6c3074a99152f39172b616175ab5a9e3da3ad5745d1f5ae064a63888fcdca",
+          "source_code": "usda_fndds",
+          "wweia_category_description": "Spinach"
+        }
+      ],
+      "target_id": "vmb-public-0014",
+      "target_preparation_state": "water spinach; preparation unspecified"
+    }
+  ],
+  "validation_report": {
+    "nutrient_coverage": {
+      "complete_required_profiles": 5431,
+      "expected_profileless_records": [
+        {
+          "description": "Milk, human",
+          "fndds_food_code": "11000000"
+        }
+      ],
+      "mapping_version": "fndds-required-nutrients-0.1.0",
+      "passed": true,
+      "record_count": 5432,
+      "unexpected_incomplete_records": [],
+      "unexpected_rejection_reason_counts": {}
+    },
+    "passed": true,
+    "source_parse": {
+      "accepted_record_count": 5432,
+      "adapter_version": "fndds-survey-json-0.1.0",
+      "raw_record_count": 5432,
+      "rejected_record_count": 0,
+      "rejected_records": [],
+      "release": "2021-2023",
+      "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+      "source_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808"
+    }
+  }
+}
