@@ -33,7 +33,7 @@ pub(crate) async fn stage_import(
 
     ensure_core_nutrients(tx).await?;
     let catalog_release_id =
-        create_staged_catalog_release(tx, prepared, dataset_release_id).await?;
+        create_staged_catalog_release(tx, prepared, dataset_release_id, request).await?;
     stage_reviewed_selection(
         tx,
         prepared,
@@ -80,14 +80,19 @@ pub(crate) async fn create_staged_catalog_release(
     tx: &mut Transaction<'_, Postgres>,
     prepared: &PreparedImport,
     dataset_release_id: Uuid,
+    request: &FdcFoundationImportRequest,
 ) -> Result<Uuid, FdcFoundationImportError> {
     let catalog_release_id = Uuid::now_v7();
     let manifest = json!({
         "source": FDC_DATASET_CODE,
+        "source_release": request.release_version,
         "source_dataset_release_id": dataset_release_id,
+        "source_archive_sha256": request.source_archive_sha256,
+        "source_payload_sha256": prepared.source_sha256,
         "importer_version": FDC_FOUNDATION_IMPORTER_VERSION,
         "preprocessing_policy_version": prepared.preprocessing_policy_version,
         "normalized_payload_sha256": prepared.normalized_payload_sha256,
+        "schema_fingerprint": prepared.schema_fingerprint,
         "selection_sha256": prepared.selection_fingerprint,
         "selected_fdc_ids": prepared.selected_ids.iter().copied().collect::<Vec<_>>(),
         "selected_count": prepared.selected_ids.len(),

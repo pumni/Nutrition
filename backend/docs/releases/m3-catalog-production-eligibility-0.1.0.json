@@ -1,0 +1,235 @@
+{
+  "schema_version": "m3-catalog-production-eligibility-0.1.0",
+  "status": "blocked",
+  "issue": 33,
+  "baseline_commit": "557992f426921dd945fdddbb52e29b747cede1e6",
+  "evidence_date": "2026-09-28",
+  "production_eligible": false,
+  "production_activation_authorized": false,
+  "source": {
+    "name": "USDA FoodData Central Foundation Foods",
+    "release": "2026-04-30",
+    "download_page": "https://fdc.nal.usda.gov/download-datasets/",
+    "archive_uri": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip",
+    "archive_sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+    "extracted_json_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
+    "normalized_payload_sha256": "8af923182f75bce502ba9c14aca2228fd4dad095eb1a8d6a7aba6a2b5101c19d",
+    "preprocessing_policy_version": "fdc_foundation_2026_04_null_tail_v1",
+    "importer_version": "fdc-foundation-json-0.2.0",
+    "energy_policy": "fdc_energy_v1"
+  },
+  "selection": {
+    "candidate_path": "backend/docs/releases/fdc-foundation-2026-04-selection-candidate-v1.json",
+    "candidate_sha256": "463eeaebc332b99736e5ff557ecc9cbee535c4af63522d2e1b434ee8484a61c0",
+    "selection_sha256": "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2",
+    "fdc_ids": [
+      1750339,
+      1750340,
+      1750341,
+      1750342,
+      1750343,
+      1999626,
+      1999627,
+      1999628,
+      1999629,
+      1999630,
+      1999631,
+      1999632,
+      1999633,
+      1999634,
+      2003586,
+      2003587,
+      2003588,
+      2003589,
+      2003590,
+      2003591
+    ],
+    "recorded_review_status": "approved",
+    "recorded_reviewer": "pumni",
+    "recorded_reviewed_at": "2026-08-16T01:08:05Z",
+    "recorded_rights_status": "approved_for_v1",
+    "recorded_license_basis": "public_domain + CC0_1_0",
+    "recorded_approval_reference": "github:pull/31#issuecomment-5305073122",
+    "approval_reference_verified": false,
+    "regenerated_candidate_review_status": "pending_human_review",
+    "verification_finding": "The recorded approval permalink does not resolve to a review of this FDC selection. PR #31 is the local performance baselines change; the referenced approval comment is not present there.",
+    "approval_reference_url": "https://github.com/pumni/Nutrition/pull/31#issuecomment-5305073122"
+  },
+  "machine_validation": {
+    "status": "passed",
+    "report_path": "backend/docs/releases/fdc-foundation-2026-04-selected-validation.json",
+    "report_sha256": "9bdfce8fe1b977d3b03337ce321e2f213763de521537df5024fa751028fe7246",
+    "selection_status": "validated",
+    "source_integrity_valid": true,
+    "normalized_payload_valid": true,
+    "production_eligible": false,
+    "reviewer_approved": false,
+    "selected_count": 20,
+    "selected_energy": {
+      "atwater_specific_2048": 20,
+      "atwater_general_2047": 0,
+      "missing": 0,
+      "unexpected_legacy_1008": 0
+    }
+  },
+  "exact_source_staging_drill": {
+    "status": "staged",
+    "catalog_release_id": "01a0e5e8-5b82-7720-a209-0aa186be6827",
+    "catalog_release_version": "usda-fdc-foundation-2026-04-30-ced28fc5e086",
+    "dataset_release_id": "01a0e5e8-523c-73d2-ab3d-e0029411b1dd",
+    "source_payload_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
+    "selection_sha256": "ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2",
+    "membership_sha256": "6324beacda210759335d30bfbb5f090a82f0708d1ae8f0ac903087f1b4d49edb",
+    "selected_profile_count": 20,
+    "production_eligible_profile_count": 0,
+    "complete_energy_mapping_count": 20,
+    "production_eligible": false,
+    "active_release_before": null,
+    "active_release_after": null,
+    "activation_attempted": false,
+    "selected_membership": [
+      {
+        "fdc_id": 1750339,
+        "food_id": "01a0e5e8-5b89-7eb2-9999-ca87ba78c420",
+        "profile_id": "01a0e5e8-5ba6-7512-8169-64feca3ad130",
+        "source_record_id": "01a0e5e8-5646-7281-9974-75ab062a625a"
+      },
+      {
+        "fdc_id": 1750340,
+        "food_id": "01a0e5e8-5bbf-7810-8b26-943bbd993ac5",
+        "profile_id": "01a0e5e8-5bcb-7560-a1dc-fc47cf7e8ba0",
+        "source_record_id": "01a0e5e8-564c-75e0-b01a-700d8136e67d"
+      },
+      {
+        "fdc_id": 1750341,
+        "food_id": "01a0e5e8-5bdc-7940-9662-e223e0a9d322",
+        "profile_id": "01a0e5e8-5bea-7742-b54b-8f5fd7cb4213",
+        "source_record_id": "01a0e5e8-5651-74d2-aaac-f31fbebccaf0"
+      },
+      {
+        "fdc_id": 1750342,
+        "food_id": "01a0e5e8-5bfa-70f2-9d4b-aa37c82bd249",
+        "profile_id": "01a0e5e8-5c06-7ab0-a304-cc8e7586c7e8",
+        "source_record_id": "01a0e5e8-5656-7140-8688-f15b238036c4"
+      },
+      {
+        "fdc_id": 1750343,
+        "food_id": "01a0e5e8-5c16-72e2-ac5a-3cffc6adc704",
+        "profile_id": "01a0e5e8-5c22-7241-80d2-15f5f632bac0",
+        "source_record_id": "01a0e5e8-565b-7730-b4d9-9df8e3ed78bd"
+      },
+      {
+        "fdc_id": 1999626,
+        "food_id": "01a0e5e8-5c31-7612-818c-3bb7dbc57c69",
+        "profile_id": "01a0e5e8-5c3e-7211-97fb-2b90ea076105",
+        "source_record_id": "01a0e5e8-5686-71c3-b3cd-2fc8380efbba"
+      },
+      {
+        "fdc_id": 1999627,
+        "food_id": "01a0e5e8-5c4f-7242-816d-a3f3db1c5035",
+        "profile_id": "01a0e5e8-5c5b-7641-9c26-5884162b137c",
+        "source_record_id": "01a0e5e8-568c-74b3-82f8-2164c375dac7"
+      },
+      {
+        "fdc_id": 1999628,
+        "food_id": "01a0e5e8-5c6a-7ff2-9793-213d9bff831e",
+        "profile_id": "01a0e5e8-5c76-7af3-a6ce-e9cb0d02e217",
+        "source_record_id": "01a0e5e8-5693-72c2-ac36-68ab2b26e671"
+      },
+      {
+        "fdc_id": 1999629,
+        "food_id": "01a0e5e8-5c84-74c0-bfef-f97459442a7e",
+        "profile_id": "01a0e5e8-5c8f-7210-8a81-68f199d29800",
+        "source_record_id": "01a0e5e8-569b-7d33-ac2f-fdfc3647f525"
+      },
+      {
+        "fdc_id": 1999630,
+        "food_id": "01a0e5e8-5c9d-74c1-b51d-c5125da67a84",
+        "profile_id": "01a0e5e8-5ca8-7742-93cd-5ef74055b2c7",
+        "source_record_id": "01a0e5e8-56a4-7863-82ed-3f98207ff36d"
+      },
+      {
+        "fdc_id": 1999631,
+        "food_id": "01a0e5e8-5cb5-7823-94fe-f7ed4c173557",
+        "profile_id": "01a0e5e8-5cc0-7b70-94d3-8d50cabe0026",
+        "source_record_id": "01a0e5e8-56b2-7cb1-8b19-ba36f3325423"
+      },
+      {
+        "fdc_id": 1999632,
+        "food_id": "01a0e5e8-5ccd-7f50-87bc-88108b0712b2",
+        "profile_id": "01a0e5e8-5cd9-7532-bbb6-1a5fe40c004a",
+        "source_record_id": "01a0e5e8-56ba-7c73-a3d1-2a16bdb7190c"
+      },
+      {
+        "fdc_id": 1999633,
+        "food_id": "01a0e5e8-5ce8-7f41-bbac-b50e728b15c8",
+        "profile_id": "01a0e5e8-5cf3-72f0-929a-fcdc036c2d31",
+        "source_record_id": "01a0e5e8-56c0-7653-a49e-05dc6d0caea9"
+      },
+      {
+        "fdc_id": 1999634,
+        "food_id": "01a0e5e8-5d02-7d61-899f-2996c4cf74b4",
+        "profile_id": "01a0e5e8-5d0e-7f40-abbf-2eb4468db59e",
+        "source_record_id": "01a0e5e8-56c5-7591-b81f-be15cc1d693a"
+      },
+      {
+        "fdc_id": 2003586,
+        "food_id": "01a0e5e8-5d1e-7260-9eaa-406b9a4ea89e",
+        "profile_id": "01a0e5e8-5d2a-7223-b3d3-bfab1c16f9e5",
+        "source_record_id": "01a0e5e8-56cc-74c0-8fa9-e224a0d65b73"
+      },
+      {
+        "fdc_id": 2003587,
+        "food_id": "01a0e5e8-5d38-7f60-ac1d-6c3d36e3173c",
+        "profile_id": "01a0e5e8-5d43-7560-9d02-75d81f8269b7",
+        "source_record_id": "01a0e5e8-56d0-7323-b4a7-d4f154bc343f"
+      },
+      {
+        "fdc_id": 2003588,
+        "food_id": "01a0e5e8-5d51-7d10-98c4-188fd722579a",
+        "profile_id": "01a0e5e8-5d5b-7b90-bf57-3c1feca20fca",
+        "source_record_id": "01a0e5e8-56d6-7f00-ab2c-4fa2aa264b8b"
+      },
+      {
+        "fdc_id": 2003589,
+        "food_id": "01a0e5e8-5d69-7fb2-909b-505e5f7aaa5d",
+        "profile_id": "01a0e5e8-5d76-72b3-b006-59dab3626d24",
+        "source_record_id": "01a0e5e8-56db-7b10-9ce3-552241101805"
+      },
+      {
+        "fdc_id": 2003590,
+        "food_id": "01a0e5e8-5d85-7661-a183-ced14a6ddcce",
+        "profile_id": "01a0e5e8-5d91-7ec0-be32-b72f905413e3",
+        "source_record_id": "01a0e5e8-56e0-7c23-a27b-268323226c1d"
+      },
+      {
+        "fdc_id": 2003591,
+        "food_id": "01a0e5e8-5d9e-7590-9606-8ffd63d718f8",
+        "profile_id": "01a0e5e8-5da9-7b23-8214-e9078a561be0",
+        "source_record_id": "01a0e5e8-56e6-7aa1-89be-b5c573dbb0ab"
+      }
+    ]
+  },
+  "m3_review": {
+    "impact_report_sha256": null,
+    "reviewer": null,
+    "approval_reference": null,
+    "rollback_target_release_id": null,
+    "production_eligible": false,
+    "production_activation_authorized": false,
+    "exact_source_activation": "not_attempted",
+    "exact_source_rollback": "not_attempted",
+    "blocking_reasons": [
+      "The saved selection approval reference could not be verified against a review of this selection; regeneration remains pending human review.",
+      "No human-reviewed M3 impact report was supplied for the exact staged release.",
+      "The disposable PostgreSQL environment had no prior active release, so it provided no rollback target for an exact-source activation drill."
+    ]
+  },
+  "mechanism_integration_tests": {
+    "machine_validation_alone_cannot_enable_activation": "passed",
+    "activation_requires_explicit_review_and_matching_validation_hash": "passed",
+    "rollback_creates_new_immutable_release_and_requires_fresh_review": "passed",
+    "exact_source_staging_remains_inactive": "passed"
+  },
+  "production_effects": false
+}

@@ -237,7 +237,7 @@ async fn assert_overlap_identity(pool: &PgPool) {
 }
 
 async fn import_legacy_release(pool: &PgPool, label: &str) {
-    let release_version = "2026-04-30".to_owned();
+    let release_version = format!("fixture-{label}-2026-04-30");
     let request = FdcFoundationImportRequest {
         release_version: release_version.clone(),
         source_published_date: "2026-04-30".to_owned(),

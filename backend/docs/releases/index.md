@@ -10,6 +10,8 @@ evidence.
   candidate-only evidence; it does not authorize publication, activation, deployment, or traffic.
 - **FDC selection candidate:** [fdc-foundation-2026-04-selection-candidate-v1.json](fdc-foundation-2026-04-selection-candidate-v1.json)
 - **FDC validation evidence:** [fdc-foundation-2026-04-validation.md](fdc-foundation-2026-04-validation.md)
+- **M3 staging evidence:** [m3-catalog-production-eligibility-0.1.0.json](m3-catalog-production-eligibility-0.1.0.json) —
+  exact selected import staged inactive; production eligibility remains blocked.
 
 ## Historical behavior releases
 

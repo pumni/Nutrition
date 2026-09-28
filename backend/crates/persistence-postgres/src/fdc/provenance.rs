@@ -118,6 +118,8 @@ pub(crate) async fn create_dataset_release(
         "data_type": "Foundation",
         "importer_version": FDC_FOUNDATION_IMPORTER_VERSION,
         "source_download_url": FDC_SOURCE_DOWNLOAD_URL,
+        "source_archive_sha256": request.source_archive_sha256,
+        "preprocessing_policy_version": request.preprocessing_policy_version,
         "schema_fingerprint_kind": "validated_import_contract"
     });
     sqlx::query(
