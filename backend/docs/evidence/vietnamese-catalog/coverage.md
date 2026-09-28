@@ -42,7 +42,7 @@ Source hashes for the baseline snapshot:
 
 | Source | SHA-256 |
 |---|---|
-| `fixtures/vietnamese-meal-bench/manifest.json` | `dc7da868d0be08f4583717f3fb3ed09a74d33b5338ea4cd4ac299a4db05f9ede` |
+| `fixtures/vietnamese-meal-bench/manifest.json` | `b8af69b3c278158f1f3a20aeb65c52cb993c59a4d33bef2fa037431547913502` |
 | `fixtures/vietnamese-meal-bench/public-test-cases.json` | `ad11b9061c4c150383590c43b10be15cda8cfb944f9ce2e295e49bd24cf96f32` |
 | `seeds/0001_foundation_fixture.sql` | `457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84` |
 
