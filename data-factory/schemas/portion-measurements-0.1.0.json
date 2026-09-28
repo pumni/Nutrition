@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/portion-measurements-0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observations"],
+  "properties": {
+    "schema_version": {"const": "portion-measurements-0.1.0"},
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observation_id",
+          "sample_id",
+          "sample_kind",
+          "repeat_of_observation_id",
+          "batch_id",
+          "mass_g",
+          "target",
+          "instrument_id",
+          "tare_applied",
+          "tare_mass_g",
+          "calibration_reference",
+          "operator_id",
+          "measured_at"
+        ],
+        "properties": {
+          "observation_id": {"type": "string", "minLength": 1},
+          "sample_id": {"type": "string", "minLength": 1},
+          "sample_kind": {"enum": ["independent_sample", "repeat_weighing"]},
+          "repeat_of_observation_id": {"type": ["string", "null"], "minLength": 1},
+          "batch_id": {"type": "string", "minLength": 1},
+          "mass_g": {"type": "number", "exclusiveMinimum": 0},
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["food_concept_id", "preparation", "canonical_measure", "represented_quantity", "physical_context"],
+            "properties": {
+              "food_concept_id": {"type": ["string", "null"], "minLength": 1},
+              "preparation": {"type": ["string", "null"], "minLength": 1},
+              "canonical_measure": {"type": "string", "minLength": 1},
+              "represented_quantity": {"type": "number", "exclusiveMinimum": 0},
+              "physical_context": {"type": ["string", "null"], "minLength": 1}
+            }
+          },
+          "instrument_id": {"type": "string", "minLength": 1},
+          "tare_applied": {"const": true},
+          "tare_mass_g": {"type": "number", "minimum": 0},
+          "calibration_reference": {"type": "string", "minLength": 1},
+          "operator_id": {"type": "string", "minLength": 1},
+          "measured_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}

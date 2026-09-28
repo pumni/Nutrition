@@ -23,7 +23,7 @@ The scaffold provides boundaries for:
 - Vietnamese phrase candidate extraction with private-context omission by default;
 - human-only curation decisions with non-destructive supersession;
 - release impact reports for changes, provenance deltas, coverage, and fixed cases;
-- portion-study validation/compiler with independent-sample and repeat-weighing semantics;
+- versioned portion-study manifests, instrument/tare/sample validation, deterministic estimates, and immutable review packets;
 - backend-compatible full release package containing raw, catalog, composition, recipe and
   portion boundaries plus a completeness manifest;
 - canonical `catalog-handoff-v1/` package for the reviewed 20-record backend handoff.
@@ -157,6 +157,49 @@ python scripts/build_release_review_packet.py `
 The packet distinguishes technical `passed` checks from `review_required` decisions. It cannot
 turn machine curation proposals, source anomalies, impact gaps or missing rollback approval into
 an activation decision.
+
+## Human portion measurement packet
+
+Issue #36 tooling uses a versioned manifest and measurement document:
+
+- `schemas/portion-study-manifest-0.2.0.json` records the reviewed target, preapproved sample plan,
+  instrument resolution/calibration check, tare method/mass, operators, and estimator policies.
+- `schemas/portion-measurements-0.1.0.json` records each positive net mass, batch, timestamp,
+  target context, and whether the row is an independent sample or a repeat linked to its primary
+  weighing.
+- `scripts/prepare_portion_review_packet.py` validates supplied files, stores their exact bytes in a
+  local SHA-256 content-addressed artifact store, and emits a create-only deterministic review
+  packet. It does not access PostgreSQL, stage a catalog release, or activate evidence.
+
+Manifest schema `0.2.0` is a narrow successor to `0.1.0`: it adds explicit human review states for
+identity/preparation/context, an approved sample/batch plan, and numeric calibration/tare checks.
+The measurement protocol remains `portion-measurement-0.1.0`; this schema change does not relax
+identity matching or enable publication.
+
+The estimator averages the repeat readings within each independent sample, computes the central
+estimate as the equal-weight mean of independent-sample means, and uses their minimum and maximum
+as lower and upper bounds. The approved study plan supplies the minimum sample and batch counts;
+the tool does not choose those thresholds. An unresolved food identity, preparation, or physical
+measure context suppresses the estimate. Packets remain publication-blocked even after technical
+validation.
+
+Do not create a target manifest or collect/publish Vietnamese measurements until #35/#41 has reviewed
+the identity and source strategy. Current #36 scope contains no selected targets or measurement
+observations. The issue handoff records this blocked state at
+`docs/reviews/vietnamese-portion-measurement-issue-36.md`.
+
+After those decisions and actual measurements are available, run the packet tool outside the
+repository. Omit `--measurements` until a genuine measurement file exists:
+
+```powershell
+python scripts/prepare_portion_review_packet.py `
+  --manifest C:\secure\portion-study\study-manifest.json `
+  --artifact-store C:\secure\portion-study\artifacts `
+  --output C:\secure\portion-study\review-packet.json
+```
+
+Add `--measurements C:\secure\portion-study\measurements.json` only when it contains recorded
+human measurements. Supply `--reviewer` and `--review-ref` only for an existing named human review.
 
 ## Ready-task verification
 
