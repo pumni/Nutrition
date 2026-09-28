@@ -36,6 +36,10 @@ be handled by a separately reviewed, versioned process.
 - `M4-staging-slo-load-restore`
 - `M5-release-rollback`
 
+Current M3 evidence is [m3-catalog-production-eligibility-0.1.0.json](../releases/m3-catalog-production-eligibility-0.1.0.json).
+It records the exact 20-record import as staged and inactive, with M3 blocked pending a verifiable
+selection approval and reviewed impact/rollback evidence.
+
 The output is `status=blocked` when any gate is blocked. When all six gates are closed, the output
 is only `ready_for_owner_release_review`; it is never a release approval.
 

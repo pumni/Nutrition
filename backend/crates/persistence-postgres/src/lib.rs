@@ -13,8 +13,9 @@ mod telemetry;
 pub use analysis::PostgresAnalysisRepository;
 pub use catalog_activation::{
     CatalogReleaseActivationError, CatalogReleaseActivationReport, CatalogReleaseActivationRequest,
+    CatalogReleaseProductionEligibilityReport, CatalogReleaseProductionEligibilityRequest,
     CatalogReleaseRollbackReport, CatalogReleaseRollbackRequest, activate_catalog_release,
-    stage_catalog_rollback,
+    review_catalog_release_production_eligibility, stage_catalog_rollback,
 };
 pub use catalog_handoff::{
     CatalogHandoffImportCapability, CatalogHandoffImportError, CatalogHandoffImportReport,
