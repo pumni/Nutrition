@@ -2,23 +2,38 @@
 
 Status: `blocked_human_review_required`; proposal-only; no reviewer decision or staged release
 
-This packet records the current issue #35 evidence boundary. It does not approve Vietnamese aliases,
+This packet records the current issue #35 evidence boundary. Food identity and source composition are
+reviewed here only; portion evidence (#36) and recipe evidence (#37) remain separate and cannot be
+used to justify an identity or source mapping. This packet does not approve Vietnamese aliases,
 source mappings, preparation equivalence, portions, recipes, or production activation.
 
 ## Verified baseline
 
-The analysis used `main` at `557992f426921dd945fdddbb52e29b747cede1e6`. PR #39 was still open and had
-no merge commit; its changes are not part of this baseline.
+This issue #35 review packet is refreshed against `main` at
+`c01cdfa104159aa2e317d4ec3199d8e974fd4e01`. PR #39 merged into that baseline on
+`2026-09-28T04:05:10Z` with merge commit `c01cdfa104159aa2e317d4ec3199d8e974fd4e01`. PR #39 added
+the M3 eligibility and staging/rollback review gates; it did not change the pinned USDA archive,
+Data Factory source registry, or Vietnamese identity-mapping inputs.
 
 | Evidence | SHA-256 / value | Result |
 |---|---|---|
-| `config/source_registry.json` | `9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da` | FDC Foundation `2026-04-30` is an approved candidate source; unreviewed mappings remain prohibited. |
-| USDA FDC archive | `186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a` | Re-fetched from the pinned official USDA URI and hash-verified. |
-| USDA extracted JSON | `27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc` | Hash-verified; the adapter parsed 363 records and quarantined 32 null rows. |
+| `config/source_registry.json` | `9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da` | Registry records FDC Foundation `2026-04-30` as `approved_candidate`; the stored PR #31 approval permalink is unverified governance metadata (see below), not mapping review or staging approval. Unreviewed mappings remain prohibited. |
+| USDA FDC Foundation archive, release `2026-04-30` | `186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a`; `https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip` | Official USDA artifact; archive hash rechecked against the source pin. |
+| USDA extracted JSON, `FoodData_Central_foundation_food_json_2026-04-30.json` | `27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc` | Extracted-payload hash rechecked; the adapter parsed 363 records and quarantined 32 null rows. |
+| PR #39 M3 eligibility report on current `main` | `backend/docs/releases/m3-catalog-production-eligibility-0.1.0.json`; SHA-256 `0c103a16af65b48a5de8ab67e9ebf544f317438fb2ea5cea683b74c0c13014a5` | Records `approval_reference_verified: false`, `reviewer_approved: false`, `production_eligible: false`, and no activation. Its finding says the PR #31 permalink does not resolve to review of the exact M3 selection. |
+| PR #39 selected-source validation on current `main` | `backend/docs/releases/fdc-foundation-2026-04-selected-validation.json`; SHA-256 `9bdfce8fe1b977d3b03337ce321e2f213763de521537df5024fa751028fe7246` | Confirms the unchanged exact M3 selection fingerprint below; machine validation is not reviewer approval. |
 | VietnameseMealBench manifest | `b8af69b3c278158f1f3a20aeb65c52cb993c59a4d33bef2fa037431547913502` | Current hash. The previous value in `coverage.md` was stale after the manifest path update. |
 | VietnameseMealBench public cases | `ad11b9061c4c150383590c43b10be15cda8cfb944f9ce2e295e49bd24cf96f32` | 15 public cases, 16 parsed items; annotations remain pending human review. |
 | Test-only foundation seed | `457cbe5999e6559dadb70321a166f73f1955558a8b0d4c43f70839081e039e84` | Test fixture only; not production composition or portion evidence. |
 | Existing M3 selection | `ad867dbbb6a9387c4cb3e3837fb337353097d7ebd99f774eded25cf56dd9ffc2` | Unchanged; this review did not add or select FDC IDs. |
+
+The current source registry still stores `github:pull/31#issuecomment-5305073122` as its
+`approval_reference`. Issue #41 and the merged PR #39 eligibility report explicitly identify that
+reference as unverified governance metadata: it does not establish review of the M3 selection,
+approve an issue #35 food mapping, or authorize staging. This packet does not use it for any of those
+purposes. The PR #39 eligibility artifact contains its own historical `baseline_commit` value
+`557992f426921dd945fdddbb52e29b747cede1e6`; that is the M3 drill's recorded baseline, while the
+issue #35 analysis baseline above is current `main` at `c01cdfa104159aa2e317d4ec3199d8e974fd4e01`.
 
 The historical coverage snapshot records `pumni/Nutrition_backend@479ac773b372599e2648437bfe5b56620f1b706d`
 as its backend regression baseline. That is snapshot metadata from the prior backend repository, not the
@@ -95,7 +110,11 @@ These dimensions are not a complete meal-analysis pass rate. No benchmark item i
 calculation from this slice: the seed is test-only, no Vietnamese phrase has a compatible FDC mapping,
 and the existing real portion and recipe evidence counts remain zero.
 
-## Human decisions needed to unblock
+## Human/source decision needed to unblock (#41)
+
+Issue #41 is open and has no decision comment. Keep issue #35 blocked until the owner/domain reviewer
+records a source strategy there, or supplies exact reviewed Foundation mappings under option D in
+#41. The PR #31 permalink above is not a substitute for that decision.
 
 1. For each basic-food identity above, provide a rights-cleared exact source record that satisfies the
    listed semantics, or leave that identity explicitly unsupported for this release. Do not relax the
