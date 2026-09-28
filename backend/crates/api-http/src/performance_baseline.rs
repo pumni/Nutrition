@@ -1049,6 +1049,93 @@ fn validate_database_report(database: &DatabaseReport, request_count: usize) -> 
     Ok(())
 }
 
+fn validate_db_oriented_report(db_oriented_api: &DbOrientedReport) -> Result<(), String> {
+    if db_oriented_api.scenarios.len() != 2
+        || db_oriented_api.scenarios[0].item_count != 1
+        || db_oriented_api.scenarios[1].item_count != 2
+    {
+        return Err("DB workload must compare one item with two seeded items".to_owned());
+    }
+    let one_item = &db_oriented_api.scenarios[0];
+    let multi_item = &db_oriented_api.scenarios[1];
+    if one_item.workload.request_count != multi_item.workload.request_count
+        || one_item.workload.concurrency != multi_item.workload.concurrency
+    {
+        return Err("DB workloads must use the same request count and concurrency".to_owned());
+    }
+    for scenario in &db_oriented_api.scenarios {
+        validate_workload(&scenario.workload)?;
+        validate_database_report(&scenario.database, scenario.workload.request_count)?;
+        if scenario.database.configured_max_connections != API_DATABASE_POOL_SIZE {
+            return Err("DB pool configuration differs from the declared baseline".to_owned());
+        }
+    }
+    Ok(())
+}
+
+fn validate_hosted_parser_report(
+    hosted_parser_analysis: &HostedParserReport,
+) -> Result<(), String> {
+    validate_workload(&hosted_parser_analysis.workload)?;
+    validate_database_report(
+        &hosted_parser_analysis.database,
+        hosted_parser_analysis.workload.request_count,
+    )?;
+    validate_latency(&hosted_parser_analysis.fake_provider_latency)?;
+    if hosted_parser_analysis.fake_profile.real_provider_called
+        || hosted_parser_analysis
+            .fake_profile
+            .external_credential_required
+        || hosted_parser_analysis.database.configured_max_connections != API_DATABASE_POOL_SIZE
+    {
+        return Err("hosted fake profile or DB configuration is invalid".to_owned());
+    }
+    if hosted_parser_analysis.fake_model_call_count
+        != hosted_parser_analysis.fake_provider_latency.sample_count
+        || hosted_parser_analysis.fake_model_call_count == 0
+    {
+        return Err("fake provider calls must match measured provider latency samples".to_owned());
+    }
+    let fake_error_count = hosted_parser_analysis
+        .fake_error_distribution
+        .values()
+        .sum::<usize>();
+    let expected_fake_error_count = hosted_parser_analysis.fake_model_call_count
+        / hosted_parser_analysis
+            .fake_profile
+            .transient_error_every_nth_call;
+    if fake_error_count != expected_fake_error_count
+        || hosted_parser_analysis
+            .fake_error_distribution
+            .keys()
+            .any(|code| !is_safe_error_code(code))
+    {
+        return Err(
+            "fake provider error distribution does not match its deterministic profile".to_owned(),
+        );
+    }
+    Ok(())
+}
+
+fn validate_issue_20_decision(
+    decision: &Issue20DecisionReport,
+    one_item: &DbScenarioReport,
+    multi_item: &DbScenarioReport,
+) -> Result<(), String> {
+    let expected_decision = evaluate_issue20_threshold(
+        &decision.threshold_predeclared_at_revision,
+        one_item,
+        multi_item,
+    );
+    if &expected_decision != decision {
+        return Err("issue 20 decision does not match its measurements and threshold".to_owned());
+    }
+    if decision.threshold_predeclared_at_revision.len() != 40 {
+        return Err("issue 20 threshold must reference a committed source revision".to_owned());
+    }
+    Ok(())
+}
+
 fn validate_report(report: &PerformanceBaselineReport) -> Result<(), String> {
     if report.schema_version != REPORT_SCHEMA_VERSION {
         return Err("unsupported performance report version".to_owned());
@@ -1061,95 +1148,11 @@ fn validate_report(report: &PerformanceBaselineReport) -> Result<(), String> {
     {
         return Err("performance evidence scope flags are unsafe".to_owned());
     }
-    if report.db_oriented_api.scenarios.len() != 2
-        || report.db_oriented_api.scenarios[0].item_count != 1
-        || report.db_oriented_api.scenarios[1].item_count != 2
-    {
-        return Err("DB workload must compare one item with two seeded items".to_owned());
-    }
+    validate_db_oriented_report(&report.db_oriented_api)?;
+    validate_hosted_parser_report(&report.hosted_parser_analysis)?;
     let one_item = &report.db_oriented_api.scenarios[0];
     let multi_item = &report.db_oriented_api.scenarios[1];
-    if one_item.workload.request_count != multi_item.workload.request_count
-        || one_item.workload.concurrency != multi_item.workload.concurrency
-    {
-        return Err("DB workloads must use the same request count and concurrency".to_owned());
-    }
-    for scenario in &report.db_oriented_api.scenarios {
-        validate_workload(&scenario.workload)?;
-        validate_database_report(&scenario.database, scenario.workload.request_count)?;
-        if scenario.database.configured_max_connections != API_DATABASE_POOL_SIZE {
-            return Err("DB pool configuration differs from the declared baseline".to_owned());
-        }
-    }
-    validate_workload(&report.hosted_parser_analysis.workload)?;
-    validate_database_report(
-        &report.hosted_parser_analysis.database,
-        report.hosted_parser_analysis.workload.request_count,
-    )?;
-    validate_latency(&report.hosted_parser_analysis.fake_provider_latency)?;
-    if report
-        .hosted_parser_analysis
-        .fake_profile
-        .real_provider_called
-        || report
-            .hosted_parser_analysis
-            .fake_profile
-            .external_credential_required
-        || report
-            .hosted_parser_analysis
-            .database
-            .configured_max_connections
-            != API_DATABASE_POOL_SIZE
-    {
-        return Err("hosted fake profile or DB configuration is invalid".to_owned());
-    }
-    if report.hosted_parser_analysis.fake_model_call_count
-        != report
-            .hosted_parser_analysis
-            .fake_provider_latency
-            .sample_count
-        || report.hosted_parser_analysis.fake_model_call_count == 0
-    {
-        return Err("fake provider calls must match measured provider latency samples".to_owned());
-    }
-    let fake_error_count = report
-        .hosted_parser_analysis
-        .fake_error_distribution
-        .values()
-        .sum::<usize>();
-    let expected_fake_error_count = report.hosted_parser_analysis.fake_model_call_count
-        / report
-            .hosted_parser_analysis
-            .fake_profile
-            .transient_error_every_nth_call;
-    if fake_error_count != expected_fake_error_count
-        || report
-            .hosted_parser_analysis
-            .fake_error_distribution
-            .keys()
-            .any(|code| !is_safe_error_code(code))
-    {
-        return Err(
-            "fake provider error distribution does not match its deterministic profile".to_owned(),
-        );
-    }
-    let expected_decision = evaluate_issue20_threshold(
-        &report.issue_20_decision.threshold_predeclared_at_revision,
-        one_item,
-        multi_item,
-    );
-    if expected_decision != report.issue_20_decision {
-        return Err("issue 20 decision does not match its measurements and threshold".to_owned());
-    }
-    if report
-        .issue_20_decision
-        .threshold_predeclared_at_revision
-        .len()
-        != 40
-    {
-        return Err("issue 20 threshold must reference a committed source revision".to_owned());
-    }
-    Ok(())
+    validate_issue_20_decision(&report.issue_20_decision, one_item, multi_item)
 }
 
 fn local_output_path(path: &str) -> Result<PathBuf, Box<dyn Error>> {
@@ -1552,6 +1555,34 @@ mod tests {
             ISSUE_20_THRESHOLD_PREDECLARED_AT_REVISION
         );
         assert_eq!(report.issue_20_decision.outcome, "threshold_not_met");
+    }
+
+    #[test]
+    fn report_validation_preserves_section_error_precedence() {
+        let mut report: PerformanceBaselineReport = serde_json::from_str(include_str!(
+            "../../../docs/evidence/performance-baseline-sample.json"
+        ))
+        .expect("committed sample report matches the report data contract");
+        let original_concurrency = report.db_oriented_api.scenarios[0].workload.concurrency;
+        report.db_oriented_api.scenarios[0].workload.concurrency = 0;
+        report.db_oriented_api.scenarios[1].workload.concurrency = 0;
+        report
+            .hosted_parser_analysis
+            .fake_profile
+            .real_provider_called = true;
+        report.hosted_parser_analysis.fake_model_call_count = 0;
+
+        assert_eq!(
+            validate_report(&report).expect_err("DB workload validation runs before hosted checks"),
+            "request count and concurrency must be positive"
+        );
+
+        report.db_oriented_api.scenarios[0].workload.concurrency = original_concurrency;
+        report.db_oriented_api.scenarios[1].workload.concurrency = original_concurrency;
+        assert_eq!(
+            validate_report(&report).expect_err("fake profile validation runs before call counts"),
+            "hosted fake profile or DB configuration is invalid"
+        );
     }
 
     fn fake_generation_request() -> StructuredGenerationRequest {
