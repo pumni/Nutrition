@@ -22,7 +22,7 @@ source mapping, or physical observation is selected or published here.
 ## Tooling added
 
 - Study manifest schema: `schemas/portion-study-manifest-0.2.0.json`.
-- Measurement document schema: `schemas/portion-measurements-0.1.0.json`.
+- Measurement document schema: `schemas/portion-measurements-0.2.0.json`.
 - Validator/compiler: `src/nutrition_data_factory/portion.py`.
 - Human packet command: `scripts/prepare_portion_review_packet.py`.
 
@@ -30,6 +30,14 @@ Manifest schema `0.2.0` is a narrow successor to `0.1.0`: it adds explicit human
 identity/preparation/context, a reviewed sample/batch plan, and numeric calibration/tare checks.
 The physical measurement protocol remains `portion-measurement-0.1.0`; the successor does not relax
 identity matching or enable publication.
+
+Measurement document schema `0.2.0` adds a required sample-accounting block: the collected sample ID
+inventory, an explicit `all_samples_accounted_for` state, and structured `deviations_or_exclusions`
+records (`[]` means none). Each record includes sample ID, reason, and audit reference. Every
+collected sample must have an independent observation or an explained exclusion; false or incomplete
+accounting prevents estimation and review readiness. The review packet retains the block with the
+SHA-256-pinned raw measurement document. The review packet format advances to
+`portion-review-packet-0.2.0` to record it.
 
 The study plan carries human-reviewed minimum independent-sample and batch counts. The tool does not
 choose sample counts. Each observation binds to the exact reviewed identity, preparation, measure,

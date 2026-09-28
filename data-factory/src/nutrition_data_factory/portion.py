@@ -13,11 +13,11 @@ from typing import Any
 PORTION_POLICY_VERSION = "portion-study-0.2.0"
 PORTION_PROTOCOL_VERSION = "portion-measurement-0.1.0"
 MANIFEST_SCHEMA_VERSION = "portion-study-manifest-0.2.0"
-MEASUREMENTS_SCHEMA_VERSION = "portion-measurements-0.1.0"
+MEASUREMENTS_SCHEMA_VERSION = "portion-measurements-0.2.0"
 ESTIMATOR_VERSION = "mean_of_sample_means-0.1.0"
 BOUND_POLICY_VERSION = "minmax_of_sample_means-0.1.0"
 SAMPLE_KINDS = frozenset({"independent_sample", "repeat_weighing"})
-REVIEW_PACKET_VERSION = "portion-review-packet-0.1.0"
+REVIEW_PACKET_VERSION = "portion-review-packet-0.2.0"
 _MACHINE_REVIEWER = re.compile(r"(?:^|[^a-z0-9])(ai|agent|llm|model|bot)(?:$|[^a-z0-9])", re.IGNORECASE)
 
 _MANIFEST_KEYS = frozenset(
@@ -81,6 +81,7 @@ class PortionStudyManifest:
 class PortionCompilation:
     manifest: PortionStudyManifest | None
     observations_hash: str | None
+    measurement_accounting: Any
     central_mass_g: float | None
     lower_mass_g: float | None
     upper_mass_g: float | None
@@ -102,6 +103,7 @@ class PortionCompilation:
         return {
             "manifest": self.manifest.to_dict() if self.manifest else None,
             "observations_hash": self.observations_hash,
+            "measurement_accounting": self.measurement_accounting,
             "central_mass_g": self.central_mass_g,
             "lower_mass_g": self.lower_mass_g,
             "upper_mass_g": self.upper_mass_g,
@@ -288,10 +290,14 @@ def compile_portion_study(
     manifest, manifest_errors = validate_manifest(manifest_value)
     errors = list(manifest_errors)
     document_errors: list[dict[str, Any]] = []
+    measurement_accounting: Any = None
+    measurement_accounting_present = False
     if isinstance(observations, dict):
-        parsed_observations = _read_measurement_document(observations, document_errors)
+        parsed_observations, measurement_accounting = _read_measurement_document(observations, document_errors)
+        measurement_accounting_present = "measurement_accounting" in observations
     elif isinstance(observations, list):
         parsed_observations = observations
+        document_errors.append({"reason_code": "measurement_accounting_required"})
     else:
         parsed_observations = []
         document_errors.append({"reason_code": "observations_not_array"})
@@ -400,6 +406,20 @@ def compile_portion_study(
         if observation.get("batch_id") != parent.get("batch_id"):
             errors.append({"reason_code": "repeat_batch_id_mismatch"})
 
+    if measurement_accounting_present:
+        _validate_measurement_accounting(
+            measurement_accounting,
+            observed_sample_ids={
+                observation["sample_id"]
+                for observation in parsed_observations
+                if isinstance(observation, dict)
+                and isinstance(observation.get("sample_id"), str)
+                and observation["sample_id"].strip()
+            },
+            independent_sample_ids=set(primary_by_sample),
+            errors=errors,
+        )
+
     if manifest is not None:
         independent_count = len(primary_by_sample)
         batch_count = len(set(sample_batches.values()))
@@ -460,6 +480,7 @@ def compile_portion_study(
     return PortionCompilation(
         manifest=manifest,
         observations_hash=observations_hash,
+        measurement_accounting=measurement_accounting,
         central_mass_g=central,
         lower_mass_g=lower,
         upper_mass_g=upper,
@@ -511,6 +532,7 @@ def build_portion_review_packet(
             "measurements": measurements_artifact or _hash_reference(measurements_sha256),
             "canonical_observations_sha256": compilation.observations_hash,
         },
+        "measurement_accounting": compilation.measurement_accounting,
         "target_review": _target_review_summary(target, compilation.errors),
         "measurement_review": {
             "reviewer": compilation.reviewer,
@@ -538,8 +560,10 @@ def build_portion_review_packet(
     }
 
 
-def _read_measurement_document(value: dict[str, Any], errors: list[dict[str, Any]]) -> list[Any]:
-    allowed = {"schema_version", "observations"}
+def _read_measurement_document(
+    value: dict[str, Any], errors: list[dict[str, Any]]
+) -> tuple[list[Any], Any]:
+    allowed = {"schema_version", "observations", "measurement_accounting"}
     _check_keys(value, allowed, "measurements", errors)
     for key in sorted(allowed - value.keys()):
         errors.append({"reason_code": "missing_measurement_document_field", "field": key})
@@ -548,8 +572,92 @@ def _read_measurement_document(value: dict[str, Any], errors: list[dict[str, Any
     observations = value.get("observations")
     if not isinstance(observations, list):
         errors.append({"reason_code": "observations_not_array"})
-        return []
-    return observations
+        observations = []
+    return observations, value.get("measurement_accounting")
+
+
+def _validate_measurement_accounting(
+    value: Any,
+    *,
+    observed_sample_ids: set[str],
+    independent_sample_ids: set[str],
+    errors: list[dict[str, Any]],
+) -> None:
+    if not isinstance(value, dict):
+        errors.append({"reason_code": "measurement_accounting_not_object"})
+        return
+    allowed = {"all_samples_accounted_for", "collected_sample_ids", "deviations_or_exclusions"}
+    _check_keys(value, allowed, "measurement_accounting", errors)
+    for key in sorted(allowed - value.keys()):
+        errors.append({"reason_code": "missing_measurement_accounting_field", "field": key})
+
+    all_accounted = value.get("all_samples_accounted_for")
+    if not isinstance(all_accounted, bool):
+        errors.append({"reason_code": "all_samples_accounted_for_must_be_boolean"})
+    elif not all_accounted:
+        errors.append({"reason_code": "sample_accounting_incomplete"})
+
+    collected_value = value.get("collected_sample_ids")
+    collected_ids: set[str] = set()
+    if (
+        not isinstance(collected_value, list)
+        or not collected_value
+        or not all(isinstance(item, str) and item.strip() for item in collected_value)
+    ):
+        errors.append({"reason_code": "invalid_collected_sample_ids"})
+    else:
+        collected_ids = set(collected_value)
+        if len(collected_ids) != len(collected_value):
+            errors.append({"reason_code": "duplicate_collected_sample_id"})
+
+    rows = value.get("deviations_or_exclusions")
+    if not isinstance(rows, list):
+        errors.append({"reason_code": "deviations_or_exclusions_not_array"})
+        return
+
+    excluded_ids: set[str] = set()
+    for index, row in enumerate(rows):
+        path = f"measurement_accounting.deviations_or_exclusions[{index}]"
+        if not isinstance(row, dict):
+            errors.append({"reason_code": "accounting_record_not_object", "index": index})
+            continue
+        record_keys = {"kind", "sample_id", "reason", "reference"}
+        _check_keys(row, record_keys, path, errors)
+        for key in sorted(record_keys - row.keys()):
+            errors.append({"reason_code": "missing_accounting_record_field", "index": index, "field": key})
+        kind = row.get("kind")
+        sample_id = row.get("sample_id")
+        if not isinstance(kind, str) or kind not in {"deviation", "exclusion"}:
+            errors.append({"reason_code": "invalid_accounting_record_kind", "index": index})
+        if not isinstance(sample_id, str) or not sample_id.strip():
+            errors.append({"reason_code": "invalid_accounting_sample_id", "index": index})
+            continue
+        if not isinstance(row.get("reason"), str) or not row["reason"].strip():
+            errors.append({"reason_code": "accounting_reason_required", "index": index})
+        if not isinstance(row.get("reference"), str) or not row["reference"].strip():
+            errors.append({"reason_code": "accounting_reference_required", "index": index})
+        if collected_ids and sample_id not in collected_ids:
+            errors.append({"reason_code": "accounting_sample_not_collected", "index": index})
+        if kind == "deviation" and sample_id not in observed_sample_ids:
+            errors.append({"reason_code": "deviation_sample_not_observed", "index": index})
+        if kind == "exclusion":
+            if sample_id in excluded_ids:
+                errors.append({"reason_code": "duplicate_excluded_sample_id", "index": index})
+            excluded_ids.add(sample_id)
+            if sample_id in observed_sample_ids:
+                errors.append({"reason_code": "excluded_sample_has_observation", "index": index})
+
+    if collected_ids:
+        if observed_sample_ids - collected_ids:
+            errors.append({"reason_code": "observed_sample_not_in_collection_accounting"})
+        if independent_sample_ids - collected_ids:
+            errors.append({"reason_code": "observed_sample_not_in_collection_accounting"})
+        unaccounted_ids = collected_ids - independent_sample_ids - excluded_ids
+        if unaccounted_ids:
+            errors.append({
+                "reason_code": "collected_sample_missing_observation_or_exclusion",
+                "sample_ids": sorted(unaccounted_ids),
+            })
 
 
 def _validate_decision(

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "nutrition-data-factory/portion-measurements-0.1.0",
+  "$id": "nutrition-data-factory/portion-measurements-0.2.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "observations"],
+  "required": ["schema_version", "observations", "measurement_accounting"],
   "properties": {
-    "schema_version": {"const": "portion-measurements-0.1.0"},
+    "schema_version": {"const": "portion-measurements-0.2.0"},
     "observations": {
       "type": "array",
       "minItems": 1,
@@ -52,6 +52,34 @@
           "calibration_reference": {"type": "string", "minLength": 1},
           "operator_id": {"type": "string", "minLength": 1},
           "measured_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "measurement_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["all_samples_accounted_for", "collected_sample_ids", "deviations_or_exclusions"],
+      "properties": {
+        "all_samples_accounted_for": {"type": "boolean"},
+        "collected_sample_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "deviations_or_exclusions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "sample_id", "reason", "reference"],
+            "properties": {
+              "kind": {"enum": ["deviation", "exclusion"]},
+              "sample_id": {"type": "string", "minLength": 1},
+              "reason": {"type": "string", "minLength": 1},
+              "reference": {"type": "string", "minLength": 1}
+            }
+          }
         }
       }
     }

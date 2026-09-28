@@ -164,9 +164,9 @@ Issue #36 tooling uses a versioned manifest and measurement document:
 
 - `schemas/portion-study-manifest-0.2.0.json` records the reviewed target, preapproved sample plan,
   instrument resolution/calibration check, tare method/mass, operators, and estimator policies.
-- `schemas/portion-measurements-0.1.0.json` records each positive net mass, batch, timestamp,
-  target context, and whether the row is an independent sample or a repeat linked to its primary
-  weighing.
+- `schemas/portion-measurements-0.2.0.json` records each positive net mass, batch, timestamp,
+  target context, whether the row is an independent sample or a repeat linked to its primary
+  weighing, and required sample-accounting metadata.
 - `scripts/prepare_portion_review_packet.py` validates supplied files, stores their exact bytes in a
   local SHA-256 content-addressed artifact store, and emits a create-only deterministic review
   packet. It does not access PostgreSQL, stage a catalog release, or activate evidence.
@@ -175,6 +175,13 @@ Manifest schema `0.2.0` is a narrow successor to `0.1.0`: it adds explicit human
 identity/preparation/context, an approved sample/batch plan, and numeric calibration/tare checks.
 The measurement protocol remains `portion-measurement-0.1.0`; this schema change does not relax
 identity matching or enable publication.
+
+Measurement document schema `0.2.0` requires the collected sample ID inventory, an explicit
+`all_samples_accounted_for` state, and a structured `deviations_or_exclusions` list (`[]` means none).
+Each deviation or exclusion names its sample, reason, and audit reference. Every collected ID must
+have an independent observation or an explained exclusion; incomplete accounting blocks estimates
+and review readiness. Review packet `portion-review-packet-0.2.0` retains this block alongside the
+hash-pinned raw document.
 
 The estimator averages the repeat readings within each independent sample, computes the central
 estimate as the equal-weight mean of independent-sample means, and uses their minimum and maximum

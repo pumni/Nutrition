@@ -137,6 +137,28 @@ def observations() -> list[dict[str, object]]:
     ]
 
 
+def measurement_document(
+    rows: list[dict[str, object]] | None = None,
+    accounting: dict[str, object] | None = None,
+) -> dict[str, object]:
+    rows = observations() if rows is None else rows
+    if accounting is None:
+        accounting = {
+            "all_samples_accounted_for": True,
+            "collected_sample_ids": list(
+                dict.fromkeys(
+                    row["sample_id"] for row in rows if row["sample_kind"] == "independent_sample"
+                )
+            ),
+            "deviations_or_exclusions": [],
+        }
+    return {
+        "schema_version": MEASUREMENTS_SCHEMA_VERSION,
+        "observations": rows,
+        "measurement_accounting": accounting,
+    }
+
+
 def errors_with_reason(errors: tuple[dict[str, object], ...], reason: str) -> bool:
     return any(error.get("reason_code") == reason for error in errors)
 
@@ -147,7 +169,7 @@ class PortionTests(unittest.TestCase):
             (ROOT / "schemas" / "portion-study-manifest-0.2.0.json").read_text(encoding="utf-8")
         )
         observations_schema = json.loads(
-            (ROOT / "schemas" / "portion-measurements-0.1.0.json").read_text(encoding="utf-8")
+            (ROOT / "schemas" / "portion-measurements-0.2.0.json").read_text(encoding="utf-8")
         )
         self.assertEqual(
             manifest_schema["properties"]["schema_version"]["const"],
@@ -159,6 +181,7 @@ class PortionTests(unittest.TestCase):
         )
         self.assertFalse(manifest_schema["additionalProperties"])
         self.assertFalse(observations_schema["additionalProperties"])
+        self.assertIn("measurement_accounting", observations_schema["required"])
 
         manifest, errors = validate_manifest(MANIFEST)
         self.assertIsNotNone(manifest)
@@ -187,8 +210,8 @@ class PortionTests(unittest.TestCase):
     def test_repeats_are_linked_and_do_not_inflate_independent_sample_count(self) -> None:
         raw_observations = observations()
         before = copy.deepcopy(raw_observations)
-        result = compile_portion_study(MANIFEST, raw_observations)
-        replay = compile_portion_study(MANIFEST, copy.deepcopy(raw_observations))
+        result = compile_portion_study(MANIFEST, measurement_document(raw_observations))
+        replay = compile_portion_study(MANIFEST, measurement_document(copy.deepcopy(raw_observations)))
 
         self.assertTrue(result.passed)
         self.assertEqual(result.sample_count, 2)
@@ -207,12 +230,105 @@ class PortionTests(unittest.TestCase):
         self.assertIn("publication_disabled_tooling_only", result.publication_blockers)
         self.assertEqual(raw_observations, before)
 
+    def test_empty_deviation_list_explicitly_accounts_for_all_collected_samples(self) -> None:
+        document = measurement_document()
+        result = compile_portion_study(
+            MANIFEST,
+            document,
+            reviewer_approval_ref="test://measurement-review",
+            reviewer="reviewer-fixture",
+        )
+        self.assertTrue(result.passed)
+        self.assertTrue(result.review_ready)
+        self.assertEqual(result.measurement_accounting["deviations_or_exclusions"], [])
+        packet = build_portion_review_packet(result, measurements_sha256="d" * 64)
+        self.assertEqual(packet["measurement_accounting"], document["measurement_accounting"])
+        self.assertEqual(packet["input_artifacts"]["measurements"]["sha256"], "d" * 64)
+        self.assertFalse(packet["publication"]["publishable"])
+
+    def test_explained_deviation_and_exclusion_are_accounted_without_counting_excluded_sample(self) -> None:
+        accounting = {
+            "all_samples_accounted_for": True,
+            "collected_sample_ids": ["sample-1", "sample-2", "sample-3"],
+            "deviations_or_exclusions": [
+                {
+                    "kind": "deviation",
+                    "sample_id": "sample-1",
+                    "reason": "fixture handling note",
+                    "reference": "test://deviation/sample-1",
+                },
+                {
+                    "kind": "exclusion",
+                    "sample_id": "sample-3",
+                    "reason": "fixture sample was damaged before weighing",
+                    "reference": "test://exclusion/sample-3",
+                },
+            ],
+        }
+        result = compile_portion_study(
+            MANIFEST,
+            measurement_document(accounting=accounting),
+            reviewer_approval_ref="test://measurement-review",
+            reviewer="reviewer-fixture",
+        )
+        self.assertTrue(result.passed)
+        self.assertTrue(result.review_ready)
+        self.assertEqual(result.sample_count, 2)
+        self.assertEqual(result.measurement_accounting, accounting)
+
+    def test_incomplete_or_unexplained_sample_accounting_fails_closed(self) -> None:
+        unaccounted = compile_portion_study(
+            MANIFEST,
+            observations(),
+            reviewer_approval_ref="test://measurement-review",
+            reviewer="reviewer-fixture",
+        )
+        self.assertTrue(errors_with_reason(unaccounted.errors, "measurement_accounting_required"))
+        self.assertIsNone(unaccounted.central_mass_g)
+        self.assertFalse(unaccounted.review_ready)
+
+        incomplete_accounting = {
+            "all_samples_accounted_for": False,
+            "collected_sample_ids": ["sample-1", "sample-2", "sample-3"],
+            "deviations_or_exclusions": [],
+        }
+        incomplete = compile_portion_study(
+            MANIFEST,
+            measurement_document(accounting=incomplete_accounting),
+            reviewer_approval_ref="test://measurement-review",
+            reviewer="reviewer-fixture",
+        )
+        self.assertTrue(errors_with_reason(incomplete.errors, "sample_accounting_incomplete"))
+        self.assertTrue(
+            errors_with_reason(incomplete.errors, "collected_sample_missing_observation_or_exclusion")
+        )
+        self.assertIsNone(incomplete.central_mass_g)
+        self.assertFalse(incomplete.review_ready)
+
+        unexplained_accounting = {
+            "all_samples_accounted_for": True,
+            "collected_sample_ids": ["sample-1", "sample-2", "sample-3"],
+            "deviations_or_exclusions": [
+                {"kind": "exclusion", "sample_id": "sample-3", "reason": "", "reference": ""}
+            ],
+        }
+        unexplained = compile_portion_study(
+            MANIFEST,
+            measurement_document(accounting=unexplained_accounting),
+            reviewer_approval_ref="test://measurement-review",
+            reviewer="reviewer-fixture",
+        )
+        self.assertTrue(errors_with_reason(unexplained.errors, "accounting_reason_required"))
+        self.assertTrue(errors_with_reason(unexplained.errors, "accounting_reference_required"))
+        self.assertIsNone(unexplained.central_mass_g)
+        self.assertFalse(unexplained.review_ready)
+
     def test_malformed_negative_and_zero_masses_fail_closed(self) -> None:
         for invalid_mass in ("100", -1, 0, float("inf"), float("nan"), True):
             with self.subTest(invalid_mass=invalid_mass):
                 invalid = observations()
                 invalid[0]["mass_g"] = invalid_mass
-                result = compile_portion_study(MANIFEST, invalid)
+                result = compile_portion_study(MANIFEST, measurement_document(invalid))
                 self.assertFalse(result.errors == ())
                 self.assertIsNone(result.central_mass_g)
                 self.assertTrue(errors_with_reason(result.errors, "mass_g_must_be_positive_finite"))
@@ -220,25 +336,25 @@ class PortionTests(unittest.TestCase):
     def test_repeats_must_reference_their_own_independent_sample(self) -> None:
         missing_parent = observations()
         missing_parent[1]["repeat_of_observation_id"] = "not-a-primary-observation"
-        result = compile_portion_study(MANIFEST, missing_parent)
+        result = compile_portion_study(MANIFEST, measurement_document(missing_parent))
         self.assertTrue(errors_with_reason(result.errors, "repeat_parent_not_independent_sample"))
         self.assertIsNone(result.central_mass_g)
 
         wrong_sample = observations()
         wrong_sample[1]["sample_id"] = "sample-2"
-        result = compile_portion_study(MANIFEST, wrong_sample)
+        result = compile_portion_study(MANIFEST, measurement_document(wrong_sample))
         self.assertTrue(errors_with_reason(result.errors, "repeat_sample_id_mismatch"))
 
         wrong_batch = observations()
         wrong_batch[1]["batch_id"] = "batch-2"
-        result = compile_portion_study(MANIFEST, wrong_batch)
+        result = compile_portion_study(MANIFEST, measurement_document(wrong_batch))
         self.assertTrue(errors_with_reason(result.errors, "repeat_batch_id_mismatch"))
         self.assertIsNone(result.central_mass_g)
 
     def test_insufficient_samples_and_batches_do_not_meet_the_approved_plan(self) -> None:
         rows = observations()[:2]
         rows[1]["batch_id"] = "repeat-only-batch"
-        result = compile_portion_study(MANIFEST, rows)
+        result = compile_portion_study(MANIFEST, measurement_document(rows))
         self.assertTrue(errors_with_reason(result.errors, "insufficient_independent_samples"))
         self.assertTrue(errors_with_reason(result.errors, "insufficient_independent_batches"))
         self.assertIsNone(result.central_mass_g)
@@ -258,7 +374,7 @@ class PortionTests(unittest.TestCase):
         invalid[1]["tare_applied"] = False
         invalid[2]["tare_mass_g"] = 6
         invalid[3]["target"] = {**invalid[3]["target"], "physical_context": "different context"}
-        result = compile_portion_study(MANIFEST, invalid)
+        result = compile_portion_study(MANIFEST, measurement_document(invalid))
         self.assertTrue(errors_with_reason(result.errors, "instrument_mismatch"))
         self.assertTrue(errors_with_reason(result.errors, "tare_not_confirmed"))
         self.assertTrue(errors_with_reason(result.errors, "tare_mass_mismatch"))
@@ -268,7 +384,7 @@ class PortionTests(unittest.TestCase):
         missing_metadata = observations()
         del missing_metadata[0]["tare_mass_g"]
         del missing_metadata[1]["instrument_id"]
-        result = compile_portion_study(MANIFEST, missing_metadata)
+        result = compile_portion_study(MANIFEST, measurement_document(missing_metadata))
         self.assertTrue(errors_with_reason(result.errors, "missing_observation_field"))
         self.assertIsNone(result.central_mass_g)
 
@@ -309,7 +425,7 @@ class PortionTests(unittest.TestCase):
         }
         for row in rows:
             row["target"] = unresolved_target
-        result = compile_portion_study(unresolved, rows)
+        result = compile_portion_study(unresolved, measurement_document(rows))
         self.assertTrue(result.passed)
         self.assertIsNone(result.central_mass_g)
         self.assertIn("food_identity_unresolved", result.publication_blockers)
@@ -320,7 +436,7 @@ class PortionTests(unittest.TestCase):
     def test_unrecognized_model_gram_field_is_rejected(self) -> None:
         invalid = observations()
         invalid[0]["gram_weight"] = 1000
-        result = compile_portion_study(MANIFEST, invalid)
+        result = compile_portion_study(MANIFEST, measurement_document(invalid))
         self.assertTrue(errors_with_reason(result.errors, "unknown_field"))
         self.assertIsNone(result.central_mass_g)
         self.assertFalse(result.publishable)
@@ -328,7 +444,7 @@ class PortionTests(unittest.TestCase):
     def test_human_measurement_review_is_recorded_but_publication_stays_blocked(self) -> None:
         result = compile_portion_study(
             MANIFEST,
-            observations(),
+            measurement_document(),
             reviewer_approval_ref="review://portion/fixture-1",
             reviewer="reviewer-1",
         )
@@ -357,7 +473,7 @@ class PortionTests(unittest.TestCase):
     def test_machine_reviewer_and_wrong_measurement_schema_are_rejected(self) -> None:
         result = compile_portion_study(
             MANIFEST,
-            observations(),
+            measurement_document(),
             reviewer_approval_ref="review://portion/fixture-1",
             reviewer="codex-agent",
         )
@@ -366,6 +482,7 @@ class PortionTests(unittest.TestCase):
         wrong_schema = {
             "schema_version": "portion-measurements-9.9.9",
             "observations": observations(),
+            "measurement_accounting": measurement_document()["measurement_accounting"],
         }
         result = compile_portion_study(MANIFEST, wrong_schema)
         self.assertTrue(errors_with_reason(result.errors, "unsupported_measurements_schema"))
@@ -379,12 +496,13 @@ class PortionTests(unittest.TestCase):
             output_path = root / "packet.json"
             artifact_store = root / "artifacts"
             manifest_bytes = (json.dumps(MANIFEST, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
-            measurement_document = {
+            measurements_payload = {
                 "schema_version": MEASUREMENTS_SCHEMA_VERSION,
                 "observations": observations(),
+                "measurement_accounting": measurement_document()["measurement_accounting"],
             }
             measurements_bytes = (
-                json.dumps(measurement_document, sort_keys=True, ensure_ascii=False) + "\n"
+                json.dumps(measurements_payload, sort_keys=True, ensure_ascii=False) + "\n"
             ).encode("utf-8")
             manifest_path.write_bytes(manifest_bytes)
             measurements_path.write_bytes(measurements_bytes)
@@ -407,12 +525,13 @@ class PortionTests(unittest.TestCase):
             self.assertEqual((artifact_store / manifest_ref["relative_path"]).read_bytes(), manifest_bytes)
             self.assertEqual((artifact_store / measurements_ref["relative_path"]).read_bytes(), measurements_bytes)
             self.assertFalse(packet["publication"]["publishable"])
+            self.assertEqual(packet["measurement_accounting"], measurements_payload["measurement_accounting"])
 
             with redirect_stdout(StringIO()):
                 self.assertEqual(prepare_review_packet(args), 0)
             self.assertEqual(output_path.read_bytes(), original_packet)
 
-            measurements_path.write_text(json.dumps(measurement_document, indent=2), encoding="utf-8")
+            measurements_path.write_text(json.dumps(measurements_payload, indent=2), encoding="utf-8")
             with redirect_stdout(StringIO()):
                 with self.assertRaisesRegex(RuntimeError, "refusing to overwrite"):
                     prepare_review_packet(args)
