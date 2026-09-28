@@ -78,6 +78,15 @@ class PortionStudyManifest:
 
 
 @dataclass(frozen=True)
+class _ObservationAnalysis:
+    errors: tuple[dict[str, Any], ...]
+    primary_by_sample: dict[str, dict[str, Any]]
+    sample_masses: dict[str, list[Decimal]]
+    sample_batches: dict[str, str]
+    repeat_count: int
+
+
+@dataclass(frozen=True)
 class PortionCompilation:
     manifest: PortionStudyManifest | None
     observations_hash: str | None
@@ -280,46 +289,11 @@ def validate_manifest(value: Any) -> tuple[PortionStudyManifest | None, tuple[di
     return PortionStudyManifest(value=value), ()
 
 
-def compile_portion_study(
-    manifest_value: Any,
-    observations: Any,
-    *,
-    reviewer_approval_ref: str | None = None,
-    reviewer: str | None = None,
-) -> PortionCompilation:
-    manifest, manifest_errors = validate_manifest(manifest_value)
-    errors = list(manifest_errors)
-    document_errors: list[dict[str, Any]] = []
-    measurement_accounting: Any = None
-    measurement_accounting_present = False
-    if isinstance(observations, dict):
-        parsed_observations, measurement_accounting = _read_measurement_document(observations, document_errors)
-        measurement_accounting_present = "measurement_accounting" in observations
-    elif isinstance(observations, list):
-        parsed_observations = observations
-        document_errors.append({"reason_code": "measurement_accounting_required"})
-    else:
-        parsed_observations = []
-        document_errors.append({"reason_code": "observations_not_array"})
-    errors.extend(document_errors)
-
-    try:
-        observations_hash = hashlib.sha256(
-            json.dumps(
-                parsed_observations,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            ).encode("utf-8")
-        ).hexdigest()
-    except (TypeError, ValueError):
-        observations_hash = None
-        errors.append({"reason_code": "observations_not_json"})
-
-    if not parsed_observations:
-        errors.append({"reason_code": "observations_required"})
-
+def _analyze_observations(
+    parsed_observations: list[Any],
+    manifest: PortionStudyManifest | None,
+) -> _ObservationAnalysis:
+    errors: list[dict[str, Any]] = []
     primary_observations: dict[str, dict[str, Any]] = {}
     primary_by_sample: dict[str, dict[str, Any]] = {}
     repeat_rows: list[dict[str, Any]] = []
@@ -405,6 +379,62 @@ def compile_portion_study(
             errors.append({"reason_code": "repeat_sample_id_mismatch"})
         if observation.get("batch_id") != parent.get("batch_id"):
             errors.append({"reason_code": "repeat_batch_id_mismatch"})
+
+    return _ObservationAnalysis(
+        errors=tuple(errors),
+        primary_by_sample=primary_by_sample,
+        sample_masses=sample_masses,
+        sample_batches=sample_batches,
+        repeat_count=repeat_count,
+    )
+
+
+def compile_portion_study(
+    manifest_value: Any,
+    observations: Any,
+    *,
+    reviewer_approval_ref: str | None = None,
+    reviewer: str | None = None,
+) -> PortionCompilation:
+    manifest, manifest_errors = validate_manifest(manifest_value)
+    errors = list(manifest_errors)
+    document_errors: list[dict[str, Any]] = []
+    measurement_accounting: Any = None
+    measurement_accounting_present = False
+    if isinstance(observations, dict):
+        parsed_observations, measurement_accounting = _read_measurement_document(observations, document_errors)
+        measurement_accounting_present = "measurement_accounting" in observations
+    elif isinstance(observations, list):
+        parsed_observations = observations
+        document_errors.append({"reason_code": "measurement_accounting_required"})
+    else:
+        parsed_observations = []
+        document_errors.append({"reason_code": "observations_not_array"})
+    errors.extend(document_errors)
+
+    try:
+        observations_hash = hashlib.sha256(
+            json.dumps(
+                parsed_observations,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+    except (TypeError, ValueError):
+        observations_hash = None
+        errors.append({"reason_code": "observations_not_json"})
+
+    if not parsed_observations:
+        errors.append({"reason_code": "observations_required"})
+
+    analysis = _analyze_observations(parsed_observations, manifest)
+    errors.extend(analysis.errors)
+    primary_by_sample = analysis.primary_by_sample
+    sample_masses = analysis.sample_masses
+    sample_batches = analysis.sample_batches
+    repeat_count = analysis.repeat_count
 
     if measurement_accounting_present:
         _validate_measurement_accounting(

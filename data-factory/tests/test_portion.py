@@ -379,6 +379,15 @@ class PortionTests(unittest.TestCase):
         self.assertTrue(errors_with_reason(result.errors, "tare_not_confirmed"))
         self.assertTrue(errors_with_reason(result.errors, "tare_mass_mismatch"))
         self.assertTrue(errors_with_reason(result.errors, "target_context_mismatch"))
+        self.assertEqual(
+            [(error.get("observation_index"), error["reason_code"]) for error in result.errors],
+            [
+                (0, "instrument_mismatch"),
+                (1, "tare_not_confirmed"),
+                (2, "tare_mass_mismatch"),
+                (3, "target_context_mismatch"),
+            ],
+        )
         self.assertIsNone(result.central_mass_g)
 
         missing_metadata = observations()
