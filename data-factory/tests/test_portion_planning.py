@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -183,6 +184,7 @@ class PortionPlanningTests(unittest.TestCase):
             PLANNING_PACKET_SCHEMA_VERSION,
         )
         self.assertFalse(packet_schema["additionalProperties"])
+        _assert_json_schema_conforms(packet, packet_schema)
         generated, errors = build_portion_planning_packet(
             MANIFEST_PATH.read_bytes(), MAPPING_PATH.read_bytes()
         )
@@ -192,4 +194,153 @@ class PortionPlanningTests(unittest.TestCase):
         self.assertEqual(
             packet["input_artifacts"]["reviewed_mapping"]["sha256"], REVIEWED_MAPPING_SHA256
         )
-        self.assertEqual(hashlib.sha256(PACKET_PATH.read_bytes()).hexdigest(), hashlib.sha256(expected_bytes).hexdigest())
+        self.assertEqual(
+            hashlib.sha256(PACKET_PATH.read_bytes()).hexdigest(),
+            hashlib.sha256(expected_bytes).hexdigest(),
+        )
+
+    def test_packet_schema_rejects_mapping_identity_backend_id_and_blocker_mutations(self) -> None:
+        schema = json.loads(
+            (ROOT / "schemas" / "portion-planning-packet-0.1.0.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        packet = json.loads(PACKET_PATH.read_text(encoding="utf-8"))
+        mutations = (
+            (
+                "wrong reviewed mapping hash",
+                lambda value: value["input_artifacts"]["reviewed_mapping"].__setitem__(
+                    "sha256", "0" * 64
+                ),
+            ),
+            (
+                "wrong reviewed evidence identity hash",
+                lambda value: value["target"]["reviewed_evidence_identity"].__setitem__(
+                    "sha256", "0" * 64
+                ),
+            ),
+            (
+                "non-null backend food ID",
+                lambda value: value["target"].__setitem__("backend_food_id", "2708408"),
+            ),
+            (
+                "wrong source identity",
+                lambda value: value["target"]["reviewed_evidence_identity"]["source"].__setitem__(
+                    "fdc_id", 2708409
+                ),
+            ),
+            (
+                "substituted blocker",
+                lambda value: value["unresolved_human_inputs"][0].__setitem__(
+                    "key", "unreviewed_extra_input"
+                ),
+            ),
+            (
+                "duplicate blocker replacing another",
+                lambda value: value["unresolved_human_inputs"].__setitem__(
+                    0, copy.deepcopy(value["unresolved_human_inputs"][1])
+                ),
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label):
+                changed = copy.deepcopy(packet)
+                mutate(changed)
+                with self.assertRaises(AssertionError):
+                    _assert_json_schema_conforms(changed, schema)
+
+
+_SCHEMA_KEYWORDS = {
+    "$id",
+    "$schema",
+    "additionalProperties",
+    "const",
+    "items",
+    "maxItems",
+    "minItems",
+    "oneOf",
+    "pattern",
+    "properties",
+    "required",
+    "type",
+    "uniqueItems",
+}
+
+
+def _assert_json_schema_conforms(instance: Any, schema: dict[str, Any], path: str = "$") -> None:
+    unsupported = set(schema) - _SCHEMA_KEYWORDS
+    if unsupported:
+        raise AssertionError(f"{path}: unsupported schema keywords {sorted(unsupported)}")
+
+    expected_type = schema.get("type")
+    if expected_type is not None and not _matches_schema_type(instance, expected_type):
+        raise AssertionError(f"{path}: type mismatch; expected {expected_type}")
+    if "const" in schema and not _typed_json_equal(instance, schema["const"]):
+        raise AssertionError(f"{path}: const mismatch")
+    if "pattern" in schema and (
+        not isinstance(instance, str) or re.fullmatch(schema["pattern"], instance) is None
+    ):
+        raise AssertionError(f"{path}: pattern mismatch")
+
+    if isinstance(instance, dict):
+        required = schema.get("required", [])
+        if not all(key in instance for key in required):
+            raise AssertionError(f"{path}: required property is missing")
+        properties = schema.get("properties", {})
+        for key, value in instance.items():
+            if key in properties:
+                _assert_json_schema_conforms(value, properties[key], f"{path}.{key}")
+            elif schema.get("additionalProperties") is False:
+                raise AssertionError(f"{path}.{key}: additional property is forbidden")
+
+    if isinstance(instance, list):
+        if len(instance) < schema.get("minItems", 0):
+            raise AssertionError(f"{path}: too few items")
+        if len(instance) > schema.get("maxItems", len(instance)):
+            raise AssertionError(f"{path}: too many items")
+        if schema.get("uniqueItems") and len(
+            {json.dumps(item, ensure_ascii=False, sort_keys=True) for item in instance}
+        ) != len(instance):
+            raise AssertionError(f"{path}: items are not unique")
+        if "items" in schema:
+            for index, item in enumerate(instance):
+                _assert_json_schema_conforms(item, schema["items"], f"{path}[{index}]")
+
+    if "oneOf" in schema:
+        matches = 0
+        for candidate in schema["oneOf"]:
+            try:
+                _assert_json_schema_conforms(instance, candidate, path)
+            except AssertionError:
+                continue
+            matches += 1
+        if matches != 1:
+            raise AssertionError(f"{path}: expected exactly one matching schema")
+
+
+def _matches_schema_type(instance: Any, expected: str) -> bool:
+    if expected == "object":
+        return isinstance(instance, dict)
+    if expected == "array":
+        return isinstance(instance, list)
+    if expected == "string":
+        return isinstance(instance, str)
+    if expected == "integer":
+        return type(instance) is int
+    if expected == "null":
+        return instance is None
+    raise AssertionError(f"unsupported schema type {expected}")
+
+
+def _typed_json_equal(actual: Any, expected: Any) -> bool:
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(
+            _typed_json_equal(actual[key], expected[key]) for key in expected
+        )
+    if isinstance(expected, list):
+        return len(actual) == len(expected) and all(
+            _typed_json_equal(left, right) for left, right in zip(actual, expected, strict=True)
+        )
+    return actual == expected
