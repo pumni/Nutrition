@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/portion-study-strategy-decision-0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "issue_reference",
+    "target",
+    "decision",
+    "strategy",
+    "reviewer",
+    "decision_reference",
+    "generalizable_to_all_vietnamese_bat",
+    "decision_scope",
+    "food_evidence",
+    "physical_study_definition_approved",
+    "measurement_plan_values_approved",
+    "gram_value_approved",
+    "broader_household_study_requires_separate_decision"
+  ],
+  "properties": {
+    "schema_version": {"const": "portion-study-strategy-decision-0.1.0"},
+    "issue_reference": {"const": "github:issue/53"},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalized_vietnamese_target", "canonical_measure"],
+      "properties": {
+        "normalized_vietnamese_target": {"const": "cơm trắng"},
+        "canonical_measure": {"const": "bát"}
+      }
+    },
+    "decision": {"const": "approved"},
+    "strategy": {"const": "narrow_reproducible_pilot"},
+    "reviewer": {"const": "pumni"},
+    "decision_reference": {"const": "github:issue/53#issuecomment-5884079108"},
+    "generalizable_to_all_vietnamese_bat": {"const": false},
+    "decision_scope": {"const": "study_strategy_only"},
+    "food_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "reviewed_mapping_ref",
+        "reviewed_mapping_schema_version",
+        "reviewed_mapping_sha256",
+        "decision_reference",
+        "source",
+        "specificity_policy_ref",
+        "backend_food_id"
+      ],
+      "properties": {
+        "target": {"const": "cơm trắng"},
+        "reviewed_mapping_ref": {"const": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json"},
+        "reviewed_mapping_schema_version": {"const": "reviewed-food-mapping-0.1.0"},
+        "reviewed_mapping_sha256": {"const": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324"},
+        "decision_reference": {"const": "github:issue/35#issuecomment-5882043136"},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_code", "release", "fndds_food_code", "fdc_id", "source_record_sha256"],
+          "properties": {
+            "source_code": {"const": "usda_fndds"},
+            "release": {"const": "2021-2023 / October 2024"},
+            "fndds_food_code": {"const": "56205008"},
+            "fdc_id": {"type": "integer", "const": 2708408},
+            "source_record_sha256": {"const": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"}
+          }
+        },
+        "specificity_policy_ref": {"const": "resolve-exact-specificity-0.2.0"},
+        "backend_food_id": {"type": "null"}
+      }
+    },
+    "physical_study_definition_approved": {"const": false},
+    "measurement_plan_values_approved": {"const": false},
+    "gram_value_approved": {"const": false},
+    "broader_household_study_requires_separate_decision": {"const": true}
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "broader_household_study_requires_separate_decision": true,
+  "decision": "approved",
+  "decision_reference": "github:issue/53#issuecomment-5884079108",
+  "decision_scope": "study_strategy_only",
+  "food_evidence": {
+    "backend_food_id": null,
+    "decision_reference": "github:issue/35#issuecomment-5882043136",
+    "reviewed_mapping_ref": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json",
+    "reviewed_mapping_schema_version": "reviewed-food-mapping-0.1.0",
+    "reviewed_mapping_sha256": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324",
+    "source": {
+      "fdc_id": 2708408,
+      "fndds_food_code": "56205008",
+      "release": "2021-2023 / October 2024",
+      "source_code": "usda_fndds",
+      "source_record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"
+    },
+    "specificity_policy_ref": "resolve-exact-specificity-0.2.0",
+    "target": "cơm trắng"
+  },
+  "generalizable_to_all_vietnamese_bat": false,
+  "gram_value_approved": false,
+  "issue_reference": "github:issue/53",
+  "measurement_plan_values_approved": false,
+  "physical_study_definition_approved": false,
+  "reviewer": "pumni",
+  "schema_version": "portion-study-strategy-decision-0.1.0",
+  "strategy": "narrow_reproducible_pilot",
+  "target": {
+    "canonical_measure": "bát",
+    "normalized_vietnamese_target": "cơm trắng"
+  }
+}

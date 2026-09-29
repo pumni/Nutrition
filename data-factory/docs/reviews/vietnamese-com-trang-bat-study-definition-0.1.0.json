@@ -1,0 +1,160 @@
+{
+  "estimates": {
+    "gram_estimate_emitted": false,
+    "mass_estimate": null
+  },
+  "future_observations": {
+    "observation_count": 0,
+    "records": [],
+    "status": "not_collected"
+  },
+  "measurement_protocol": {
+    "bound_policy_version": "minmax_of_sample_means-0.1.0",
+    "estimator_version": "mean_of_sample_means-0.1.0",
+    "protocol_version": "portion-measurement-0.1.0"
+  },
+  "policy_version": "portion-study-definition-0.1.0",
+  "predecessor": {
+    "manifest": {
+      "artifact_ref": "data-factory/config/portion-study-com-trang-bat-0.3.0.json",
+      "schema_version": "portion-study-manifest-0.3.0",
+      "sha256": "d9ca020236da68486645daaa0284dfce4d49b52b63b4a4f918b86810ef6a409e"
+    },
+    "planning_packet": {
+      "artifact_ref": "data-factory/docs/reviews/vietnamese-com-trang-bat-portion-planning-0.1.0.json",
+      "schema_version": "portion-planning-packet-0.1.0",
+      "sha256": "5e645369733cff3423b803b239fca0bb9bbf91697d1afe065cb2a0461f25b351"
+    }
+  },
+  "publication": {
+    "activation_attempted": false,
+    "production_eligible": false,
+    "publishable": false,
+    "release_created": false,
+    "status": "blocked"
+  },
+  "readiness": {
+    "blocker_count": 12,
+    "ready_for_measurement": false,
+    "review_ready": false
+  },
+  "schema_version": "portion-study-definition-0.1.0",
+  "status": "study_design_incomplete",
+  "strategy_decision": {
+    "artifact_ref": "data-factory/docs/reviews/vietnamese-com-trang-bat-study-strategy-decision-0.1.0.json",
+    "broader_household_study_requires_separate_decision": true,
+    "decision": "approved",
+    "decision_reference": "github:issue/53#issuecomment-5884079108",
+    "decision_scope": "study_strategy_only",
+    "generalizable_to_all_vietnamese_bat": false,
+    "gram_value_approved": false,
+    "measurement_plan_values_approved": false,
+    "physical_study_definition_approved": false,
+    "reviewer": "pumni",
+    "schema_version": "portion-study-strategy-decision-0.1.0",
+    "sha256": "d6139ccd165db0682162dea6f43f6d0eccf021f4ea5a6a99ed5d5110f3202d43",
+    "strategy": "narrow_reproducible_pilot"
+  },
+  "study_design_inputs": {
+    "calibration_check_requirements": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "deviation_exclusion_policy": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "instrument_requirements": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "measurement_date_session_rules": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "measurement_reviewer": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "minimum_independent_cooking_batch_count": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "minimum_independent_sample_count": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "operator_requirements": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "serving_fill_protocol": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "tare_method": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "vessel_context_sampling_rule": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    },
+    "vessel_definition": {
+      "review_ref": null,
+      "reviewer": null,
+      "status": "unresolved",
+      "value": null
+    }
+  },
+  "study_id": "vietnamese-com-trang-bat-study-definition-0.1.0",
+  "target": {
+    "backend_food_id": null,
+    "measure": {
+      "canonical_measure": "bát",
+      "context_status": "unresolved",
+      "original_unit_phrase": "bát",
+      "physical_context": null,
+      "represented_quantity": 1
+    },
+    "normalized_vietnamese_target": "cơm trắng",
+    "preparation": "Generic cooked white rice with no added fat, only when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity.",
+    "reviewed_evidence_identity": {
+      "artifact_ref": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json",
+      "decision_ref": "github:issue/35#issuecomment-5882043136",
+      "normalized_vietnamese_target": "cơm trắng",
+      "schema_version": "reviewed-food-mapping-0.1.0",
+      "sha256": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324",
+      "source": {
+        "fdc_id": 2708408,
+        "fndds_food_code": "56205008",
+        "release": "2021-2023 / October 2024",
+        "source_code": "usda_fndds",
+        "source_record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"
+      },
+      "specificity_policy_ref": "resolve-exact-specificity-0.2.0"
+    }
+  }
+}
