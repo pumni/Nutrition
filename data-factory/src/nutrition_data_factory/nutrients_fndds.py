@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
 
 from .adapters.fndds_survey import FnddsSourceRecord
@@ -17,24 +18,28 @@ _REQUIRED_NUTRIENTS: tuple[dict[str, Any], ...] = (
         "source_nutrient_ids": frozenset({1008, 2047}),
         "source_unit": "kcal",
         "target_code": "energy_kcal",
+        "canonical_unit": "kcal",
     },
     {
         "fndds_nutrient_code": "203",
         "source_nutrient_ids": frozenset({1003}),
         "source_unit": "g",
         "target_code": "protein_g",
+        "canonical_unit": "g",
     },
     {
         "fndds_nutrient_code": "205",
         "source_nutrient_ids": frozenset({1005}),
         "source_unit": "g",
         "target_code": "carbohydrate_g",
+        "canonical_unit": "g",
     },
     {
         "fndds_nutrient_code": "204",
         "source_nutrient_ids": frozenset({1004}),
         "source_unit": "g",
         "target_code": "fat_g",
+        "canonical_unit": "g",
     },
 )
 
@@ -116,6 +121,65 @@ def summarize_fndds_required_nutrients(nutrients: Iterable[dict[str, Any]]) -> d
         "required_nutrients": mapped,
         "rejected": rejected,
     }
+
+
+def extract_fndds_required_nutrient_values(record: FnddsSourceRecord) -> list[dict[str, Any]]:
+    """Export only the four mapped required values from a validated FNDDS record."""
+
+    summary = summarize_fndds_required_nutrients(record.nutrients)
+    if not summary["complete"]:
+        raise ValueError("FNDDS record does not have one valid value for every required nutrient")
+
+    definitions_by_target = {item["target_code"]: item for item in _REQUIRED_NUTRIENTS}
+    values: list[dict[str, Any]] = []
+    for mapped in summary["required_nutrients"]:
+        matches = [
+            item
+            for item in record.nutrients
+            if isinstance(item.get("nutrient"), dict)
+            and item["nutrient"].get("number") == mapped["fndds_nutrient_code"]
+            and item["nutrient"].get("id") == mapped["source_nutrient_id"]
+        ]
+        if len(matches) != 1:
+            raise ValueError("FNDDS nutrient mapping changed while extracting required values")
+        item = matches[0]
+        amount = _canonical_fndds_decimal(item.get("amount"))
+        value = {
+            key: mapped[key]
+            for key in (
+                "target_code",
+                "fndds_nutrient_code",
+                "source_nutrient_id",
+                "source_label",
+                "source_unit",
+            )
+        }
+        value["source_amount"] = amount
+        value["canonical_unit"] = definitions_by_target[mapped["target_code"]]["canonical_unit"]
+        if mapped["source_method_available"]:
+            value["source_method"] = mapped["source_method"]
+        values.append(value)
+
+    values.sort(key=lambda item: item["target_code"])
+    return values
+
+
+def _canonical_fndds_decimal(value: Any) -> str:
+    """Format a source amount as non-exponent decimal text without rounding."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        raise ValueError("FNDDS required nutrient amount must be a finite non-negative number")
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError) as error:
+        raise ValueError("FNDDS required nutrient amount must be a finite non-negative number") from error
+    if not amount.is_finite() or amount < 0:
+        raise ValueError("FNDDS required nutrient amount must be a finite non-negative number")
+
+    formatted = format(amount, "f")
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return "0" if formatted in {"", "-0"} else formatted
 
 
 def summarize_fndds_source_nutrient_coverage(

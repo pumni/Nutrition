@@ -1,0 +1,70 @@
+{
+  "activation_authorized": false,
+  "archive_filename": "FoodData_Central_survey_food_json_2024-10-31.zip",
+  "archive_member": "surveyDownload.json",
+  "archive_sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+  "basis_amount": 100,
+  "basis_unit": "g",
+  "catalog_staging_authorized": false,
+  "edible_basis": true,
+  "evaluation_eligible": true,
+  "fdc_id": 2708408,
+  "fndds_adapter_version": "fndds-survey-json-0.1.0",
+  "fndds_food_code": "56205008",
+  "member_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808",
+  "normalized_vietnamese_target": "cơm trắng",
+  "nutrient_mapping_version": "fndds-required-nutrients-0.1.0",
+  "nutrients": [
+    {
+      "canonical_unit": "g",
+      "fndds_nutrient_code": "205",
+      "source_amount": "28",
+      "source_label": "Carbohydrate, by difference",
+      "source_nutrient_id": 1005,
+      "source_unit": "g",
+      "target_code": "carbohydrate_g"
+    },
+    {
+      "canonical_unit": "kcal",
+      "fndds_nutrient_code": "208",
+      "source_amount": "129",
+      "source_label": "Energy",
+      "source_nutrient_id": 1008,
+      "source_unit": "kcal",
+      "target_code": "energy_kcal"
+    },
+    {
+      "canonical_unit": "g",
+      "fndds_nutrient_code": "204",
+      "source_amount": "0.28",
+      "source_label": "Total lipid (fat)",
+      "source_nutrient_id": 1004,
+      "source_unit": "g",
+      "target_code": "fat_g"
+    },
+    {
+      "canonical_unit": "g",
+      "fndds_nutrient_code": "203",
+      "source_amount": "2.67",
+      "source_label": "Protein",
+      "source_nutrient_id": 1003,
+      "source_unit": "g",
+      "target_code": "protein_g"
+    }
+  ],
+  "owner_domain_decision_ref": "github:issue/35#issuecomment-5882043136",
+  "policy_version": "reviewed-composition-evaluation-0.1.0",
+  "portion_evidence_authorized": false,
+  "production_eligible": false,
+  "recipe_evidence_authorized": false,
+  "reviewed_mapping_ref": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json",
+  "reviewed_mapping_sha256": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324",
+  "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+  "schema_version": "reviewed-food-composition-0.1.0",
+  "semantic_boundary": "Generic cooked white rice with no added fat, only when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity.",
+  "source_code": "usda_fndds",
+  "source_description": "Rice, white, cooked, no added fat",
+  "source_record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc",
+  "source_release": "2021-2023 / October 2024",
+  "specificity_policy_reference": "resolve-exact-specificity-0.2.0"
+}
