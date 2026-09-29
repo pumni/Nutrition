@@ -2,11 +2,11 @@ use adapters::FixtureParser;
 use application::{
     AnalysisOutcome, AnalysisRequest, AnalysisRevisionService, AnalysisSnapshot,
     AnalysisSnapshotReader, AnalyzeMeal, AnswerClarification, ApplicationError, BehaviorVersions,
-    ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, FoodEvidenceProvider,
-    MealAnalysisService, ParsedMealItem, ParserInvocationRecord, ParserTelemetrySink,
-    PortionCorrection,
+    ClarificationAnalysis, ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest,
+    FoodEvidenceProvider, MealAnalysisService, ParsedMealItem, ParserInvocationRecord,
+    ParserTelemetrySink, PortionCorrection,
 };
-use domain::{CatalogReleaseId, NutrientCode, UserId};
+use domain::{CatalogReleaseId, MassResolutionMethod, NutrientCode, UserId};
 use persistence_postgres::{
     PostgresAnalysisRepository, PostgresCatalogEvidenceProvider, PostgresParserTelemetrySink,
     PostgresPortionEvidenceProvider, active_catalog_release_id, claim_jobs, complete_job, connect,
@@ -34,6 +34,74 @@ async fn catalog_food_resolution_preserves_specificity() {
         .expect("active catalog release must exist");
     let food_evidence = PostgresCatalogEvidenceProvider::new(pool, catalog_release_id);
     assert_catalog_specificity_guard(&food_evidence).await;
+}
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn clarification_question_persists_behavior_version_without_duplication() {
+    let database_url =
+        env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
+    let pool = connect(&database_url, 4)
+        .await
+        .expect("integration database must connect");
+    migrate(&pool)
+        .await
+        .expect("integration migrations must apply");
+    seed_foundation_fixture(&pool)
+        .await
+        .expect("foundation seed must apply idempotently");
+    let catalog_release_id = active_catalog_release_id(&pool)
+        .await
+        .expect("active catalog release must exist");
+    let versions = BehaviorVersions {
+        catalog_release_id,
+        clarification_policy_version: "clarification-portion-persistence-test".to_owned(),
+        ..BehaviorVersions::default()
+    };
+    let repository = PostgresAnalysisRepository::new(pool.clone());
+    let service = MealAnalysisService::new(
+        FixtureParser,
+        PostgresCatalogEvidenceProvider::new(pool.clone(), catalog_release_id),
+        PostgresPortionEvidenceProvider::new(pool.clone(), catalog_release_id),
+        repository,
+        versions,
+        required_nutrients(),
+    );
+    let outcome = service
+        .execute(AnalysisRequest {
+            text: "1 ly cơm trắng".to_owned(),
+            locale: "vi-VN".to_owned(),
+            idempotency: None,
+            owner_id: None,
+        })
+        .await
+        .expect("unsupported contextual portion should be clarified");
+    let AnalysisOutcome::NeedsClarification(clarification) = outcome else {
+        panic!("unsupported contextual portion must request clarification");
+    };
+    assert_eq!(
+        clarification.versions.clarification_policy_version,
+        "clarification-portion-persistence-test"
+    );
+    let question_policy_version: String = sqlx::query_scalar(
+        "SELECT policy_version FROM analysis.clarification_question WHERE id = $1",
+    )
+    .bind(clarification.question.id.as_uuid())
+    .fetch_one(&pool)
+    .await
+    .expect("clarification question policy must be persisted");
+    let revision_policy_version: String = sqlx::query_scalar(
+        "SELECT clarification_policy_version FROM analysis.analysis_revision WHERE id = $1",
+    )
+    .bind(clarification.revision_id.as_uuid())
+    .fetch_one(&pool)
+    .await
+    .expect("clarification revision behavior version must be persisted");
+    assert_eq!(
+        question_policy_version,
+        clarification.versions.clarification_policy_version
+    );
+    assert_eq!(question_policy_version, revision_policy_version);
 }
 
 #[tokio::test]
@@ -696,6 +764,21 @@ async fn assert_clarification_revision_flow(
     let AnalysisOutcome::NeedsClarification(pending) = outcome else {
         panic!("unsupported known portion must request clarification");
     };
+    assert_eq!(
+        pending.versions.clarification_policy_version,
+        "clarification-portion-0.2.0"
+    );
+    assert_eq!(
+        pending
+            .question
+            .options
+            .iter()
+            .map(|option| option.id.as_str())
+            .collect::<Vec<_>>(),
+        ["unit:bát", "grams", "unknown"]
+    );
+
+    assert_clarification_rejections(revision_service, &pending).await;
     let answer = ClarificationAnswerRequest {
         expected_revision_id: pending.revision_id,
         question_id: pending.question.id,
@@ -709,6 +792,11 @@ async fn assert_clarification_revision_flow(
         .expect("clarification answer must create a completed revision");
     assert_eq!(completed.revision_number, 2);
     assert_eq!(completed.items[0].estimated_mass_g, decimal_value("150"));
+    assert_eq!(
+        completed.items[0].mass_resolution_method,
+        MassResolutionMethod::PortionObservation
+    );
+    assert!(completed.items[0].portion_observation_id.is_some());
     let stale = revision_service
         .answer(pending.analysis_id, answer)
         .await
@@ -720,6 +808,97 @@ async fn assert_clarification_revision_flow(
         .expect("history read must succeed")
         .expect("clarification revision must remain");
     assert_eq!(first_revision["status"], "needs_clarification");
+    assert_explicit_grams_clarification(analyzer, revision_service).await;
+}
+
+async fn assert_clarification_rejections(
+    revision_service: &(impl AnswerClarification + ?Sized),
+    pending: &ClarificationAnalysis,
+) {
+    let missing_mass = ClarificationAnswerRequest {
+        expected_revision_id: pending.revision_id,
+        question_id: pending.question.id,
+        option_id: "grams".to_owned(),
+        mass_g: None,
+        idempotency: None,
+    };
+    assert!(matches!(
+        revision_service
+            .answer(pending.analysis_id, missing_mass)
+            .await
+            .expect_err("grams answer requires mass_g"),
+        ApplicationError::InvalidInput(_)
+    ));
+    let zero_mass = ClarificationAnswerRequest {
+        expected_revision_id: pending.revision_id,
+        question_id: pending.question.id,
+        option_id: "grams".to_owned(),
+        mass_g: Some(Decimal::ZERO),
+        idempotency: None,
+    };
+    assert!(matches!(
+        revision_service
+            .answer(pending.analysis_id, zero_mass)
+            .await
+            .expect_err("grams answer must be positive"),
+        ApplicationError::InvalidInput(_)
+    ));
+    let unknown = ClarificationAnswerRequest {
+        expected_revision_id: pending.revision_id,
+        question_id: pending.question.id,
+        option_id: "unknown".to_owned(),
+        mass_g: None,
+        idempotency: None,
+    };
+    let unknown_error = revision_service
+        .answer(pending.analysis_id, unknown)
+        .await
+        .expect_err("unknown answer remains insufficient evidence");
+    assert!(matches!(
+        unknown_error,
+        ApplicationError::InsufficientEvidence(message)
+            if message == "user could not clarify the portion"
+    ));
+}
+
+async fn assert_explicit_grams_clarification(
+    analyzer: &(impl AnalyzeMeal + ?Sized),
+    revision_service: &(impl AnswerClarification + ?Sized),
+) {
+    let grams_outcome = analyzer
+        .execute(AnalysisRequest {
+            text: "1 ly cơm trắng".to_owned(),
+            locale: "vi-VN".to_owned(),
+            idempotency: None,
+            owner_id: None,
+        })
+        .await
+        .expect("second unsupported portion should request clarification");
+    let AnalysisOutcome::NeedsClarification(grams_pending) = grams_outcome else {
+        panic!("unsupported portion must request clarification");
+    };
+    let grams_completed = revision_service
+        .answer(
+            grams_pending.analysis_id,
+            ClarificationAnswerRequest {
+                expected_revision_id: grams_pending.revision_id,
+                question_id: grams_pending.question.id,
+                option_id: "grams".to_owned(),
+                mass_g: Some(decimal_value("83.5")),
+                idempotency: None,
+            },
+        )
+        .await
+        .expect("positive explicit grams should calculate");
+    assert_eq!(
+        grams_completed.items[0].estimated_mass_g,
+        decimal_value("83.5")
+    );
+    assert_eq!(
+        grams_completed.items[0].mass_resolution_method,
+        MassResolutionMethod::ExplicitMass
+    );
+    assert!(grams_completed.items[0].portion_observation_id.is_none());
 }
 
 async fn assert_correction_revision_flow(

@@ -83,11 +83,6 @@ where
                         .portion_evidence
                         .suggestions(&request.locale, food.food_id)
                         .await?;
-                    if suggestions.is_empty() {
-                        return Err(ApplicationError::InsufficientEvidence(
-                            "no portion clarification options are available".to_owned(),
-                        ));
-                    }
                     let options = suggestions
                         .into_iter()
                         .map(|suggestion| ClarificationOption {

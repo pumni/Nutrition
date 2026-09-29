@@ -142,7 +142,7 @@ pub(crate) async fn persist_clarification(
         serde_json::to_value(&clarification.question.options)
             .map_err(|_| ApplicationError::Persistence)?,
     )
-    .bind("clarification-portion-0.1.0")
+    .bind(&clarification.versions.clarification_policy_version)
     .bind(safe_clarification_context(&clarification.context)?)
     .execute(&mut *transaction)
     .await

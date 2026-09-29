@@ -311,6 +311,32 @@ mod tests {
     use application::{
         AnalysisOutcome, AnalysisRequest, AnalyzeMeal, BehaviorVersions, MealAnalysisService,
     };
+    use async_trait::async_trait;
+
+    #[derive(Clone, Copy)]
+    struct NoSuggestionPortionEvidence;
+
+    #[async_trait]
+    impl PortionEvidenceProvider for NoSuggestionPortionEvidence {
+        async fn resolve_portion(
+            &self,
+            _locale: &str,
+            _item: &ParsedMealItem,
+            _food_id: FoodId,
+        ) -> Result<ResolvedPortionEvidence, ApplicationError> {
+            Err(ApplicationError::InsufficientEvidence(
+                "no contextual portion evidence".to_owned(),
+            ))
+        }
+
+        async fn suggestions(
+            &self,
+            _locale: &str,
+            _food_id: FoodId,
+        ) -> Result<Vec<PortionSuggestion>, ApplicationError> {
+            Ok(Vec::new())
+        }
+    }
 
     #[tokio::test]
     async fn direct_slice_is_persisted_and_replayable() {
@@ -435,6 +461,84 @@ mod tests {
             panic!("unsupported portion must request clarification");
         };
         assert_eq!(clarification.question.dimension, "portion");
-        assert_eq!(clarification.question.options.len(), 3);
+        assert_eq!(
+            clarification
+                .question
+                .options
+                .iter()
+                .map(|option| option.id.as_str())
+                .collect::<Vec<_>>(),
+            ["unit:bát", "grams", "unknown"]
+        );
+        assert_eq!(
+            clarification.versions.clarification_policy_version,
+            "clarification-portion-0.2.0"
+        );
+    }
+
+    #[tokio::test]
+    async fn no_portion_suggestions_still_allow_explicit_grams_clarification() {
+        let service = MealAnalysisService::new(
+            FixtureParser,
+            FixtureCatalog::foundation_seed(),
+            NoSuggestionPortionEvidence,
+            InMemoryAnalysisRepository::default(),
+            BehaviorVersions::default(),
+            vec![NutrientCode::new("energy_kcal").expect("valid code")],
+        );
+        let outcome = service
+            .execute(AnalysisRequest {
+                text: "1 bát cơm trắng".to_owned(),
+                locale: "vi-VN".to_owned(),
+                idempotency: None,
+                owner_id: None,
+            })
+            .await
+            .expect("missing portion evidence should ask for clarification");
+
+        let AnalysisOutcome::NeedsClarification(clarification) = outcome else {
+            panic!("unsupported single-item portion must request clarification");
+        };
+        assert_eq!(clarification.question.dimension, "portion");
+        assert_eq!(
+            clarification
+                .question
+                .options
+                .iter()
+                .map(|option| option.id.as_str())
+                .collect::<Vec<_>>(),
+            ["grams", "unknown"]
+        );
+        assert_eq!(
+            clarification.versions.clarification_policy_version,
+            "clarification-portion-0.2.0"
+        );
+        let serialized = serde_json::to_value(&clarification)
+            .expect("clarification should serialize without mass estimates");
+        assert!(serialized.get("mass_g").is_none());
+        assert!(serialized.get("estimated_mass_g").is_none());
+    }
+
+    #[tokio::test]
+    async fn unsupported_multi_item_portion_remains_fail_closed() {
+        let service = MealAnalysisService::new(
+            FixtureParser,
+            FixtureCatalog::foundation_seed(),
+            NoSuggestionPortionEvidence,
+            InMemoryAnalysisRepository::default(),
+            BehaviorVersions::default(),
+            vec![NutrientCode::new("energy_kcal").expect("valid code")],
+        );
+        let error = service
+            .execute(AnalysisRequest {
+                text: "1 ly cơm trắng, 1 ly cơm trắng".to_owned(),
+                locale: "vi-VN".to_owned(),
+                idempotency: None,
+                owner_id: None,
+            })
+            .await
+            .expect_err("multi-item unsupported portions remain fail-closed");
+
+        assert!(matches!(error, ApplicationError::InsufficientEvidence(_)));
     }
 }
