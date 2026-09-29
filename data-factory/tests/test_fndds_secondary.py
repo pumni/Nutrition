@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import sys
+import tempfile
 import unittest
 import zipfile
 from pathlib import Path
@@ -212,12 +213,19 @@ class FnddsSecondaryTests(unittest.TestCase):
         self.assertEqual(egg["reason_code"], "preparation_ambiguous")
 
     def test_accepted_foundation_mapping_suppresses_secondary_candidate(self) -> None:
-        report = build_fndds_review_report(
-            self.parsed,
-            self.policy,
-            self.source_evidence,
-            foundation_accepted_target_ids={"vmb-public-0002"},
-        )
+        policy_document = copy.deepcopy(self.policy["policy"])
+        policy_document["precedence"]["foundation_accepted_target_ids"].append("vmb-public-0002")
+        with tempfile.TemporaryDirectory() as temp_directory:
+            policy_path = Path(temp_directory) / "fndds-review-policy.json"
+            policy_path.write_text(
+                json.dumps(policy_document, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            loaded_policy = load_fndds_review_policy(policy_path)
+            report = build_fndds_review_report(self.parsed, loaded_policy, self.source_evidence)
+            expected_policy_sha256 = hashlib.sha256(policy_path.read_bytes()).hexdigest()
+
+        self.assertEqual(report["review_policy_sha256"], expected_policy_sha256)
         self.assertEqual(report["counts"]["candidate_packet_count"], 0)
         result = next(item for item in report["target_results"] if item["target_id"] == "vmb-public-0002")
         self.assertEqual(result["outcome"], "suppressed_foundation_primary")

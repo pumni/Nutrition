@@ -75,8 +75,6 @@ def build_fndds_review_report(
     parsed: FnddsParseResult,
     loaded_policy: dict[str, Any],
     source_evidence: dict[str, Any],
-    *,
-    foundation_accepted_target_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     if not parsed.valid or len(parsed.accepted_records) != parsed.raw_record_count:
         raise FnddsReviewError("refusing candidate analysis because FNDDS parsing rejected source rows")
@@ -90,13 +88,9 @@ def build_fndds_review_report(
     if not isinstance(policy, dict) or not isinstance(policy_sha256, str):
         raise FnddsReviewError("review policy must be loaded with load_fndds_review_policy")
     precedence = policy["precedence"]
-    accepted_foundation = (
-        set(precedence["foundation_accepted_target_ids"])
-        if foundation_accepted_target_ids is None
-        else set(foundation_accepted_target_ids)
-    )
+    accepted_foundation = set(precedence["foundation_accepted_target_ids"])
     if not accepted_foundation.issubset(FNDDS_ALLOWED_TARGET_IDS):
-        raise FnddsReviewError("Foundation precedence input contains an out-of-scope target")
+        raise FnddsReviewError("Foundation precedence policy contains an out-of-scope target")
 
     records_by_food_code = {record.food_code: record for record in parsed.accepted_records}
     packets: list[dict[str, Any]] = []
