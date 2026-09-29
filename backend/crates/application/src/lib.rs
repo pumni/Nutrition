@@ -13,7 +13,7 @@ pub use model::{
     ParserInvocationRecord, PortionCorrection, PortionSuggestion, ResolvedFoodEvidence,
     ResolvedPortionEvidence, WorkflowQuestion,
 };
-pub use normalization::normalize_vi_search_key;
+pub use normalization::{ensure_modifiers_represented, normalize_vi_search_key};
 pub use ports::{
     AnalysisRepository, AnalysisSnapshotReader, ApplicationError, FoodEvidenceProvider,
     MealTextParser, ParserTelemetrySink, PortionEvidenceProvider,

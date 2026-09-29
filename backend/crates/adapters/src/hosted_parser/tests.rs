@@ -190,6 +190,28 @@ async fn retries_schema_failure_once_with_repair_instruction() {
     ));
 }
 
+#[test]
+fn schema_rejects_nutrition_identity_and_gram_outputs() {
+    for (field, value) in [
+        ("calories", json!(140)),
+        ("nutrients", json!({"protein_g": 7})),
+        ("food_id", json!("00000000-0000-0000-0000-000000000001")),
+        ("internal_food_id", json!("food-1")),
+        ("grams", json!(100)),
+        ("nutrition_equivalence", json!("same as another food")),
+    ] {
+        let mut output = valid_response().output;
+        output["items"][0][field] = value;
+        assert!(
+            matches!(
+                validate_output(&request("2 quả trứng gà luộc"), output),
+                Err(OutputFailure::Schema)
+            ),
+            "parser schema must reject {field}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn rejects_semantic_hallucination_without_retry() {
     let response = StructuredGenerationResponse {

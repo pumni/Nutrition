@@ -33,6 +33,11 @@ in each analysis behavior version. Food names, profiles, and portions are resolv
 in that pinned release, so later catalog activation does not change evidence used by a running
 process.
 
+Before exact food-name retrieval, every parsed modifier must appear as a complete token sequence in
+the normalized `food_phrase`. Unrepresented specificity returns insufficient evidence; the policy
+does not infer that a modifier is harmless or nutritionally equivalent. Quantity and unit phrases
+remain separate inputs to portion resolution.
+
 ## Hosted parser boundary
 
 The provider adapter accepts only an HTTPS endpoint and bounded configuration. It sends a fixed

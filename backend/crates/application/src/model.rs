@@ -93,7 +93,7 @@ impl Default for BehaviorVersions {
             prompt_version: "fixture-parser-0.2.0".to_owned(),
             model_provider_version: "fixture/local".to_owned(),
             normalization_version: "normalize-0.1.0".to_owned(),
-            resolution_policy_version: "resolve-exact-0.1.0".to_owned(),
+            resolution_policy_version: "resolve-exact-specificity-0.2.0".to_owned(),
             portion_policy_version: "portion-contextual-0.2.0".to_owned(),
             composition_policy_version: "composition-direct-0.1.0".to_owned(),
             clarification_policy_version: "clarification-portion-0.1.0".to_owned(),
