@@ -1,0 +1,709 @@
+{
+  "activation_authorized": false,
+  "benchmark_adjudication_status": "pending_human_review",
+  "benchmark_context": {
+    "file": "backend/fixtures/vietnamese-meal-bench/public-test-cases.json",
+    "file_sha256": "d45c40388bedd6e3dd91163f23bdbf5c8bb06865cf8d12f2e3619f7288713597",
+    "parsed_quantity": "0.5",
+    "parsed_unit_phrase": "quả",
+    "sample_id": "vmb-public-0004",
+    "source_text": "1/2 quả bơ"
+  },
+  "catalog_staging_authorized": false,
+  "decision_question": "Does the exact benchmark observation `1/2 quả bơ` represent plain raw avocado for this evaluation case, or should it remain unsupported because preparation is not explicit?",
+  "foundation_primary_check": {
+    "archive_sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+    "coverage_report_sha256": "eee235f61b6b219a0ff24a58b2da1412491ce81eeb76959cc5f936d945dd637c",
+    "extracted_json_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
+    "foundation_exact_mapping_accepted": false,
+    "observed_source_record": {
+      "description": "Avocado, Hass, peeled, raw",
+      "fdc_id": 2710824,
+      "record_sha256": "9c0ce7f5211ce29ac68c29f465a66759eecdb16c9dc576d9ba5170573db64714",
+      "selection_state": "not_selected_cultivar_specific"
+    },
+    "schema_fingerprint": "2da322eea296a96ea304c68d235538b6d93412619e72a3cbe7c91032937139c1",
+    "source": "usda_fdc_foundation",
+    "source_release": "2026-04-30"
+  },
+  "issue_reference": "github:issue/35",
+  "mapping_scope": "vmb-public-0004 only; no global alias approval",
+  "normalized_vietnamese_target": "bơ",
+  "nutrient_mapping_version": "fndds-required-nutrients-0.1.0",
+  "packet_version": "fndds-source-review-packet-0.2.0",
+  "portion_evidence_authorized": false,
+  "production_eligible": false,
+  "proposal_id": "fndds-proposal-b27df76ad6826adc38d1",
+  "recipe_evidence_authorized": false,
+  "rejected_alternatives": [
+    {
+      "description": "Avocado dressing",
+      "fdc_id": 2710208,
+      "fndds_food_code": "83112000",
+      "reason_code": "prepared_dressing_not_plain_raw_avocado",
+      "record_sha256": "667d95c01c4a0039cce8faf58c0d4bf227a50a1e168185c9316c19823f299afe",
+      "source_code": "usda_fndds",
+      "wweia_category_description": "Salad dressings and vegetable oils"
+    },
+    {
+      "description": "Avocado, for use on a sandwich",
+      "fdc_id": 2710248,
+      "fndds_food_code": "89902000",
+      "reason_code": "sandwich_use_context_not_plain_raw_avocado",
+      "record_sha256": "67a79f342f07649b50aab2e13c85236c47b8b60bd0f449c16a35bf5ce12d49f5",
+      "source_code": "usda_fndds",
+      "wweia_category_description": "Vegetables on a sandwich"
+    }
+  ],
+  "required_nutrient_completeness": {
+    "complete": true,
+    "mapping_version": "fndds-required-nutrients-0.1.0",
+    "rejected": [],
+    "required_nutrients": [
+      {
+        "basis": "per_100g_edible_portion",
+        "fndds_nutrient_code": "205",
+        "source_label": "Carbohydrate, by difference",
+        "source_method": null,
+        "source_method_available": false,
+        "source_nutrient_id": 1005,
+        "source_unit": "g",
+        "target_code": "carbohydrate_g",
+        "value_state": "present"
+      },
+      {
+        "basis": "per_100g_edible_portion",
+        "fndds_nutrient_code": "208",
+        "source_label": "Energy",
+        "source_method": null,
+        "source_method_available": false,
+        "source_nutrient_id": 1008,
+        "source_unit": "kcal",
+        "target_code": "energy_kcal",
+        "value_state": "present"
+      },
+      {
+        "basis": "per_100g_edible_portion",
+        "fndds_nutrient_code": "204",
+        "source_label": "Total lipid (fat)",
+        "source_method": null,
+        "source_method_available": false,
+        "source_nutrient_id": 1004,
+        "source_unit": "g",
+        "target_code": "fat_g",
+        "value_state": "present"
+      },
+      {
+        "basis": "per_100g_edible_portion",
+        "fndds_nutrient_code": "203",
+        "source_label": "Protein",
+        "source_method": null,
+        "source_method_available": false,
+        "source_nutrient_id": 1003,
+        "source_unit": "g",
+        "target_code": "protein_g",
+        "value_state": "present"
+      }
+    ]
+  },
+  "review_policy_sha256": "3ab119930ee712dc2868d6389fed61f5136ecf1f9c8b227a72e03636da991112",
+  "review_policy_version": "fndds-secondary-review-policy-0.2.0",
+  "reviewer_approved": false,
+  "reviewer_reference": null,
+  "reviewer_state": "pending_human_review",
+  "semantic_assessment": {
+    "known": [
+      "The exact benchmark text uses the countable-fruit phrase `quả bơ`; the benchmark annotation remains pending human review.",
+      "The exact Foundation observation is Hass cultivar-specific and is not selected as generic Vietnamese evidence.",
+      "The exact FNDDS source description identifies raw avocado and does not select a named cultivar.",
+      "The four required source nutrient entries are each complete under the pinned FNDDS mapping."
+    ],
+    "not_approved": [
+      "A global Vietnamese alias from `bơ` to avocado.",
+      "Any other avocado cultivar, preparation, dish, or source record.",
+      "Any portion mass, recipe evidence, catalog staging, production eligibility, or activation."
+    ],
+    "remaining_uncertainty": [
+      "The benchmark phrase does not explicitly state raw preparation; a human must decide whether this exact case denotes plain raw avocado for this evaluation mapping."
+    ],
+    "safe_options": [
+      "Approve only the exact `vmb-public-0004` target/source pairing after human review.",
+      "Reject the proposal and keep the target unsupported."
+    ]
+  },
+  "semantic_rationale": "The bounded source record describes generic raw avocado, while the benchmark target is one exact countable-fruit observation. This does not resolve whether the benchmark observation implies raw preparation and remains pending human review.",
+  "source_adapter_version": "fndds-survey-json-0.1.0",
+  "source_artifact": {
+    "archive_filename": "FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_locator": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+    "archive_size_bytes": 3835292,
+    "member_name": "surveyDownload.json",
+    "member_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808",
+    "member_size_bytes": 66294426,
+    "project_decision_reference": "github:issue/41#issuecomment-5888205397",
+    "publisher": "USDA Agricultural Research Service",
+    "release": "2021-2023",
+    "release_date": "2024-10",
+    "rights_citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov.",
+    "rights_evidence": "https://fdc.nal.usda.gov/api-guide/",
+    "rights_license": "CC0 1.0 Universal",
+    "rights_state": "reference_only",
+    "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+    "source_code": "usda_fndds"
+  },
+  "source_nutrient_definitions": [
+    {
+      "fndds_nutrient_code": "203",
+      "source_label": "Protein",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1003,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "204",
+      "source_label": "Total lipid (fat)",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1004,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "205",
+      "source_label": "Carbohydrate, by difference",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1005,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "208",
+      "source_label": "Energy",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1008,
+      "source_unit": "kcal"
+    },
+    {
+      "fndds_nutrient_code": "221",
+      "source_label": "Alcohol, ethyl",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1018,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "255",
+      "source_label": "Water",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1051,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "262",
+      "source_label": "Caffeine",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1057,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "263",
+      "source_label": "Theobromine",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1058,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "269",
+      "source_label": "Total Sugars",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 2000,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "291",
+      "source_label": "Fiber, total dietary",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1079,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "301",
+      "source_label": "Calcium, Ca",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1087,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "303",
+      "source_label": "Iron, Fe",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1089,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "304",
+      "source_label": "Magnesium, Mg",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1090,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "305",
+      "source_label": "Phosphorus, P",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1091,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "306",
+      "source_label": "Potassium, K",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1092,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "307",
+      "source_label": "Sodium, Na",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1093,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "309",
+      "source_label": "Zinc, Zn",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1095,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "312",
+      "source_label": "Copper, Cu",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1098,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "317",
+      "source_label": "Selenium, Se",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1103,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "319",
+      "source_label": "Retinol",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1105,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "320",
+      "source_label": "Vitamin A, RAE",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1106,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "321",
+      "source_label": "Carotene, beta",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1107,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "322",
+      "source_label": "Carotene, alpha",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1108,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "323",
+      "source_label": "Vitamin E (alpha-tocopherol)",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1109,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "328",
+      "source_label": "Vitamin D (D2 + D3)",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1114,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "334",
+      "source_label": "Cryptoxanthin, beta",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1120,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "337",
+      "source_label": "Lycopene",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1122,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "338",
+      "source_label": "Lutein + zeaxanthin",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1123,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "401",
+      "source_label": "Vitamin C, total ascorbic acid",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1162,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "404",
+      "source_label": "Thiamin",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1165,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "405",
+      "source_label": "Riboflavin",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1166,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "406",
+      "source_label": "Niacin",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1167,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "415",
+      "source_label": "Vitamin B-6",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1175,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "417",
+      "source_label": "Folate, total",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1177,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "418",
+      "source_label": "Vitamin B-12",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1178,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "421",
+      "source_label": "Choline, total",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1180,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "430",
+      "source_label": "Vitamin K (phylloquinone)",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1185,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "431",
+      "source_label": "Folic acid",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1186,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "432",
+      "source_label": "Folate, food",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1187,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "435",
+      "source_label": "Folate, DFE",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1190,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "573",
+      "source_label": "Vitamin E, added",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1242,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "578",
+      "source_label": "Vitamin B-12, added",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1246,
+      "source_unit": "µg"
+    },
+    {
+      "fndds_nutrient_code": "601",
+      "source_label": "Cholesterol",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1253,
+      "source_unit": "mg"
+    },
+    {
+      "fndds_nutrient_code": "606",
+      "source_label": "Fatty acids, total saturated",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1258,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "607",
+      "source_label": "SFA 4:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1259,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "608",
+      "source_label": "SFA 6:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1260,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "609",
+      "source_label": "SFA 8:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1261,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "610",
+      "source_label": "SFA 10:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1262,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "611",
+      "source_label": "SFA 12:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1263,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "612",
+      "source_label": "SFA 14:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1264,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "613",
+      "source_label": "SFA 16:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1265,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "614",
+      "source_label": "SFA 18:0",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1266,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "617",
+      "source_label": "MUFA 18:1",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1268,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "618",
+      "source_label": "PUFA 18:2",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1269,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "619",
+      "source_label": "PUFA 18:3",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1270,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "620",
+      "source_label": "PUFA 20:4",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1271,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "621",
+      "source_label": "PUFA 22:6 n-3 (DHA)",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1272,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "626",
+      "source_label": "MUFA 16:1",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1275,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "627",
+      "source_label": "PUFA 18:4",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1276,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "628",
+      "source_label": "MUFA 20:1",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1277,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "629",
+      "source_label": "PUFA 20:5 n-3 (EPA)",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1278,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "630",
+      "source_label": "MUFA 22:1",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1279,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "631",
+      "source_label": "PUFA 22:5 n-3 (DPA)",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1280,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "645",
+      "source_label": "Fatty acids, total monounsaturated",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1292,
+      "source_unit": "g"
+    },
+    {
+      "fndds_nutrient_code": "646",
+      "source_label": "Fatty acids, total polyunsaturated",
+      "source_method": null,
+      "source_method_available": false,
+      "source_nutrient_id": 1293,
+      "source_unit": "g"
+    }
+  ],
+  "source_precedence": {
+    "fallback_status": "review_proposal_pending_human_review",
+    "foundation_accepted_mapping_exists": false,
+    "foundation_state_reference": "github:issue/35#issuecomment-5863469233",
+    "policy_version": "foundation-primary-fndds-secondary-0.1.0",
+    "primary_source": "usda_fdc_foundation",
+    "secondary_source": "usda_fndds"
+  },
+  "source_preparation_state": "raw",
+  "source_record": {
+    "description": "Avocado, raw",
+    "fdc_id": 2709223,
+    "fndds_food_code": "63105010",
+    "record_sha256": "93c417a29518c43b95d11809bb11cc915d3aa6ffb1db13578a7578139b18a508",
+    "source_code": "usda_fndds",
+    "wweia_category_description": "Other vegetables and combinations"
+  },
+  "source_use_boundary": {
+    "allowed_uses": [
+      "analysis",
+      "reference"
+    ],
+    "production_eligible": false,
+    "production_ingestion": "blocked_until_product_selection",
+    "prohibited_uses": [
+      "staged_candidate",
+      "unreviewed_vietnamese_mapping"
+    ],
+    "rights_state": "reference_only"
+  },
+  "target_id": "vmb-public-0004",
+  "target_preparation_state": "not explicit in the benchmark text"
+}

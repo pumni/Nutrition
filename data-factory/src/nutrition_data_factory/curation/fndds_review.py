@@ -15,18 +15,26 @@ from ..nutrients_fndds import (
 
 
 FNDDS_REVIEW_POLICY_VERSION = "fndds-secondary-review-policy-0.1.0"
+FNDDS_AVOCADO_REVIEW_POLICY_VERSION = "fndds-secondary-review-policy-0.2.0"
 FOUNDATION_PRECEDENCE_VERSION = "foundation-primary-fndds-secondary-0.1.0"
-FNDDS_ALLOWED_TARGET_IDS = frozenset(
-    {
-        "vmb-public-0002",
-        "vmb-public-0005",
-        "vmb-public-0003",
-        "vmb-public-0007",
-        "vmb-public-0012",
-        "vmb-public-0010",
-        "vmb-public-0014",
-    }
-)
+FNDDS_POLICY_TARGET_IDS = {
+    FNDDS_REVIEW_POLICY_VERSION: frozenset(
+        {
+            "vmb-public-0002",
+            "vmb-public-0005",
+            "vmb-public-0003",
+            "vmb-public-0007",
+            "vmb-public-0012",
+            "vmb-public-0010",
+            "vmb-public-0014",
+        }
+    ),
+    FNDDS_AVOCADO_REVIEW_POLICY_VERSION: frozenset({"vmb-public-0004"}),
+}
+FNDDS_PACKET_VERSION_BY_POLICY = {
+    FNDDS_REVIEW_POLICY_VERSION: "fndds-source-review-packet-0.1.0",
+    FNDDS_AVOCADO_REVIEW_POLICY_VERSION: "fndds-source-review-packet-0.2.0",
+}
 
 
 class FnddsReviewError(ValueError):
@@ -39,8 +47,12 @@ def load_fndds_review_policy(path: Path) -> dict[str, Any]:
         policy = json.loads(raw_bytes)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         raise FnddsReviewError("FNDDS review policy is not readable JSON") from error
-    if not isinstance(policy, dict) or policy.get("schema_version") != FNDDS_REVIEW_POLICY_VERSION:
-        raise FnddsReviewError(f"policy must use {FNDDS_REVIEW_POLICY_VERSION}")
+    if not isinstance(policy, dict):
+        raise FnddsReviewError("policy must be a versioned FNDDS review policy")
+    policy_version = policy.get("schema_version")
+    allowed_target_ids = FNDDS_POLICY_TARGET_IDS.get(policy_version)
+    if allowed_target_ids is None:
+        raise FnddsReviewError("policy must use an authorized FNDDS review scope version")
     if policy.get("nutrient_mapping_version") != FNDDS_NUTRIENT_MAPPING_VERSION:
         raise FnddsReviewError("policy nutrient mapping version does not match the FNDDS crosswalk")
     source = policy.get("source")
@@ -63,11 +75,40 @@ def load_fndds_review_policy(path: Path) -> dict[str, Any]:
     target_ids = [target.get("target_id") for target in targets if isinstance(target, dict)]
     if len(target_ids) != len(targets) or len(target_ids) != len(set(target_ids)):
         raise FnddsReviewError("target records must be objects with unique target IDs")
-    if set(target_ids) != FNDDS_ALLOWED_TARGET_IDS:
-        raise FnddsReviewError("policy target set is outside the authorized seven-food FNDDS scope")
+    if set(target_ids) != allowed_target_ids:
+        raise FnddsReviewError("policy target set is outside its authorized versioned FNDDS scope")
     foundation_targets = set(precedence["foundation_accepted_target_ids"])
-    if not foundation_targets.issubset(FNDDS_ALLOWED_TARGET_IDS):
+    if not foundation_targets.issubset(allowed_target_ids):
         raise FnddsReviewError("Foundation precedence state contains an out-of-scope target")
+
+    if policy_version == FNDDS_AVOCADO_REVIEW_POLICY_VERSION:
+        target = targets[0]
+        candidate = target.get("candidate")
+        review_context = target.get("review_context")
+        foundation_check = (
+            review_context.get("foundation_primary_check")
+            if isinstance(review_context, dict)
+            else None
+        )
+        if (
+            not isinstance(candidate, dict)
+            or not isinstance(candidate.get("record_sha256"), str)
+            or not isinstance(candidate.get("required_nutrient_semantics"), list)
+            or target.get("normalized_vietnamese_target") != "bơ"
+            or not isinstance(review_context, dict)
+            or review_context.get("mapping_scope")
+            != "vmb-public-0004 only; no global alias approval"
+            or review_context.get("benchmark_adjudication_status") != "pending_human_review"
+            or not isinstance(foundation_check, dict)
+            or foundation_check.get("foundation_exact_mapping_accepted") is not False
+        ):
+            raise FnddsReviewError("avocado scope must pin source semantics and pending review context")
+        if (
+            policy.get("project_decision_reference")
+            != "github:issue/41#issuecomment-5888205397"
+            or policy.get("issue_reference") != "https://github.com/pumni/Nutrition/issues/35"
+        ):
+            raise FnddsReviewError("avocado scope must retain its exact owner authorization references")
     return {"policy": policy, "sha256": _sha256(raw_bytes)}
 
 
@@ -89,7 +130,8 @@ def build_fndds_review_report(
         raise FnddsReviewError("review policy must be loaded with load_fndds_review_policy")
     precedence = policy["precedence"]
     accepted_foundation = set(precedence["foundation_accepted_target_ids"])
-    if not accepted_foundation.issubset(FNDDS_ALLOWED_TARGET_IDS):
+    allowed_target_ids = FNDDS_POLICY_TARGET_IDS.get(policy["schema_version"], frozenset())
+    if not accepted_foundation.issubset(allowed_target_ids):
         raise FnddsReviewError("Foundation precedence policy contains an out-of-scope target")
 
     records_by_food_code = {record.food_code: record for record in parsed.accepted_records}
@@ -142,7 +184,29 @@ def build_fndds_review_report(
                 f"candidate record for {target_id} has an unexpected WWEIA category"
             )
         completeness = summarize_fndds_required_nutrients(record.nutrients)
+        expected_nutrient_semantics = candidate_spec.get("required_nutrient_semantics")
+        if expected_nutrient_semantics is not None:
+            actual_nutrient_semantics = [
+                {
+                    key: item[key]
+                    for key in (
+                        "target_code",
+                        "fndds_nutrient_code",
+                        "source_nutrient_id",
+                        "source_unit",
+                    )
+                }
+                for item in completeness["required_nutrients"]
+            ]
+            if actual_nutrient_semantics != expected_nutrient_semantics:
+                raise FnddsReviewError(
+                    f"required nutrient semantics changed for {target_id}"
+                )
         if not completeness["complete"]:
+            if expected_nutrient_semantics is not None:
+                raise FnddsReviewError(
+                    f"required nutrient completeness changed for {target_id}"
+                )
             target_results.append(
                 {
                     **base_result,
@@ -155,8 +219,8 @@ def build_fndds_review_report(
             continue
 
         packet = {
-            "packet_version": "fndds-source-review-packet-0.1.0",
-            "proposal_id": _proposal_id(target_id, record),
+            "packet_version": FNDDS_PACKET_VERSION_BY_POLICY[policy["schema_version"]],
+            "proposal_id": _proposal_id(policy["schema_version"], target_id, record),
             "normalized_vietnamese_target": target["normalized_vietnamese_target"],
             "target_id": target_id,
             "target_preparation_state": target["target_preparation_state"],
@@ -187,6 +251,32 @@ def build_fndds_review_report(
             "reviewer_approved": False,
             "production_eligible": False,
         }
+        if policy["schema_version"] == FNDDS_AVOCADO_REVIEW_POLICY_VERSION:
+            packet["review_policy_version"] = policy["schema_version"]
+            packet["review_policy_sha256"] = policy_sha256
+            packet["source_adapter_version"] = parsed.adapter_version
+            packet["catalog_staging_authorized"] = False
+            packet["activation_authorized"] = False
+            packet["portion_evidence_authorized"] = False
+            packet["recipe_evidence_authorized"] = False
+        review_context = target.get("review_context")
+        if isinstance(review_context, dict):
+            for key in (
+                "issue_reference",
+                "mapping_scope",
+                "benchmark_context",
+                "benchmark_adjudication_status",
+                "decision_question",
+                "foundation_primary_check",
+                "semantic_assessment",
+            ):
+                if key in review_context:
+                    packet[key] = review_context[key]
+        if (
+            policy["schema_version"] == FNDDS_AVOCADO_REVIEW_POLICY_VERSION
+            and isinstance(source_evidence.get("source_use_boundary"), dict)
+        ):
+            packet["source_use_boundary"] = source_evidence["source_use_boundary"]
         packets.append(packet)
         target_results.append(
             {
@@ -279,6 +369,8 @@ def _require_exact_record(
         raise FnddsReviewError(f"source record for {target_id} is absent from pinned FNDDS data")
     if record.fdc_id != spec["fdc_id"] or record.description != spec["description"]:
         raise FnddsReviewError(f"source ID or exact description changed for {target_id}")
+    if spec.get("record_sha256") is not None and record.payload_sha256 != spec["record_sha256"]:
+        raise FnddsReviewError(f"source record hash changed for {target_id}")
     return record
 
 
@@ -320,11 +412,15 @@ def _literal_absence_result(
     return result
 
 
-def _proposal_id(target_id: str, record: FnddsSourceRecord) -> str:
-    identity = f"{FNDDS_REVIEW_POLICY_VERSION}:{target_id}:{record.food_code}:{record.payload_sha256}"
+def _proposal_id(policy_version: str, target_id: str, record: FnddsSourceRecord) -> str:
+    identity = f"{policy_version}:{target_id}:{record.food_code}:{record.payload_sha256}"
     suffix = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
     return f"fndds-proposal-{suffix}"
 
 
 def _sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def serialize_fndds_review_artifact(value: dict[str, Any]) -> bytes:
+    return (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
