@@ -277,6 +277,8 @@ class ReviewedRiceMappingTests(unittest.TestCase):
 _SUPPORTED_SCHEMA_KEYWORDS = {
     "$id",
     "$schema",
+    "$defs",
+    "$ref",
     "additionalProperties",
     "allOf",
     "const",
@@ -295,9 +297,31 @@ _SUPPORTED_SCHEMA_KEYWORDS = {
 }
 
 
-def _assert_json_schema_conforms(instance: object, schema: dict[str, object], path: str = "$") -> None:
+def _assert_json_schema_conforms(
+    instance: object,
+    schema: dict[str, object],
+    path: str = "$",
+    root_schema: dict[str, object] | None = None,
+) -> None:
+    if root_schema is None:
+        root_schema = schema
     unsupported = set(schema) - _SUPPORTED_SCHEMA_KEYWORDS
     assert not unsupported, f"{path}: unsupported schema keywords {sorted(unsupported)}"
+
+    if "$ref" in schema:
+        reference = schema["$ref"]
+        assert isinstance(reference, str) and reference.startswith("#/$defs/"), (
+            f"{path}: unsupported schema reference {reference}"
+        )
+        definition_name = reference.removeprefix("#/$defs/")
+        definitions = root_schema.get("$defs", {})
+        assert isinstance(definitions, dict) and definition_name in definitions, (
+            f"{path}: unresolved schema reference {reference}"
+        )
+        referenced_schema = definitions[definition_name]
+        assert isinstance(referenced_schema, dict)
+        _assert_json_schema_conforms(instance, referenced_schema, path, root_schema)
+        return
 
     expected_type = schema.get("type")
     if expected_type is not None:
@@ -327,11 +351,11 @@ def _assert_json_schema_conforms(instance: object, schema: dict[str, object], pa
         for key, value in instance.items():
             child_path = f"{path}.{key}"
             if key in properties:
-                _assert_json_schema_conforms(value, properties[key], child_path)
+                _assert_json_schema_conforms(value, properties[key], child_path, root_schema)
             elif additional is False:
                 raise AssertionError(f"{child_path}: additional property is forbidden")
             elif isinstance(additional, dict):
-                _assert_json_schema_conforms(value, additional, child_path)
+                _assert_json_schema_conforms(value, additional, child_path, root_schema)
 
     if isinstance(instance, list):
         if "minItems" in schema:
@@ -340,27 +364,27 @@ def _assert_json_schema_conforms(instance: object, schema: dict[str, object], pa
             assert len(instance) <= schema["maxItems"], f"{path}: too many items"
         if "items" in schema:
             for index, value in enumerate(instance):
-                _assert_json_schema_conforms(value, schema["items"], f"{path}[{index}]")
+                _assert_json_schema_conforms(value, schema["items"], f"{path}[{index}]", root_schema)
 
     for child_schema in schema.get("allOf", []):
-        _assert_json_schema_conforms(instance, child_schema, path)
+        _assert_json_schema_conforms(instance, child_schema, path, root_schema)
     if "oneOf" in schema:
         valid_schemas = 0
         for child_schema in schema["oneOf"]:
             try:
-                _assert_json_schema_conforms(instance, child_schema, path)
+                _assert_json_schema_conforms(instance, child_schema, path, root_schema)
             except AssertionError:
                 continue
             valid_schemas += 1
         assert valid_schemas == 1, f"{path}: expected exactly one matching schema"
     if "if" in schema:
         try:
-            _assert_json_schema_conforms(instance, schema["if"], path)
+            _assert_json_schema_conforms(instance, schema["if"], path, root_schema)
         except AssertionError:
             pass
         else:
             if "then" in schema:
-                _assert_json_schema_conforms(instance, schema["then"], path)
+                _assert_json_schema_conforms(instance, schema["then"], path, root_schema)
 
 
 def _matches_json_type(instance: object, expected: object) -> bool:
