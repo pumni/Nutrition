@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/curation-decision-0.2.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_id",
+    "decision_type",
+    "candidate_id",
+    "decision",
+    "reviewer",
+    "reviewed_at",
+    "rationale",
+    "evidence_refs",
+    "policy_version",
+    "supersedes",
+    "decision_reference",
+    "source_record_identity"
+  ],
+  "properties": {
+    "decision_id": {"type": "string", "minLength": 1},
+    "decision_type": {"type": "string", "minLength": 1},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "decision": {"enum": ["approved", "rejected", "ambiguous", "deferred"]},
+    "reviewer": {"type": "string", "minLength": 1},
+    "reviewed_at": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string", "minLength": 1},
+    "evidence_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "policy_version": {"const": "curation-decision-0.2.0"},
+    "supersedes": {"type": ["string", "null"]},
+    "decision_reference": {"type": ["string", "null"]},
+    "source_record_identity": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_code",
+            "release",
+            "source_record_id",
+            "external_id_type",
+            "external_record_id",
+            "description",
+            "record_sha256",
+            "archive_sha256",
+            "archive_member",
+            "member_sha256",
+            "schema_fingerprint"
+          ],
+          "properties": {
+            "source_code": {"type": "string", "minLength": 1},
+            "release": {"type": "string", "minLength": 1},
+            "source_record_id": {"type": "string", "minLength": 1},
+            "external_id_type": {"type": "string", "minLength": 1},
+            "external_record_id": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1},
+            "record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "archive_member": {"type": "string", "minLength": 1},
+            "member_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "schema_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"decision_type": {"const": "food_source_mapping"}}},
+      "then": {
+        "properties": {
+          "decision_reference": {"type": "string", "minLength": 1},
+          "source_record_identity": {"type": "object"}
+        }
+      }
+    }
+  ]
+}

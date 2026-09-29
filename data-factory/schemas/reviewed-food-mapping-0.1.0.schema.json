@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/reviewed-food-mapping-0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "issue_reference", "review_decision", "mapping", "coverage_update", "source_registry_boundary"],
+  "properties": {
+    "schema_version": {"const": "reviewed-food-mapping-0.1.0"},
+    "issue_reference": {"const": "github:issue/35"},
+    "review_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "decision_type", "candidate_id", "decision", "decision_reference", "reviewer", "reviewed_at", "rationale", "curation_policy_version", "evidence_refs"],
+      "properties": {
+        "decision_id": {"type": "string", "minLength": 1},
+        "decision_type": {"const": "food_source_mapping"},
+        "candidate_id": {"const": "fndds-proposal-d7772be2123024935757"},
+        "decision": {"const": "approved"},
+        "decision_reference": {"const": "github:issue/35#issuecomment-5882043136"},
+        "reviewer": {"const": "pumni"},
+        "reviewed_at": {"const": "2026-09-29T01:43:47Z"},
+        "rationale": {"type": "string", "minLength": 1},
+        "curation_policy_version": {"const": "curation-decision-0.2.0"},
+        "evidence_refs": {"type": "array", "minItems": 5, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalized_vietnamese_target", "identity_status", "composition_status", "semantic_boundary", "source_record", "runtime_specificity_policy_reference", "not_approved_specificity", "portion_boundary", "recipe_boundary", "production_eligible", "activation_authorized"],
+      "properties": {
+        "normalized_vietnamese_target": {"const": "cơm trắng"},
+        "identity_status": {"const": "reviewed_supported"},
+        "composition_status": {"const": "reviewed_supported"},
+        "semantic_boundary": {"type": "string", "minLength": 1},
+        "source_record": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_code", "release", "fndds_food_code", "fdc_id", "description", "record_sha256", "archive_sha256", "archive_member", "member_sha256", "schema_fingerprint", "nutrient_mapping_version", "proposal_id", "source_strategy_decision_reference"],
+          "properties": {
+            "source_code": {"const": "usda_fndds"},
+            "release": {"const": "2021-2023 / October 2024"},
+            "fndds_food_code": {"const": "56205008"},
+            "fdc_id": {"const": 2708408},
+            "description": {"const": "Rice, white, cooked, no added fat"},
+            "record_sha256": {"const": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"},
+            "archive_sha256": {"const": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb"},
+            "archive_member": {"const": "surveyDownload.json"},
+            "member_sha256": {"const": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808"},
+            "schema_fingerprint": {"const": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4"},
+            "nutrient_mapping_version": {"const": "fndds-required-nutrients-0.1.0"},
+            "proposal_id": {"const": "fndds-proposal-d7772be2123024935757"},
+            "source_strategy_decision_reference": {"const": "github:issue/41#issuecomment-5867171847"}
+          }
+        },
+        "runtime_specificity_policy_reference": {"const": "resolve-exact-specificity-0.2.0"},
+        "not_approved_specificity": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"type": "string", "minLength": 1}},
+        "portion_boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "unit_portion_inference_approved", "gram_weights_emitted"],
+          "properties": {
+            "status": {"const": "unsupported_without_explicit_grams_or_later_reviewed_portion_evidence"},
+            "unit_portion_inference_approved": {"const": false},
+            "gram_weights_emitted": {"const": false}
+          }
+        },
+        "recipe_boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "recipe_evidence_emitted"],
+          "properties": {
+            "status": {"const": "separate_recipe_evidence_required_for_composite_dishes"},
+            "recipe_evidence_emitted": {"const": false}
+          }
+        },
+        "production_eligible": {"const": false},
+        "activation_authorized": {"const": false}
+      }
+    },
+    "coverage_update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["other_bounded_fndds_targets", "composite_dishes", "synthetic_fixture_bat_grams_promoted"],
+      "properties": {
+        "other_bounded_fndds_targets": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"type": "object", "additionalProperties": false, "required": ["target_id", "normalized_vietnamese_target", "identity_status", "composition_status", "fndds_outcome"], "properties": {"target_id": {"type": "string"}, "normalized_vietnamese_target": {"type": "string"}, "identity_status": {"const": "unsupported"}, "composition_status": {"const": "unsupported"}, "fndds_outcome": {"const": "no_proposal"}}}},
+        "composite_dishes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "object", "additionalProperties": false, "required": ["normalized_vietnamese_target", "status"], "properties": {"normalized_vietnamese_target": {"type": "string"}, "status": {"const": "recipe_required"}}}},
+        "synthetic_fixture_bat_grams_promoted": {"const": false}
+      }
+    },
+    "source_registry_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["historical_report_registry_sha256", "rights_state", "production_ingestion", "allowed_uses", "source_wide_staged_candidate_permission", "production_eligible"],
+      "properties": {
+        "historical_report_registry_sha256": {"const": "9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da"},
+        "rights_state": {"const": "reference_only"},
+        "production_ingestion": {"const": "blocked_until_product_selection"},
+        "allowed_uses": {"const": ["analysis", "reference"]},
+        "source_wide_staged_candidate_permission": {"const": false},
+        "production_eligible": {"const": false}
+      }
+    }
+  }
+}
