@@ -208,6 +208,7 @@ class PortionTests(unittest.TestCase):
         self.assertTrue(errors_with_reason(errors, "unresolved_decision_has_value"))
 
     def test_repeats_are_linked_and_do_not_inflate_independent_sample_count(self) -> None:
+        self.assertEqual(MANIFEST["schema_version"], "portion-study-manifest-0.2.0")
         raw_observations = observations()
         before = copy.deepcopy(raw_observations)
         result = compile_portion_study(MANIFEST, measurement_document(raw_observations))

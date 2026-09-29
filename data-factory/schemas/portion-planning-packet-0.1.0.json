@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/portion-planning-packet-0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_version",
+    "status",
+    "study_id",
+    "input_artifacts",
+    "target",
+    "unresolved_human_inputs",
+    "readiness",
+    "measurement_state",
+    "mass_estimate",
+    "gram_estimate_emitted",
+    "publication"
+  ],
+  "properties": {
+    "schema_version": {"const": "portion-planning-packet-0.1.0"},
+    "policy_version": {"const": "portion-planning-0.1.0"},
+    "status": {"const": "blocked_unresolved_human_inputs"},
+    "study_id": {"const": "vietnamese-com-trang-bat-portion-0.3.0"},
+    "input_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "reviewed_mapping"],
+      "properties": {
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_ref", "sha256"],
+          "properties": {
+            "artifact_ref": {"const": "data-factory/config/portion-study-com-trang-bat-0.3.0.json"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "reviewed_mapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_ref", "sha256"],
+          "properties": {
+            "artifact_ref": {"const": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json"},
+            "sha256": {"const": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324"}
+          }
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalized_vietnamese_target", "reviewed_evidence_identity", "backend_food_id", "preparation", "measure"],
+      "properties": {
+        "normalized_vietnamese_target": {"const": "cơm trắng"},
+        "reviewed_evidence_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_ref", "schema_version", "sha256", "normalized_vietnamese_target", "decision_ref", "source", "specificity_policy_ref"],
+          "properties": {
+            "artifact_ref": {"const": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json"},
+            "schema_version": {"const": "reviewed-food-mapping-0.1.0"},
+            "sha256": {"const": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324"},
+            "normalized_vietnamese_target": {"const": "cơm trắng"},
+            "decision_ref": {"const": "github:issue/35#issuecomment-5882043136"},
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source_code", "release", "fndds_food_code", "fdc_id", "source_record_sha256"],
+              "properties": {
+                "source_code": {"const": "usda_fndds"},
+                "release": {"const": "2021-2023 / October 2024"},
+                "fndds_food_code": {"const": "56205008"},
+                "fdc_id": {"type": "integer", "const": 2708408},
+                "source_record_sha256": {"const": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"}
+              }
+            },
+            "specificity_policy_ref": {"const": "resolve-exact-specificity-0.2.0"}
+          }
+        },
+        "backend_food_id": {"type": "null"},
+        "preparation": {
+          "const": "Generic cooked white rice with no added fat, only when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity."
+        },
+        "measure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["canonical_measure", "original_unit_phrase", "represented_quantity", "context_status", "physical_context"],
+          "properties": {
+            "canonical_measure": {"const": "bát"},
+            "original_unit_phrase": {"const": "bát"},
+            "represented_quantity": {"type": "integer", "const": 1},
+            "context_status": {"const": "unresolved"},
+            "physical_context": {"type": "null"}
+          }
+        }
+      }
+    },
+    "unresolved_human_inputs": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": {
+        "oneOf": [
+          {"const": {"key": "physical_definition_context_of_bat", "description": "Physical definition/context of \"bát\"", "status": "unresolved"}},
+          {"const": {"key": "vessel_context_sampling_strategy", "description": "Vessel/context sampling strategy", "status": "unresolved"}},
+          {"const": {"key": "minimum_independent_sample_count", "description": "Minimum independent sample count", "status": "unresolved"}},
+          {"const": {"key": "minimum_batch_count", "description": "Minimum batch count", "status": "unresolved"}},
+          {"const": {"key": "instrument", "description": "Measurement instrument", "status": "unresolved"}},
+          {"const": {"key": "calibration", "description": "Instrument calibration/check data", "status": "unresolved"}},
+          {"const": {"key": "tare", "description": "Tare method and tare mass", "status": "unresolved"}},
+          {"const": {"key": "operators", "description": "Measurement operators", "status": "unresolved"}},
+          {"const": {"key": "measurement_dates", "description": "Measurement dates", "status": "unresolved"}},
+          {"const": {"key": "measurement_reviewer", "description": "Measurement reviewer and review reference", "status": "unresolved"}},
+          {"const": {"key": "actual_masses", "description": "Actual measured masses", "status": "unresolved"}}
+        ]
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ready_for_measurement", "review_ready", "blocker_count"],
+      "properties": {
+        "ready_for_measurement": {"const": false},
+        "review_ready": {"const": false},
+        "blocker_count": {"type": "integer", "const": 11}
+      }
+    },
+    "measurement_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "observation_count"],
+      "properties": {
+        "status": {"const": "not_collected"},
+        "observation_count": {"type": "integer", "const": 0}
+      }
+    },
+    "mass_estimate": {"type": "null"},
+    "gram_estimate_emitted": {"const": false},
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "publishable", "release_created", "activation_attempted"],
+      "properties": {
+        "status": {"const": "blocked"},
+        "publishable": {"const": false},
+        "release_created": {"const": false},
+        "activation_attempted": {"const": false}
+      }
+    }
+  }
+}

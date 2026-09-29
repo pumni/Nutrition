@@ -1,0 +1,117 @@
+{
+  "gram_estimate_emitted": false,
+  "input_artifacts": {
+    "manifest": {
+      "artifact_ref": "data-factory/config/portion-study-com-trang-bat-0.3.0.json",
+      "sha256": "d9ca020236da68486645daaa0284dfce4d49b52b63b4a4f918b86810ef6a409e"
+    },
+    "reviewed_mapping": {
+      "artifact_ref": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json",
+      "sha256": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324"
+    }
+  },
+  "mass_estimate": null,
+  "measurement_state": {
+    "observation_count": 0,
+    "status": "not_collected"
+  },
+  "policy_version": "portion-planning-0.1.0",
+  "publication": {
+    "activation_attempted": false,
+    "publishable": false,
+    "release_created": false,
+    "status": "blocked"
+  },
+  "readiness": {
+    "blocker_count": 11,
+    "ready_for_measurement": false,
+    "review_ready": false
+  },
+  "schema_version": "portion-planning-packet-0.1.0",
+  "status": "blocked_unresolved_human_inputs",
+  "study_id": "vietnamese-com-trang-bat-portion-0.3.0",
+  "target": {
+    "backend_food_id": null,
+    "measure": {
+      "canonical_measure": "bát",
+      "context_status": "unresolved",
+      "original_unit_phrase": "bát",
+      "physical_context": null,
+      "represented_quantity": 1
+    },
+    "normalized_vietnamese_target": "cơm trắng",
+    "preparation": "Generic cooked white rice with no added fat, only when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity.",
+    "reviewed_evidence_identity": {
+      "artifact_ref": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json",
+      "decision_ref": "github:issue/35#issuecomment-5882043136",
+      "normalized_vietnamese_target": "cơm trắng",
+      "schema_version": "reviewed-food-mapping-0.1.0",
+      "sha256": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324",
+      "source": {
+        "fdc_id": 2708408,
+        "fndds_food_code": "56205008",
+        "release": "2021-2023 / October 2024",
+        "source_code": "usda_fndds",
+        "source_record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"
+      },
+      "specificity_policy_ref": "resolve-exact-specificity-0.2.0"
+    }
+  },
+  "unresolved_human_inputs": [
+    {
+      "description": "Physical definition/context of \"bát\"",
+      "key": "physical_definition_context_of_bat",
+      "status": "unresolved"
+    },
+    {
+      "description": "Vessel/context sampling strategy",
+      "key": "vessel_context_sampling_strategy",
+      "status": "unresolved"
+    },
+    {
+      "description": "Minimum independent sample count",
+      "key": "minimum_independent_sample_count",
+      "status": "unresolved"
+    },
+    {
+      "description": "Minimum batch count",
+      "key": "minimum_batch_count",
+      "status": "unresolved"
+    },
+    {
+      "description": "Measurement instrument",
+      "key": "instrument",
+      "status": "unresolved"
+    },
+    {
+      "description": "Instrument calibration/check data",
+      "key": "calibration",
+      "status": "unresolved"
+    },
+    {
+      "description": "Tare method and tare mass",
+      "key": "tare",
+      "status": "unresolved"
+    },
+    {
+      "description": "Measurement operators",
+      "key": "operators",
+      "status": "unresolved"
+    },
+    {
+      "description": "Measurement dates",
+      "key": "measurement_dates",
+      "status": "unresolved"
+    },
+    {
+      "description": "Measurement reviewer and review reference",
+      "key": "measurement_reviewer",
+      "status": "unresolved"
+    },
+    {
+      "description": "Actual measured masses",
+      "key": "actual_masses",
+      "status": "unresolved"
+    }
+  ]
+}
