@@ -114,7 +114,7 @@
       "github:issue/35#issuecomment-5882043136",
       "github:issue/41#issuecomment-5867171847",
       "data-factory/docs/reviews/fndds-secondary-source-issue-44.json#sha256=8cb33094aa51a6b02659c314298d3e106530a7d0306ab0c162f5e865fee5dc50",
-      "data-factory/config/source_registry.json#sha256=9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da",
+      "data-factory/docs/reviews/fndds-secondary-source-issue-44.json#source_registry_evidence.sha256=9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da",
       "usda_fndds:56205008#record-sha256=634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"
     ],
     "rationale": "Approved for generic cooked white rice with no added fat when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity. More-specific identities are not approved to collapse into generic cơm trắng.",
@@ -127,10 +127,10 @@
       "analysis",
       "reference"
     ],
+    "historical_report_registry_sha256": "9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da",
     "production_eligible": false,
     "production_ingestion": "blocked_until_product_selection",
     "rights_state": "reference_only",
-    "source_registry_sha256": "9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da",
     "source_wide_staged_candidate_permission": false
   }
 }

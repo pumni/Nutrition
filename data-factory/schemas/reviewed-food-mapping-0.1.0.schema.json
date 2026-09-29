@@ -91,9 +91,9 @@
     "source_registry_boundary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_registry_sha256", "rights_state", "production_ingestion", "allowed_uses", "source_wide_staged_candidate_permission", "production_eligible"],
+      "required": ["historical_report_registry_sha256", "rights_state", "production_ingestion", "allowed_uses", "source_wide_staged_candidate_permission", "production_eligible"],
       "properties": {
-        "source_registry_sha256": {"const": "9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da"},
+        "historical_report_registry_sha256": {"const": "9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da"},
         "rights_state": {"const": "reference_only"},
         "production_ingestion": {"const": "blocked_until_product_selection"},
         "allowed_uses": {"const": ["analysis", "reference"]},

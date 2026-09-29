@@ -61,7 +61,7 @@ def materialize_reviewed_rice_mapping(
     if not isinstance(report, dict) or not isinstance(registry, dict):
         raise ReviewedMappingError("review evidence must contain JSON objects")
 
-    packet = _validate_evidence(report, source_registry_bytes, registry)
+    packet = _validate_evidence(report, registry)
     if _sha256(report_bytes) != REPORT_SHA256:
         raise ReviewedMappingError("historical #44 proposal artifact SHA-256 changed")
 
@@ -96,7 +96,8 @@ def materialize_reviewed_rice_mapping(
             DECISION_REFERENCE,
             SOURCE_STRATEGY_REFERENCE,
             f"data-factory/docs/reviews/fndds-secondary-source-issue-44.json#sha256={REPORT_SHA256}",
-            f"data-factory/config/source_registry.json#sha256={SOURCE_REGISTRY_SHA256}",
+            "data-factory/docs/reviews/fndds-secondary-source-issue-44.json"
+            f"#source_registry_evidence.sha256={SOURCE_REGISTRY_SHA256}",
             f"usda_fndds:{SOURCE_RECORD['fndds_food_code']}#record-sha256={SOURCE_RECORD['record_sha256']}",
         ),
         policy_version=CURATION_DECISION_POLICY_VERSION,
@@ -111,12 +112,9 @@ def materialize_reviewed_rice_mapping(
     return decision_bytes, mapping_bytes
 
 
-def _validate_evidence(
-    report: dict[str, Any], source_registry_bytes: bytes, registry: dict[str, Any]
-) -> dict[str, Any]:
-    if _sha256(source_registry_bytes) != SOURCE_REGISTRY_SHA256:
-        raise ReviewedMappingError("source registry SHA-256 changed")
-
+def _validate_evidence(report: dict[str, Any], registry: dict[str, Any]) -> dict[str, Any]:
+    # The historical #44 report pins the registry snapshot. The current registry is live
+    # configuration, so only the FNDDS safety fields are checked below.
     if report.get("schema_version") != "fndds-secondary-source-review-report-0.1.0":
         raise ReviewedMappingError("unexpected historical FNDDS report version")
     counts = report.get("counts")
@@ -316,7 +314,7 @@ def _build_mapping_artifact(
             "synthetic_fixture_bat_grams_promoted": False,
         },
         "source_registry_boundary": {
-            "source_registry_sha256": SOURCE_REGISTRY_SHA256,
+            "historical_report_registry_sha256": report["source_registry_evidence"]["sha256"],
             "rights_state": registry_source["rights_state"],
             "production_ingestion": registry_source["production_ingestion"],
             "allowed_uses": registry_source["allowed_uses"],
