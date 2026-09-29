@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/portion-study-manifest-0.3.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "study_id", "policy_version", "target", "unresolved_human_inputs"],
+  "properties": {
+    "schema_version": {"const": "portion-study-manifest-0.3.0"},
+    "study_id": {"type": "string", "minLength": 1},
+    "policy_version": {"const": "portion-study-0.3.0"},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalized_vietnamese_target", "identity", "preparation", "measure"],
+      "properties": {
+        "normalized_vietnamese_target": {"const": "cơm trắng"},
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reviewed_evidence_identity", "backend_food_id", "reviewer"],
+          "properties": {
+            "status": {"const": "reviewed_evidence"},
+            "reviewed_evidence_identity": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["artifact_ref", "schema_version", "sha256", "normalized_vietnamese_target", "decision_ref", "source", "specificity_policy_ref"],
+              "properties": {
+                "artifact_ref": {"const": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json"},
+                "schema_version": {"const": "reviewed-food-mapping-0.1.0"},
+                "sha256": {"const": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324"},
+                "normalized_vietnamese_target": {"const": "cơm trắng"},
+                "decision_ref": {"const": "github:issue/35#issuecomment-5882043136"},
+                "source": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["source_code", "release", "fndds_food_code", "fdc_id", "source_record_sha256"],
+                  "properties": {
+                    "source_code": {"const": "usda_fndds"},
+                    "release": {"const": "2021-2023 / October 2024"},
+                    "fndds_food_code": {"const": "56205008"},
+                    "fdc_id": {"const": 2708408},
+                    "source_record_sha256": {"const": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"}
+                  }
+                },
+                "specificity_policy_ref": {"const": "resolve-exact-specificity-0.2.0"}
+              }
+            },
+            "backend_food_id": {"type": "null"},
+            "reviewer": {"const": "pumni"}
+          }
+        },
+        "preparation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "definition", "reviewer", "review_ref"],
+          "properties": {
+            "status": {"const": "reviewed"},
+            "definition": {"type": "string", "minLength": 1},
+            "reviewer": {"const": "pumni"},
+            "review_ref": {"const": "github:issue/35#issuecomment-5882043136"}
+          }
+        },
+        "measure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["canonical_measure", "original_unit_phrase", "represented_quantity", "context_status", "physical_context", "context_reviewer", "context_review_ref"],
+          "properties": {
+            "canonical_measure": {"const": "bát"},
+            "original_unit_phrase": {"const": "bát"},
+            "represented_quantity": {"const": 1},
+            "context_status": {"const": "unresolved"},
+            "physical_context": {"type": "null"},
+            "context_reviewer": {"type": "null"},
+            "context_review_ref": {"type": "null"}
+          }
+        }
+      }
+    },
+    "unresolved_human_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["physical_definition_context_of_bat", "vessel_context_sampling_strategy", "minimum_independent_sample_count", "minimum_batch_count", "instrument", "calibration", "tare", "operators", "measurement_dates", "measurement_reviewer", "actual_masses"],
+      "properties": {
+        "physical_definition_context_of_bat": {"type": "null"},
+        "vessel_context_sampling_strategy": {"type": "null"},
+        "minimum_independent_sample_count": {"type": "null"},
+        "minimum_batch_count": {"type": "null"},
+        "instrument": {"type": "null"},
+        "calibration": {"type": "null"},
+        "tare": {"type": "null"},
+        "operators": {"type": "null"},
+        "measurement_dates": {"type": "null"},
+        "measurement_reviewer": {"type": "null"},
+        "actual_masses": {"type": "null"}
+      }
+    }
+  }
+}

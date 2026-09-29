@@ -1,0 +1,56 @@
+{
+  "schema_version": "portion-study-manifest-0.3.0",
+  "study_id": "vietnamese-com-trang-bat-portion-0.3.0",
+  "policy_version": "portion-study-0.3.0",
+  "target": {
+    "normalized_vietnamese_target": "cơm trắng",
+    "identity": {
+      "status": "reviewed_evidence",
+      "reviewed_evidence_identity": {
+        "artifact_ref": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json",
+        "schema_version": "reviewed-food-mapping-0.1.0",
+        "sha256": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324",
+        "normalized_vietnamese_target": "cơm trắng",
+        "decision_ref": "github:issue/35#issuecomment-5882043136",
+        "source": {
+          "source_code": "usda_fndds",
+          "release": "2021-2023 / October 2024",
+          "fndds_food_code": "56205008",
+          "fdc_id": 2708408,
+          "source_record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"
+        },
+        "specificity_policy_ref": "resolve-exact-specificity-0.2.0"
+      },
+      "backend_food_id": null,
+      "reviewer": "pumni"
+    },
+    "preparation": {
+      "status": "reviewed",
+      "definition": "Generic cooked white rice with no added fat, only when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity.",
+      "reviewer": "pumni",
+      "review_ref": "github:issue/35#issuecomment-5882043136"
+    },
+    "measure": {
+      "canonical_measure": "bát",
+      "original_unit_phrase": "bát",
+      "represented_quantity": 1,
+      "context_status": "unresolved",
+      "physical_context": null,
+      "context_reviewer": null,
+      "context_review_ref": null
+    }
+  },
+  "unresolved_human_inputs": {
+    "physical_definition_context_of_bat": null,
+    "vessel_context_sampling_strategy": null,
+    "minimum_independent_sample_count": null,
+    "minimum_batch_count": null,
+    "instrument": null,
+    "calibration": null,
+    "tare": null,
+    "operators": null,
+    "measurement_dates": null,
+    "measurement_reviewer": null,
+    "actual_masses": null
+  }
+}

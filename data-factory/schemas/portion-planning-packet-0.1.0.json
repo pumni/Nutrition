@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nutrition-data-factory/portion-planning-packet-0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_version", "status", "study_id", "input_artifacts", "target", "unresolved_human_inputs", "readiness", "measurement_state", "mass_estimate", "gram_estimate_emitted", "publication"],
+  "properties": {
+    "schema_version": {"const": "portion-planning-packet-0.1.0"},
+    "policy_version": {"const": "portion-planning-0.1.0"},
+    "status": {"const": "blocked_unresolved_human_inputs"},
+    "study_id": {"type": "string", "minLength": 1},
+    "input_artifacts": {"type": "object"},
+    "target": {"type": "object"},
+    "unresolved_human_inputs": {"type": "array", "minItems": 11, "maxItems": 11},
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ready_for_measurement", "review_ready", "blocker_count"],
+      "properties": {
+        "ready_for_measurement": {"const": false},
+        "review_ready": {"const": false},
+        "blocker_count": {"const": 11}
+      }
+    },
+    "measurement_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "observation_count"],
+      "properties": {"status": {"const": "not_collected"}, "observation_count": {"const": 0}}
+    },
+    "mass_estimate": {"type": "null"},
+    "gram_estimate_emitted": {"const": false},
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "publishable", "release_created", "activation_attempted"],
+      "properties": {
+        "status": {"const": "blocked"},
+        "publishable": {"const": false},
+        "release_created": {"const": false},
+        "activation_attempted": {"const": false}
+      }
+    }
+  }
+}
