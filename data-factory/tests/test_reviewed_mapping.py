@@ -282,6 +282,7 @@ _SUPPORTED_SCHEMA_KEYWORDS = {
     "additionalProperties",
     "allOf",
     "const",
+    "contains",
     "enum",
     "if",
     "items",
@@ -294,6 +295,7 @@ _SUPPORTED_SCHEMA_KEYWORDS = {
     "required",
     "then",
     "type",
+    "uniqueItems",
 }
 
 
@@ -362,6 +364,18 @@ def _assert_json_schema_conforms(
             assert len(instance) >= schema["minItems"], f"{path}: too few items"
         if "maxItems" in schema:
             assert len(instance) <= schema["maxItems"], f"{path}: too many items"
+        if schema.get("uniqueItems"):
+            encoded_items = [json.dumps(item, ensure_ascii=False, sort_keys=True) for item in instance]
+            assert len(encoded_items) == len(set(encoded_items)), f"{path}: items are not unique"
+        if "contains" in schema:
+            matching_items = 0
+            for index, value in enumerate(instance):
+                try:
+                    _assert_json_schema_conforms(value, schema["contains"], f"{path}[{index}]")
+                except AssertionError:
+                    continue
+                matching_items += 1
+            assert matching_items >= 1, f"{path}: no item matches contains"
         if "items" in schema:
             for index, value in enumerate(instance):
                 _assert_json_schema_conforms(value, schema["items"], f"{path}[{index}]", root_schema)

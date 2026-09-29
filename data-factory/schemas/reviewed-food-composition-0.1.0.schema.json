@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reviewed-food-composition-0.1.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy_version",
+    "normalized_vietnamese_target",
+    "semantic_boundary",
+    "reviewed_mapping_ref",
+    "reviewed_mapping_sha256",
+    "owner_domain_decision_ref",
+    "specificity_policy_reference",
+    "source_code",
+    "source_release",
+    "fndds_food_code",
+    "fdc_id",
+    "source_description",
+    "source_record_sha256",
+    "archive_filename",
+    "archive_sha256",
+    "archive_member",
+    "member_sha256",
+    "schema_fingerprint",
+    "fndds_adapter_version",
+    "nutrient_mapping_version",
+    "basis_amount",
+    "basis_unit",
+    "edible_basis",
+    "nutrients",
+    "evaluation_eligible",
+    "catalog_staging_authorized",
+    "production_eligible",
+    "activation_authorized",
+    "portion_evidence_authorized",
+    "recipe_evidence_authorized"
+  ],
+  "properties": {
+    "schema_version": {"const": "reviewed-food-composition-0.1.0"},
+    "policy_version": {"const": "reviewed-composition-evaluation-0.1.0"},
+    "normalized_vietnamese_target": {"const": "cơm trắng"},
+    "semantic_boundary": {"const": "Generic cooked white rice with no added fat, only when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity."},
+    "reviewed_mapping_ref": {"const": "data-factory/docs/reviews/vietnamese-basic-food-identity-issue-35-reviewed-mapping-0.1.0.json"},
+    "reviewed_mapping_sha256": {"const": "c7ab626ed66c01a84c6b00d7e312a3e061eef4af2ec4dcfed950e6b398307324"},
+    "owner_domain_decision_ref": {"const": "github:issue/35#issuecomment-5882043136"},
+    "specificity_policy_reference": {"const": "resolve-exact-specificity-0.2.0"},
+    "source_code": {"const": "usda_fndds"},
+    "source_release": {"const": "2021-2023 / October 2024"},
+    "fndds_food_code": {"const": "56205008"},
+    "fdc_id": {"const": 2708408},
+    "source_description": {"const": "Rice, white, cooked, no added fat"},
+    "source_record_sha256": {"const": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"},
+    "archive_filename": {"const": "FoodData_Central_survey_food_json_2024-10-31.zip"},
+    "archive_sha256": {"const": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb"},
+    "archive_member": {"const": "surveyDownload.json"},
+    "member_sha256": {"const": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808"},
+    "schema_fingerprint": {"const": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4"},
+    "fndds_adapter_version": {"const": "fndds-survey-json-0.1.0"},
+    "nutrient_mapping_version": {"const": "fndds-required-nutrients-0.1.0"},
+    "basis_amount": {"const": 100},
+    "basis_unit": {"const": "g"},
+    "edible_basis": {"const": true},
+    "nutrients": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "allOf": [
+        {"contains": {"properties": {"target_code": {"const": "energy_kcal"}}, "required": ["target_code"]}},
+        {"contains": {"properties": {"target_code": {"const": "protein_g"}}, "required": ["target_code"]}},
+        {"contains": {"properties": {"target_code": {"const": "carbohydrate_g"}}, "required": ["target_code"]}},
+        {"contains": {"properties": {"target_code": {"const": "fat_g"}}, "required": ["target_code"]}}
+      ],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_code",
+          "fndds_nutrient_code",
+          "source_nutrient_id",
+          "source_label",
+          "source_unit",
+          "source_amount",
+          "canonical_unit"
+        ],
+        "properties": {
+          "target_code": {"enum": ["energy_kcal", "protein_g", "carbohydrate_g", "fat_g"]},
+          "fndds_nutrient_code": {"type": "string", "pattern": "^[0-9]{3}$"},
+          "source_nutrient_id": {"type": "integer"},
+          "source_label": {"type": "string", "minLength": 1},
+          "source_unit": {"enum": ["kcal", "g"]},
+          "source_amount": {"type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]*[1-9])?$"},
+          "canonical_unit": {"enum": ["kcal", "g"]},
+          "source_method": {"type": ["object", "null"]}
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "target_code": {"const": "energy_kcal"},
+              "fndds_nutrient_code": {"const": "208"},
+              "source_nutrient_id": {"enum": [1008, 2047]},
+              "source_unit": {"const": "kcal"},
+              "canonical_unit": {"const": "kcal"}
+            }
+          },
+          {
+            "properties": {
+              "target_code": {"const": "protein_g"},
+              "fndds_nutrient_code": {"const": "203"},
+              "source_nutrient_id": {"const": 1003},
+              "source_unit": {"const": "g"},
+              "canonical_unit": {"const": "g"}
+            }
+          },
+          {
+            "properties": {
+              "target_code": {"const": "carbohydrate_g"},
+              "fndds_nutrient_code": {"const": "205"},
+              "source_nutrient_id": {"const": 1005},
+              "source_unit": {"const": "g"},
+              "canonical_unit": {"const": "g"}
+            }
+          },
+          {
+            "properties": {
+              "target_code": {"const": "fat_g"},
+              "fndds_nutrient_code": {"const": "204"},
+              "source_nutrient_id": {"const": 1004},
+              "source_unit": {"const": "g"},
+              "canonical_unit": {"const": "g"}
+            }
+          }
+        ]
+      }
+    },
+    "evaluation_eligible": {"const": true},
+    "catalog_staging_authorized": {"const": false},
+    "production_eligible": {"const": false},
+    "activation_authorized": {"const": false},
+    "portion_evidence_authorized": {"const": false},
+    "recipe_evidence_authorized": {"const": false}
+  }
+}
