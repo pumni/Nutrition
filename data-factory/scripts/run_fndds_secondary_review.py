@@ -21,6 +21,7 @@ from nutrition_data_factory.curation.fndds_review import (  # noqa: E402
     FnddsReviewError,
     build_fndds_review_report,
     load_fndds_review_policy,
+    serialize_fndds_review_artifact,
 )
 from nutrition_data_factory.source_registry import SourceRegistry  # noqa: E402
 
@@ -34,11 +35,16 @@ def main(argv: list[str] | None = None) -> int:
         description="Build bounded, review-only evidence from the pinned FNDDS 2021-2023 archive"
     )
     parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--policy", type=Path, default=POLICY_PATH)
+    parser.add_argument(
+        "--packet-target",
+        help="write one generated candidate packet instead of the full review report",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
 
     try:
-        loaded_policy = load_fndds_review_policy(POLICY_PATH)
+        loaded_policy = load_fndds_review_policy(args.policy)
         policy = loaded_policy["policy"]
         source = policy["source"]
         if (
@@ -53,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         if (
             registry_source.rights_state != "reference_only"
             or registry_source.production_eligible
+            or registry_source.production_ingestion != "blocked_until_product_selection"
+            or set(registry_source.allowed_uses) != {"analysis", "reference"}
             or "staged_candidate" in registry_source.allowed_uses
             or "staged_candidate" not in registry_source.prohibited_uses
         ):
@@ -61,7 +69,11 @@ def main(argv: list[str] | None = None) -> int:
             raise FnddsReviewError("review policy and source registry rights states do not match")
 
         archive_bytes = args.archive.read_bytes()
+        if source.get("archive_size_bytes") is not None and len(archive_bytes) != source["archive_size_bytes"]:
+            raise FnddsReviewError("archive size does not match the pinned FNDDS release")
         member_bytes = extract_pinned_archive_member(archive_bytes, args.archive.name, source)
+        if source.get("member_size_bytes") is not None and len(member_bytes) != source["member_size_bytes"]:
+            raise FnddsReviewError("archive member size does not match the pinned FNDDS release")
         parsed = FnddsSurveyAdapter().parse(
             member_bytes,
             release=FNDDS_RELEASE,
@@ -82,10 +94,29 @@ def main(argv: list[str] | None = None) -> int:
             "member_sha256": parsed.source_sha256,
             "member_size_bytes": len(member_bytes),
             "schema_fingerprint": parsed.schema_fingerprint,
+            "source_use_boundary": {
+                "rights_state": registry_source.rights_state,
+                "production_ingestion": registry_source.production_ingestion,
+                "allowed_uses": list(registry_source.allowed_uses),
+                "prohibited_uses": list(registry_source.prohibited_uses),
+                "production_eligible": registry_source.production_eligible,
+            },
         }
         report = build_fndds_review_report(parsed, loaded_policy, evidence)
         if not report["validation_report"]["passed"]:
             raise FnddsReviewError("FNDDS nutrient/source validation did not pass")
+        output_document = report
+        if args.packet_target is not None:
+            matching_packets = [
+                packet
+                for packet in report["candidate_packets"]
+                if packet["target_id"] == args.packet_target
+            ]
+            if len(matching_packets) != 1:
+                raise FnddsReviewError(
+                    f"expected one candidate packet for target {args.packet_target}"
+                )
+            output_document = matching_packets[0]
         report["source_registry_evidence"] = {
             "sha256": _sha256(registry_bytes),
             "source_code": registry_source.code,
@@ -96,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             "prohibited_uses": list(registry_source.prohibited_uses),
             "production_eligible": registry_source.production_eligible,
         }
-        output_bytes = (json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        output_bytes = serialize_fndds_review_artifact(output_document)
         output = args.output.resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
         if output.exists():

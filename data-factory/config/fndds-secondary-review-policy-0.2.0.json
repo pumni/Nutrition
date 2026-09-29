@@ -1,0 +1,139 @@
+{
+  "schema_version": "fndds-secondary-review-policy-0.2.0",
+  "source": {
+    "source_code": "usda_fndds",
+    "publisher": "USDA Agricultural Research Service",
+    "release": "2021-2023",
+    "release_date": "2024-10",
+    "archive_filename": "FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_locator": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+    "archive_size_bytes": 3835292,
+    "archive_member": "surveyDownload.json",
+    "member_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808",
+    "member_size_bytes": 66294426,
+    "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+    "expected_record_count": 5432,
+    "rights_state": "reference_only",
+    "rights_license": "CC0 1.0 Universal",
+    "rights_evidence": "https://fdc.nal.usda.gov/api-guide/",
+    "rights_citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov."
+  },
+  "project_decision_reference": "github:issue/41#issuecomment-5888205397",
+  "issue_reference": "https://github.com/pumni/Nutrition/issues/35",
+  "nutrient_mapping_version": "fndds-required-nutrients-0.1.0",
+  "precedence": {
+    "policy_version": "foundation-primary-fndds-secondary-0.1.0",
+    "primary_source": "usda_fdc_foundation",
+    "secondary_source": "usda_fndds",
+    "foundation_accepted_target_ids": [],
+    "foundation_state_reference": "github:issue/35#issuecomment-5863469233"
+  },
+  "targets": [
+    {
+      "target_id": "vmb-public-0004",
+      "normalized_vietnamese_target": "bơ",
+      "target_preparation_state": "not explicit in the benchmark text",
+      "candidate": {
+        "fndds_food_code": "63105010",
+        "fdc_id": 2709223,
+        "description": "Avocado, raw",
+        "wweia_category_description": "Other vegetables and combinations",
+        "record_sha256": "93c417a29518c43b95d11809bb11cc915d3aa6ffb1db13578a7578139b18a508",
+        "source_preparation_state": "raw",
+        "semantic_rationale": "The bounded source record describes generic raw avocado, while the benchmark target is one exact countable-fruit observation. This does not resolve whether the benchmark observation implies raw preparation and remains pending human review.",
+        "required_nutrient_semantics": [
+          {
+            "target_code": "carbohydrate_g",
+            "fndds_nutrient_code": "205",
+            "source_nutrient_id": 1005,
+            "source_unit": "g"
+          },
+          {
+            "target_code": "energy_kcal",
+            "fndds_nutrient_code": "208",
+            "source_nutrient_id": 1008,
+            "source_unit": "kcal"
+          },
+          {
+            "target_code": "fat_g",
+            "fndds_nutrient_code": "204",
+            "source_nutrient_id": 1004,
+            "source_unit": "g"
+          },
+          {
+            "target_code": "protein_g",
+            "fndds_nutrient_code": "203",
+            "source_nutrient_id": 1003,
+            "source_unit": "g"
+          }
+        ]
+      },
+      "rejected_alternatives": [
+        {
+          "fndds_food_code": "83112000",
+          "fdc_id": 2710208,
+          "description": "Avocado dressing",
+          "record_sha256": "667d95c01c4a0039cce8faf58c0d4bf227a50a1e168185c9316c19823f299afe",
+          "reason_code": "prepared_dressing_not_plain_raw_avocado"
+        },
+        {
+          "fndds_food_code": "89902000",
+          "fdc_id": 2710248,
+          "description": "Avocado, for use on a sandwich",
+          "record_sha256": "67a79f342f07649b50aab2e13c85236c47b8b60bd0f449c16a35bf5ce12d49f5",
+          "reason_code": "sandwich_use_context_not_plain_raw_avocado"
+        }
+      ],
+      "review_context": {
+        "issue_reference": "github:issue/35",
+        "mapping_scope": "vmb-public-0004 only; no global alias approval",
+        "benchmark_context": {
+          "file": "backend/fixtures/vietnamese-meal-bench/public-test-cases.json",
+          "file_sha256": "d45c40388bedd6e3dd91163f23bdbf5c8bb06865cf8d12f2e3619f7288713597",
+          "sample_id": "vmb-public-0004",
+          "source_text": "1/2 quả bơ",
+          "parsed_quantity": "0.5",
+          "parsed_unit_phrase": "quả"
+        },
+        "benchmark_adjudication_status": "pending_human_review",
+        "decision_question": "Does the exact benchmark observation `1/2 quả bơ` represent plain raw avocado for this evaluation case, or should it remain unsupported because preparation is not explicit?",
+        "foundation_primary_check": {
+          "source": "usda_fdc_foundation",
+          "source_release": "2026-04-30",
+          "archive_sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+          "extracted_json_sha256": "27d1fe3fd89edfbe528ed915da5619320e1d004d4594603a1b19bdb1511590cc",
+          "schema_fingerprint": "2da322eea296a96ea304c68d235538b6d93412619e72a3cbe7c91032937139c1",
+          "coverage_report_sha256": "eee235f61b6b219a0ff24a58b2da1412491ce81eeb76959cc5f936d945dd637c",
+          "foundation_exact_mapping_accepted": false,
+          "observed_source_record": {
+            "fdc_id": 2710824,
+            "description": "Avocado, Hass, peeled, raw",
+            "record_sha256": "9c0ce7f5211ce29ac68c29f465a66759eecdb16c9dc576d9ba5170573db64714",
+            "selection_state": "not_selected_cultivar_specific"
+          }
+        },
+        "semantic_assessment": {
+          "known": [
+            "The exact benchmark text uses the countable-fruit phrase `quả bơ`; the benchmark annotation remains pending human review.",
+            "The exact Foundation observation is Hass cultivar-specific and is not selected as generic Vietnamese evidence.",
+            "The exact FNDDS source description identifies raw avocado and does not select a named cultivar.",
+            "The four required source nutrient entries are each complete under the pinned FNDDS mapping."
+          ],
+          "remaining_uncertainty": [
+            "The benchmark phrase does not explicitly state raw preparation; a human must decide whether this exact case denotes plain raw avocado for this evaluation mapping."
+          ],
+          "safe_options": [
+            "Approve only the exact `vmb-public-0004` target/source pairing after human review.",
+            "Reject the proposal and keep the target unsupported."
+          ],
+          "not_approved": [
+            "A global Vietnamese alias from `bơ` to avocado.",
+            "Any other avocado cultivar, preparation, dish, or source record.",
+            "Any portion mass, recipe evidence, catalog staging, production eligibility, or activation."
+          ]
+        }
+      }
+    }
+  ]
+}
