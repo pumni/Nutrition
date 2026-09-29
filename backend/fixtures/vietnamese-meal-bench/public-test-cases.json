@@ -15,7 +15,8 @@
     "text": "1 bát cơm trắng",
     "locale": "vi-VN",
     "expected_parse_decision": "parsed",
-    "expected_analysis_decision": "resolve",
+    "expected_analysis_decision": "needs_clarification",
+    "expected_analysis_clarification_dimension": "portion",
     "expected_parse": {"items": [{"food_phrase": "cơm trắng", "quantity": "1", "unit": "bát", "preparation": [], "modifiers": [], "negated": false}], "clarification_dimension": null, "safety_flags": []},
     "tags": ["common-meal", "household-unit"],
     "adjudication_status": "pending_human_review"

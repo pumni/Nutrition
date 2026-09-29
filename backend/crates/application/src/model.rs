@@ -96,7 +96,7 @@ impl Default for BehaviorVersions {
             resolution_policy_version: "resolve-exact-specificity-0.2.0".to_owned(),
             portion_policy_version: "portion-contextual-0.2.0".to_owned(),
             composition_policy_version: "composition-direct-0.1.0".to_owned(),
-            clarification_policy_version: "clarification-portion-0.1.0".to_owned(),
+            clarification_policy_version: "clarification-portion-0.2.0".to_owned(),
             correction_policy_version: "correction-portion-0.1.0".to_owned(),
             calculation_engine_version: domain::CALCULATION_ENGINE_VERSION.to_owned(),
             catalog_release_id: CatalogReleaseId::from_u128(

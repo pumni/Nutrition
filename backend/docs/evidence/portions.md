@@ -165,11 +165,23 @@ A failed item keeps the target out of production publication.
 Runtime behavior remains conservative:
 
 - missing food/unit evidence → clarify or return insufficient evidence;
+- for a safely clarified single-item analysis, unsupported or ambiguous household portions ask
+  for explicit grams, even when there are no evidence-backed unit suggestions;
+- evidence-backed unit suggestions may accompany the grams and unknown choices, but are never
+  invented;
+- user-supplied grams resolve as explicit mass and create no portion observation;
 - ambiguous vessel/count size → clarify rather than select a hidden default;
+- if the user cannot clarify, return insufficient evidence; there is no hidden project-default
+  gram value or approximate fallback;
 - preparation mismatch → do not reuse the observation;
 - parser/LLM-suggested gram weight without reviewed evidence → reject;
 - another food's portion observation → do not extrapolate;
 - evidence from a staged but inactive release → do not use for active analysis.
+
+The one-turn interactive portion clarification applies only when the analysis has one parsed item.
+Unsupported portions in multi-item analyses remain fail-closed until a separate workflow safely
+models partially resolved items. Development fixture portion grams are test-only and are not a
+runtime fallback.
 
 ## Release workflow
 
