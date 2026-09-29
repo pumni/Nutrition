@@ -48,8 +48,9 @@ The fixture contains no nutrition claims. It exists only to prove the shape
 python scripts/test.py
 ```
 
-The command runs the unit suite with an isolated temporary directory. Tests use only the synthetic
-fixture and do not call external services.
+The command runs the unit suite with an isolated temporary directory. Tests use local synthetic
+fixtures and a small exact excerpt from the pinned USDA FNDDS archive; they do not call external
+services.
 
 ## Synthetic pipeline
 
@@ -157,6 +158,31 @@ python scripts/build_release_review_packet.py `
 The packet distinguishes technical `passed` checks from `review_required` decisions. It cannot
 turn machine curation proposals, source anomalies, impact gaps or missing rollback approval into
 an activation decision.
+
+## Offline FNDDS secondary-source review
+
+Issue #44 has a separate, review-only importer for the pinned USDA FNDDS 2021-2023 / October 2024
+JSON archive. It accepts a caller-supplied archive and uses no live API. The runner verifies the
+archive filename and SHA-256, the `surveyDownload.json` member hash, the schema fingerprint, and the
+expected 5,432 source rows before writing a deterministic review report:
+
+```powershell
+python scripts/run_fndds_secondary_review.py `
+  --archive artifacts/raw/usda_fndds/2021-2023/FoodData_Central_survey_food_json_2024-10-31.zip `
+  --output docs/reviews/fndds-secondary-source-issue-44.json
+```
+
+The bounded seven-target policy uses exact FNDDS food-code and FDC-ID references. It emits only
+human-review proposals, with Foundation precedence checked for each target. Source nutrient IDs,
+FNDDS nutrient codes, units, and any supplied method are retained; nutrient amounts are not copied
+into review packets. FNDDS code `208` follows the FNDDS Appendix K crosswalk to FDC IDs `1008` or
+`2047`; this source-specific rule does not reuse the Foundation `fdc_energy_v1` selection of ID
+`2048`. The pinned FNDDS JSON does not include per-nutrient derivation methods.
+
+This review lane leaves the global `usda_fndds` registry entry `reference_only`. It creates no staged
+candidate package, project portion evidence, or production activation. FNDDS portion weights are not
+included in the packets. The generated report for this baseline is
+`docs/reviews/fndds-secondary-source-issue-44.json`.
 
 ## Human portion measurement packet
 

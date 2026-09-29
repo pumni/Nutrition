@@ -1,0 +1,169 @@
+{
+  "schema_version": "fndds-secondary-review-policy-0.1.0",
+  "source": {
+    "source_code": "usda_fndds",
+    "publisher": "USDA Agricultural Research Service",
+    "release": "2021-2023",
+    "release_date": "2024-10",
+    "archive_filename": "FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_locator": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+    "archive_sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+    "archive_member": "surveyDownload.json",
+    "member_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808",
+    "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+    "expected_record_count": 5432,
+    "rights_state": "reference_only",
+    "rights_license": "CC0 1.0 Universal",
+    "rights_evidence": "https://fdc.nal.usda.gov/api-guide/",
+    "rights_citation": "U.S. Department of Agriculture, Agricultural Research Service. FoodData Central. fdc.nal.usda.gov."
+  },
+  "project_decision_reference": "github:issue/41#issuecomment-5867171847",
+  "issue_reference": "https://github.com/pumni/Nutrition/issues/44",
+  "nutrient_mapping_version": "fndds-required-nutrients-0.1.0",
+  "precedence": {
+    "policy_version": "foundation-primary-fndds-secondary-0.1.0",
+    "primary_source": "usda_fdc_foundation",
+    "secondary_source": "usda_fndds",
+    "foundation_accepted_target_ids": [],
+    "foundation_state_reference": "github:issue/35#issuecomment-5863469233"
+  },
+  "targets": [
+    {
+      "target_id": "vmb-public-0002",
+      "normalized_vietnamese_target": "cơm trắng",
+      "target_preparation_state": "white rice, cooked; cultivar unspecified",
+      "candidate": {
+        "fndds_food_code": "56205008",
+        "fdc_id": 2708408,
+        "description": "Rice, white, cooked, no added fat",
+        "wweia_category_description": "Rice",
+        "source_preparation_state": "cooked; no added fat",
+        "semantic_rationale": "The exact FNDDS description states white rice cooked with no added fat, matching the current issue #35 source constraints for rice, white, cooked. The record does not specify rice cultivar. This remains a proposal for human/domain review and does not establish Vietnamese identity or preparation equivalence."
+      },
+      "rejected_alternatives": [
+        {
+          "fndds_food_code": "56205001",
+          "fdc_id": 2708403,
+          "description": "Rice, white, cooked, NS as to fat",
+          "reason_code": "fat_state_unspecified"
+        },
+        {
+          "fndds_food_code": "56205002",
+          "fdc_id": 2708404,
+          "description": "Rice, white, cooked, made with oil",
+          "reason_code": "added_fat_variant"
+        },
+        {
+          "fndds_food_code": "56205190",
+          "fdc_id": 2708422,
+          "description": "Rice, white, cooked, glutinous",
+          "reason_code": "glutinous_rice_variant_not_selected"
+        }
+      ]
+    },
+    {
+      "target_id": "vmb-public-0005",
+      "normalized_vietnamese_target": "trứng gà luộc",
+      "target_preparation_state": "whole chicken egg, boiled",
+      "no_proposal_reason_code": "preparation_ambiguous",
+      "rejected_source_records": [
+        {
+          "fndds_food_code": "31103010",
+          "fdc_id": 2707154,
+          "description": "Egg, whole, boiled or poached",
+          "reason_code": "boiled_or_poached_combined"
+        },
+        {
+          "fndds_food_code": "31102000",
+          "fdc_id": 2707153,
+          "description": "Egg, whole, cooked, NS as to cooking method",
+          "reason_code": "cooking_method_unspecified"
+        }
+      ]
+    },
+    {
+      "target_id": "vmb-public-0003",
+      "normalized_vietnamese_target": "thịt bò",
+      "target_preparation_state": "stir-fried beef in the benchmark case; no cut specified",
+      "no_proposal_reason_code": "nfs_profile_and_preparation_not_exact",
+      "rejected_source_records": [
+        {
+          "fndds_food_code": "21000100",
+          "fdc_id": 2705822,
+          "description": "Beef, NFS",
+          "reason_code": "nfs_profile_not_exact_food_identity"
+        }
+      ]
+    },
+    {
+      "target_id": "vmb-public-0007",
+      "normalized_vietnamese_target": "thịt gà",
+      "target_preparation_state": "chicken; part and preparation unspecified in the target",
+      "no_proposal_reason_code": "ns_profile_not_exact_food_identity",
+      "rejected_source_records": [
+        {
+          "fndds_food_code": "24100000",
+          "fdc_id": 2705929,
+          "description": "Chicken, NS as to part and cooking method, NS as to skin eaten",
+          "reason_code": "ns_profile_not_exact_food_identity"
+        }
+      ]
+    },
+    {
+      "target_id": "vmb-public-0012",
+      "normalized_vietnamese_target": "thịt gà luộc",
+      "target_preparation_state": "chicken, boiled; part unspecified",
+      "no_proposal_reason_code": "no_exact_generic_boiled_record",
+      "rejected_source_records": [
+        {
+          "fndds_food_code": "24103000",
+          "fdc_id": 2705938,
+          "description": "Chicken, NS as to part, stewed, NS as to skin eaten",
+          "reason_code": "stewed_is_not_boiled"
+        }
+      ],
+      "literal_absence_checks": [
+        {
+          "all_terms": ["chicken", "boiled"],
+          "description": "No exact source description containing both literal terms was found."
+        }
+      ]
+    },
+    {
+      "target_id": "vmb-public-0010",
+      "normalized_vietnamese_target": "sữa tươi",
+      "target_preparation_state": "fluid milk; fat class unspecified",
+      "no_proposal_reason_code": "nfs_fat_class_profile_is_aggregate",
+      "rejected_source_records": [
+        {
+          "fndds_food_code": "11100000",
+          "fdc_id": 2705384,
+          "description": "Milk, NFS",
+          "reason_code": "nfs_profile_aggregates_fat_classes"
+        }
+      ]
+    },
+    {
+      "target_id": "vmb-public-0014",
+      "normalized_vietnamese_target": "rau muống",
+      "target_preparation_state": "water spinach; preparation unspecified",
+      "no_proposal_reason_code": "exact_water_spinach_record_unavailable",
+      "rejected_source_records": [
+        {
+          "fndds_food_code": "72125100",
+          "fdc_id": 2709614,
+          "description": "Spinach, raw",
+          "reason_code": "no_identity_equivalence_assumed"
+        }
+      ],
+      "literal_absence_checks": [
+        {
+          "all_terms": ["water spinach"]
+        },
+        {
+          "all_terms": ["morning glory"]
+        }
+      ]
+    }
+  ]
+}
