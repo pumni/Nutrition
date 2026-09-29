@@ -2,8 +2,9 @@ use adapters::FixtureParser;
 use application::{
     AnalysisOutcome, AnalysisRequest, AnalysisRevisionService, AnalysisSnapshot,
     AnalysisSnapshotReader, AnalyzeMeal, AnswerClarification, ApplicationError, BehaviorVersions,
-    ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, MealAnalysisService,
-    ParserInvocationRecord, ParserTelemetrySink, PortionCorrection,
+    ClarificationAnswerRequest, CorrectAnalysis, CorrectionRequest, FoodEvidenceProvider,
+    MealAnalysisService, ParsedMealItem, ParserInvocationRecord, ParserTelemetrySink,
+    PortionCorrection,
 };
 use domain::{CatalogReleaseId, NutrientCode, UserId};
 use persistence_postgres::{
@@ -13,6 +14,27 @@ use persistence_postgres::{
 };
 use rust_decimal::Decimal;
 use std::{env, str::FromStr, time::Duration};
+
+#[tokio::test]
+#[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
+async fn catalog_food_resolution_preserves_specificity() {
+    let database_url =
+        env::var("TEST_DATABASE_URL").expect("TEST_DATABASE_URL is required for integration test");
+    let pool = connect(&database_url, 4)
+        .await
+        .expect("integration database must connect");
+    migrate(&pool)
+        .await
+        .expect("integration migrations must apply");
+    seed_foundation_fixture(&pool)
+        .await
+        .expect("foundation seed must apply idempotently");
+    let catalog_release_id = active_catalog_release_id(&pool)
+        .await
+        .expect("active catalog release must exist");
+    let food_evidence = PostgresCatalogEvidenceProvider::new(pool, catalog_release_id);
+    assert_catalog_specificity_guard(&food_evidence).await;
+}
 
 #[tokio::test]
 #[ignore = "requires TEST_DATABASE_URL and PostgreSQL 18"]
@@ -80,6 +102,8 @@ async fn contextual_analysis_is_persisted_and_replayed() {
     .await
     .expect("revision count query must succeed");
     assert_eq!(revision_count, 1);
+
+    assert_resolution_policy_version(&snapshot, &pool).await;
 
     let outbox_count: i64 =
         sqlx::query_scalar("SELECT count(*) FROM ops.outbox_event WHERE aggregate_id = $1")
@@ -200,6 +224,72 @@ async fn execute_contextual_analysis(
             owner_id,
         })
         .await
+}
+
+async fn assert_catalog_specificity_guard(food_evidence: &PostgresCatalogEvidenceProvider) {
+    let egg = ParsedMealItem {
+        source_text: "2 quả trứng gà luộc".to_owned(),
+        food_phrase: "trứng gà luộc".to_owned(),
+        quantity: Some(Decimal::from(2u32)),
+        unit_phrase: Some("quả".to_owned()),
+        modifiers: vec!["luộc".to_owned()],
+    };
+    food_evidence
+        .resolve_food("vi-VN", &egg)
+        .await
+        .expect("an exact identity representing its modifier must resolve");
+
+    let generic_rice = ParsedMealItem {
+        source_text: "2 bát cơm trắng".to_owned(),
+        food_phrase: "cơm trắng".to_owned(),
+        quantity: Some(Decimal::from(2u32)),
+        unit_phrase: Some("bát".to_owned()),
+        modifiers: Vec::new(),
+    };
+    food_evidence
+        .resolve_food("vi-VN", &generic_rice)
+        .await
+        .expect("generic exact rice remains resolvable with an independent portion unit");
+
+    for modifier in [
+        "jasmine",
+        "ST25",
+        "nếp",
+        "gạo lứt",
+        "rang",
+        "chiên",
+        "thêm dầu",
+    ] {
+        let specific_rice = ParsedMealItem {
+            modifiers: vec![modifier.to_owned()],
+            ..generic_rice.clone()
+        };
+        assert!(
+            matches!(
+                food_evidence.resolve_food("vi-VN", &specific_rice).await,
+                Err(ApplicationError::InsufficientEvidence(_))
+            ),
+            "{modifier:?} must not resolve as generic cơm trắng"
+        );
+    }
+}
+
+async fn assert_resolution_policy_version(snapshot: &AnalysisSnapshot, pool: &sqlx::PgPool) {
+    assert_eq!(
+        snapshot.versions.resolution_policy_version,
+        "resolve-exact-specificity-0.2.0"
+    );
+    let persisted_version: String = sqlx::query_scalar(
+        "SELECT resolution_policy_version FROM analysis.analysis_revision WHERE id = $1",
+    )
+    .bind(snapshot.revision_id.as_uuid())
+    .fetch_one(pool)
+    .await
+    .expect("resolution policy version must be persisted");
+    assert_eq!(
+        persisted_version,
+        snapshot.versions.resolution_policy_version
+    );
 }
 
 async fn activate_empty_catalog_release_for_pin_regression(

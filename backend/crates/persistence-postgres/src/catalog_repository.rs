@@ -1,6 +1,6 @@
 use application::{
     ApplicationError, FoodEvidenceProvider, ParsedMealItem, ResolvedFoodEvidence,
-    normalize_vi_search_key,
+    ensure_modifiers_represented, normalize_vi_search_key,
 };
 use async_trait::async_trait;
 use domain::{
@@ -103,6 +103,7 @@ impl FoodEvidenceProvider for PostgresCatalogEvidenceProvider {
         locale: &str,
         item: &ParsedMealItem,
     ) -> Result<ResolvedFoodEvidence, ApplicationError> {
+        ensure_modifiers_represented(&item.food_phrase, &item.modifiers)?;
         let normalized_name = normalize_vi_search_key(&item.food_phrase);
         let rows = sqlx::query(EXACT_FOOD_QUERY)
             .bind(normalized_name)
@@ -112,25 +113,14 @@ impl FoodEvidenceProvider for PostgresCatalogEvidenceProvider {
             .await
             .map_err(|_| ApplicationError::Persistence)?;
 
-        if rows.is_empty() {
-            return Err(ApplicationError::InsufficientEvidence(format!(
-                "unknown exact food: {}",
-                item.food_phrase
-            )));
-        }
-
-        let first_food_id: Uuid = rows[0]
-            .try_get("food_id")
-            .map_err(|_| ApplicationError::Persistence)?;
-        if rows.iter().any(|row| {
-            row.try_get::<Uuid, _>("food_id")
-                .is_ok_and(|food_id| food_id != first_food_id)
-        }) {
-            return Err(ApplicationError::InsufficientEvidence(format!(
-                "ambiguous exact food: {}",
-                item.food_phrase
-            )));
-        }
+        let food_ids = rows
+            .iter()
+            .map(|row| {
+                row.try_get("food_id")
+                    .map_err(|_| ApplicationError::Persistence)
+            })
+            .collect::<Result<Vec<Uuid>, _>>()?;
+        let first_food_id = unique_exact_food_id(&food_ids, &item.food_phrase)?;
 
         let first = &rows[0];
         let profile_id: Uuid = first
@@ -163,6 +153,20 @@ impl FoodEvidenceProvider for PostgresCatalogEvidenceProvider {
             quality,
         })
     }
+}
+
+fn unique_exact_food_id(food_ids: &[Uuid], food_phrase: &str) -> Result<Uuid, ApplicationError> {
+    let Some(first_food_id) = food_ids.first().copied() else {
+        return Err(ApplicationError::InsufficientEvidence(format!(
+            "unknown exact food: {food_phrase}"
+        )));
+    };
+    if food_ids.iter().any(|food_id| *food_id != first_food_id) {
+        return Err(ApplicationError::InsufficientEvidence(format!(
+            "ambiguous exact food: {food_phrase}"
+        )));
+    }
+    Ok(first_food_id)
 }
 
 fn row_to_composition_value(
@@ -225,5 +229,31 @@ fn parse_value_status(value: &str) -> Result<ValueStatus, ApplicationError> {
         "not_detected" => Ok(ValueStatus::NotDetected),
         "missing" => Ok(ValueStatus::Missing),
         _ => Err(ApplicationError::Persistence),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::unique_exact_food_id;
+    use application::ApplicationError;
+    use uuid::Uuid;
+
+    #[test]
+    fn allows_exact_rows_for_one_food_and_rejects_unknown_or_ambiguous_foods() {
+        let supported_food_id = Uuid::from_u128(1);
+        assert_eq!(
+            unique_exact_food_id(&[supported_food_id, supported_food_id], "trứng gà luộc")
+                .expect("rows for one exact food remain resolvable"),
+            supported_food_id
+        );
+
+        assert!(matches!(
+            unique_exact_food_id(&[], "món không tồn tại"),
+            Err(ApplicationError::InsufficientEvidence(_))
+        ));
+        assert!(matches!(
+            unique_exact_food_id(&[Uuid::from_u128(1), Uuid::from_u128(2)], "mơ hồ"),
+            Err(ApplicationError::InsufficientEvidence(_))
+        ));
     }
 }

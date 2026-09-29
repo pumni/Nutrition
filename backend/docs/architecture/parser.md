@@ -87,6 +87,14 @@ Validation order is:
 5. negated-consumption and duplicate rejection;
 6. deterministic unit normalization.
 
+At the current PostgreSQL exact catalog-resolution boundary, parsed `modifiers` are grounded
+language facts, not evidence of nutrition equivalence. The versioned resolution policy requires
+each modifier to appear as a complete normalized token sequence in the exact `food_phrase`;
+otherwise that resolver returns insufficient evidence rather than discarding the detail or
+selecting a generic identity. Quantity and unit phrases remain separate portion-resolution inputs.
+The hosted model does not decide whether a modifier is harmless or nutritionally equivalent. Any
+future production exact resolver must enforce this same invariant.
+
 One retry is allowed only after a transient connection/timeout/429/5xx failure or schema-invalid
 output. Semantic failure and permanent HTTP failure do not retry. A successful result resets the
 provider/model circuit. Terminal failure returns `parser_unavailable`; the adapter never invents a
