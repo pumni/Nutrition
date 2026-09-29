@@ -1,0 +1,136 @@
+{
+  "coverage_update": {
+    "composite_dishes": [
+      {
+        "normalized_vietnamese_target": "phở bò",
+        "status": "recipe_required"
+      },
+      {
+        "normalized_vietnamese_target": "bún bò Huế",
+        "status": "recipe_required"
+      },
+      {
+        "normalized_vietnamese_target": "cơm gà",
+        "status": "recipe_required"
+      }
+    ],
+    "other_bounded_fndds_targets": [
+      {
+        "composition_status": "unsupported",
+        "fndds_outcome": "no_proposal",
+        "identity_status": "unsupported",
+        "normalized_vietnamese_target": "trứng gà luộc",
+        "target_id": "vmb-public-0005"
+      },
+      {
+        "composition_status": "unsupported",
+        "fndds_outcome": "no_proposal",
+        "identity_status": "unsupported",
+        "normalized_vietnamese_target": "thịt bò",
+        "target_id": "vmb-public-0003"
+      },
+      {
+        "composition_status": "unsupported",
+        "fndds_outcome": "no_proposal",
+        "identity_status": "unsupported",
+        "normalized_vietnamese_target": "thịt gà",
+        "target_id": "vmb-public-0007"
+      },
+      {
+        "composition_status": "unsupported",
+        "fndds_outcome": "no_proposal",
+        "identity_status": "unsupported",
+        "normalized_vietnamese_target": "thịt gà luộc",
+        "target_id": "vmb-public-0012"
+      },
+      {
+        "composition_status": "unsupported",
+        "fndds_outcome": "no_proposal",
+        "identity_status": "unsupported",
+        "normalized_vietnamese_target": "sữa tươi",
+        "target_id": "vmb-public-0010"
+      },
+      {
+        "composition_status": "unsupported",
+        "fndds_outcome": "no_proposal",
+        "identity_status": "unsupported",
+        "normalized_vietnamese_target": "rau muống",
+        "target_id": "vmb-public-0014"
+      }
+    ],
+    "synthetic_fixture_bat_grams_promoted": false
+  },
+  "issue_reference": "github:issue/35",
+  "mapping": {
+    "activation_authorized": false,
+    "composition_status": "reviewed_supported",
+    "identity_status": "reviewed_supported",
+    "normalized_vietnamese_target": "cơm trắng",
+    "not_approved_specificity": [
+      "jasmine rice or jasmine cultivar",
+      "ST25 or another named cultivar",
+      "nếp / glutinous rice",
+      "gạo lứt / brown rice",
+      "rang / chiên / fried rice",
+      "rice prepared with added oil or other added fat",
+      "another materially different preparation"
+    ],
+    "portion_boundary": {
+      "gram_weights_emitted": false,
+      "status": "unsupported_without_explicit_grams_or_later_reviewed_portion_evidence",
+      "unit_portion_inference_approved": false
+    },
+    "production_eligible": false,
+    "recipe_boundary": {
+      "recipe_evidence_emitted": false,
+      "status": "separate_recipe_evidence_required_for_composite_dishes"
+    },
+    "runtime_specificity_policy_reference": "resolve-exact-specificity-0.2.0",
+    "semantic_boundary": "Generic cooked white rice with no added fat, only when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity.",
+    "source_record": {
+      "archive_member": "surveyDownload.json",
+      "archive_sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+      "description": "Rice, white, cooked, no added fat",
+      "fdc_id": 2708408,
+      "fndds_food_code": "56205008",
+      "member_sha256": "2e7eb9fda92adf1d4d784dba5eaa3a7fd4418cd86ccff383c7c9294d79e9b808",
+      "nutrient_mapping_version": "fndds-required-nutrients-0.1.0",
+      "proposal_id": "fndds-proposal-d7772be2123024935757",
+      "record_sha256": "634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc",
+      "release": "2021-2023 / October 2024",
+      "schema_fingerprint": "bc072c4e5cf81ebb632ddb099d502e4e8a5cfef55933b9a18a60840a86e6e4f4",
+      "source_code": "usda_fndds",
+      "source_strategy_decision_reference": "github:issue/41#issuecomment-5867171847"
+    }
+  },
+  "review_decision": {
+    "candidate_id": "fndds-proposal-d7772be2123024935757",
+    "curation_policy_version": "curation-decision-0.2.0",
+    "decision": "approved",
+    "decision_id": "CUR-0c07ca43b84e6ca9ccb8",
+    "decision_reference": "github:issue/35#issuecomment-5882043136",
+    "decision_type": "food_source_mapping",
+    "evidence_refs": [
+      "github:issue/35#issuecomment-5882043136",
+      "github:issue/41#issuecomment-5867171847",
+      "data-factory/docs/reviews/fndds-secondary-source-issue-44.json#sha256=8cb33094aa51a6b02659c314298d3e106530a7d0306ab0c162f5e865fee5dc50",
+      "data-factory/config/source_registry.json#sha256=9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da",
+      "usda_fndds:56205008#record-sha256=634cf6fabbcc9ccb76f513ef274a9dcc3d92f495c78792cf8221170d98a102cc"
+    ],
+    "rationale": "Approved for generic cooked white rice with no added fat when the user has not supplied a cultivar, variety, or materially different preparation. Cultivar distinction is not required for this generic evaluation identity. More-specific identities are not approved to collapse into generic cơm trắng.",
+    "reviewed_at": "2026-09-29T01:43:47Z",
+    "reviewer": "pumni"
+  },
+  "schema_version": "reviewed-food-mapping-0.1.0",
+  "source_registry_boundary": {
+    "allowed_uses": [
+      "analysis",
+      "reference"
+    ],
+    "production_eligible": false,
+    "production_ingestion": "blocked_until_product_selection",
+    "rights_state": "reference_only",
+    "source_registry_sha256": "9a05078804e98f9ff7e17d7a6815a035dc140a759c5fb6f385037547b50716da",
+    "source_wide_staged_candidate_permission": false
+  }
+}
